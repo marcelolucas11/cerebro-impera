@@ -1,0 +1,162 @@
+# Decisões técnicas
+
+Cada decisão registra o que foi escolhido e por quê. Quando segurança e conveniência divergem, a
+escolha é segurança, e fica anotada aqui.
+
+## D1 — A identidade de quem pede é fixada dentro do banco
+
+**Decisão.** A API não diz ao banco "sou o usuário X". Ela entrega o resumo do token de sessão a
+`authz.begin_request`, e é o banco que confere sessão, conta e dispositivo e amarra a transação à
+pessoa (tabela `authz.request_ctx`, que o papel da aplicação não consegue escrever). As políticas de
+row-level security leem essa amarração.
+
+**Por quê.** O caminho comum (uma variável de sessão como `app.user_id`) pode ser definido pelo
+próprio papel da aplicação: uma única injeção de SQL bastaria para se declarar Dono. Aqui, mesmo
+com SQL arbitrário, o atacante só é quem tiver um token de sessão válido. A amarração vale para uma
+transação e é esquecida ao fim dela.
+
+_Diverge do plano inicial (`app.user_id` por transação) por ser mais forte._
+
+## D2 — SQL direto e migrações em arquivos, sem ORM
+
+**Decisão.** Migrações são arquivos `.sql` numerados; as consultas usam `pg` com um marcador `sql`
+que transforma todo valor interpolado em parâmetro. Uma migração aplicada não pode ser editada (o
+migrador confere o checksum).
+
+**Por quê.** O modelo de segurança mora no banco: políticas de RLS, gatilhos de guarda, funções
+`SECURITY DEFINER`, privilégios por coluna. Um ORM não expressa isso e esconderia a parte que mais
+precisa de revisão. _Diverge do plano inicial (Drizzle)._
+
+## D3 — Dois papéis de banco, nenhum deles dono de nada
+
+**Decisão.** `cerebro_app` atende requisições autenticadas e só enxerga o que a RLS permite para a
+pessoa da requisição. `cerebro_auth` atende o login e só alcança tabelas de credenciais. Nenhum é
+dono de objetos, superusuário ou `BYPASSRLS`. As migrações rodam com um terceiro usuário, que a API
+nunca usa.
+
+**Por quê.** Uma falha num endpoint de dados não lê hashes de senha nem fabrica sessões; uma falha
+no login não lê dados da empresa.
+
+## D4 — Duas implementações independentes da mesma regra
+
+**Decisão.** As regras de acesso existem em TypeScript (`packages/shared`, usadas pela API) e em
+SQL (`authz.*`, usadas pela RLS). Os testes atacam cada camada separadamente:
+`authorization.test.ts` pela API e `database.test.ts` direto no banco, com as credenciais da API.
+
+**Por quê.** Com uma camada só, um erro vaza dado. Com duas implementações escritas separadamente,
+o mesmo erro teria de ser cometido duas vezes.
+
+## D5 — O que a pessoa não pode ver "não existe"
+
+**Decisão.** Recurso inexistente e recurso oculto respondem igual (404). 403 só aparece para algo
+que a pessoa já vê mas não pode alterar.
+
+**Por quê.** Respostas diferentes permitiriam mapear o que existe (nomes de clientes, listas).
+
+## D6 — O papel não abre dados; concessões abrem
+
+**Decisão.** Só o Dono vê tudo. ADM, Gestor e Funcionário começam sem acesso e recebem concessões
+por espaço, pasta ou lista (`nenhum | ver | comentar | editar | gerenciar`), valendo a mais
+específica. Cada concessão diz também se a pessoa vê todos os itens ou só os seus (padrão para
+Funcionário). Capacidades (gerenciar usuários, aprovar dispositivos, ver auditoria…) são dadas
+somente por Donos.
+
+**Por quê.** "ADM vê só o que for concedido" e "funcionário vê só o que é dele" são requisitos
+centrais. Um "nenhum" explícito numa lista a esconde mesmo dentro de um espaço concedido.
+
+## D7 — Ninguém concede o que não tem
+
+**Decisão.** Quem não é Dono só concede acesso num escopo que gerencia por inteiro, só para pessoas
+abaixo de si na hierarquia, nunca para si mesmo, e não amplia a visibilidade de itens além da
+própria. Toda mudança de permissão exige segundo fator recente, é auditada por gatilho e, se feita
+por quem não é Dono, gera alerta para os Donos.
+
+## D8 — Trilha de auditoria: só acrescenta, e denuncia adulteração
+
+**Decisão.** `audit.log` não aceita UPDATE, DELETE nem TRUNCATE: os papéis da API não têm o
+privilégio e gatilhos recusam até o dono do banco. Cada entrada guarda o hash da anterior;
+`audit.verify_chain()` recalcula tudo e aponta a primeira quebra.
+
+**Por quê.** Quem tem acesso total ao servidor pode desligar gatilhos. A cadeia de hash não impede
+isso, mas torna a adulteração detectável. **Limite conhecido:** quem controla o banco inteiro pode
+recalcular a cadeia. A defesa completa virá com a âncora externa do hash mais recente nos backups
+(Fase 9).
+
+## D9 — Segredos de sessão nunca ficam guardados
+
+**Decisão.** Tokens (sessão, dispositivo, convite, desafio) têm 256 bits aleatórios. A API envia ao
+banco o SHA-256 do token e o banco guarda o SHA-256 disso. Cookies usam o prefixo `__Host-`
+(`Secure`, `HttpOnly`, `SameSite=Strict`, sem `Domain`).
+
+**Por quê.** Um dump do banco ou um log não contém nada reaproveitável. O prefixo `__Host-` prende
+o cookie ao host exato: outros sistemas em subdomínios irmãos do mesmo domínio não o leem nem o
+sobrescrevem.
+
+## D9b — Códigos de recuperação com resumo chaveado
+
+**Decisão.** Os códigos de recuperação (cerca de 49 bits cada) são guardados como HMAC com uma
+chave derivada da chave da instância e atrelados à pessoa.
+
+**Por quê.** São curtos o bastante para serem adivinhados offline se o banco vazar. Com a chave
+fora do banco, uma cópia do banco sozinha não permite testá-los.
+
+## D10 — Subdomínios irmãos são tratados como terceiros
+
+**Decisão.** Toda requisição que altera estado precisa trazer o `Origin` exato da instalação, e
+qualquer requisição que o navegador marque como vinda de outra origem (`Sec-Fetch-Site`) é
+recusada. Só JSON é aceito.
+
+**Por quê.** Para o navegador, `a.exemplo.com` e `b.exemplo.com` são o "mesmo site":
+`SameSite=Strict` sozinho não impede que um sistema vizinho comprometido forje requisições.
+
+## D11 — Segundo fator obrigatório, dispositivo aprovado, confirmação para ações críticas
+
+**Decisão.** TOTP (SHA-1, 6 dígitos, 30 s, o que os aplicativos autenticadores suportam) é
+obrigatório para todos; cada código vale uma única vez. Um navegador novo não recebe sessão até
+alguém com autoridade aprovar. Ações críticas (permissões, usuários, aprovar dispositivo, abrir
+lista sensível) exigem o segundo fator confirmado nos últimos 15 minutos (configurável).
+
+**Por quê.** Limita o que uma senha vazada e o que uma sessão sequestrada conseguem fazer.
+
+## D12 — Nenhum segredo ou padrão no código
+
+**Decisão.** `init-secrets` gera no servidor a chave da instância e as senhas do banco (arquivo
+`0600`, nunca sobrescrito). O assistente de primeira instalação só abre com um token escrito num
+arquivo do servidor e se fecha para sempre depois do primeiro Dono.
+
+**Por quê.** O repositório é público: qualquer padrão seria conhecido por todos.
+
+## D13 — Cadeia de fornecimento
+
+**Decisão.** Scripts de instalação de pacotes bloqueados por padrão; só entram versões publicadas
+há pelo menos 3 dias; lockfile congelado; actions do GitHub fixadas por SHA de commit com
+permissões mínimas; ferramentas baixadas no CI têm versão fixa e checksum conferido; auditoria de
+dependências, CodeQL e Scorecard no CI.
+
+**Por quê.** Qualquer instalação atualizará a partir deste repositório. Comprometer o repositório
+ou uma dependência seria comprometer todas elas.
+
+## D14 — Nada é apagado de verdade nesta fase
+
+**Decisão.** A aplicação não tem privilégio de DELETE em usuários, espaços, pastas, listas e itens.
+Arquivamento e lixeira com prazo chegam na Fase 2.
+
+## D15 — Licença AGPL-3.0-only
+
+**Decisão.** Padrão do projeto, sujeito à confirmação do mantenedor. Quem oferecer o sistema como
+serviço precisa abrir as próprias modificações.
+
+## D16 — Idioma
+
+Código, identificadores e comentários em inglês; documentação e interface em português (com
+internacionalização prevista).
+
+## Adiado, com motivo
+
+| Item                        | Situação                                                                                     |
+| --------------------------- | -------------------------------------------------------------------------------------------- |
+| Passkeys / WebAuthn         | Opcional no plano; entra junto com a interface (precisa do navegador).                       |
+| CAPTCHA após falhas         | O bloqueio progressivo por conta e por endereço já existe; o CAPTCHA entra com a interface.  |
+| Restrição de login por país | Opcional; depende de base de geolocalização, a decidir na fase de implantação.               |
+| Alertas por e-mail e push   | Os alertas já existem e são listados para os Donos; o envio entra com notificações (Fase 4). |
+| Checagem de senha vazada    | Opcional; a política atual recusa senhas curtas, comuns ou com dados da pessoa.              |

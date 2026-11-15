@@ -1,0 +1,5 @@
+# Toda mudança precisa da revisão de um mantenedor.
+# As áreas abaixo são as que protegem todas as instalações: mexer nelas é mexer na segurança de quem usa o projeto.
+*                         @marcelolucas11
+/.github/                 @marcelolucas11
+/apps/api/migrations/     @marcelolucas11
