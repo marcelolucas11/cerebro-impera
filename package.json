@@ -12,7 +12,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "typecheck": "pnpm --filter @cerebro/shared build && pnpm -r typecheck",
-    "lint": "eslint .",
+    "lint": "pnpm --filter @cerebro/shared build && eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "pnpm --filter @cerebro/shared build && pnpm -r test",
