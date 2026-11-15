@@ -1,0 +1,29 @@
+{
+  "name": "@cerebro/api",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "dev": "tsx watch src/cli.ts serve",
+    "cli": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@cerebro/shared": "workspace:*",
+    "@fastify/cookie": "^11.0.0",
+    "@node-rs/argon2": "^2.0.0",
+    "fastify": "^5.0.0",
+    "otpauth": "^9.0.0",
+    "pg": "^8.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "~6.0.0",
+    "vitest": "^5.0.0"
+  }
+}
