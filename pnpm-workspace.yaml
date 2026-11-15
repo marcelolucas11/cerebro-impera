@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Cadeia de fornecimento: scripts de instalação de dependências ficam bloqueados por padrão.
+# Só entra nesta lista o pacote cujo script foi revisado e é necessário.
+onlyBuiltDependencies: []
+
+# Só instala versões publicadas há pelo menos 3 dias (em minutos). Pacotes maliciosos
+# costumam ser removidos do registro nas primeiras horas.
+minimumReleaseAge: 4320

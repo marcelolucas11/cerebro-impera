@@ -1,0 +1,29 @@
+{
+  "name": "cerebro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema de gestão de código aberto, white label, com permissões granulares e foco em segurança.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm --filter @cerebro/shared build && pnpm -r typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm --filter @cerebro/shared build && pnpm -r test",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^10.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "~6.0.0",
+    "typescript-eslint": "^8.0.0"
+  }
+}

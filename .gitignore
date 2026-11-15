@@ -1,0 +1,45 @@
+# Dependências e builds
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.pnpm-store/
+
+# Segredos e configuração de instalação: NUNCA vão para o Git
+.env
+.env.*
+!.env.example
+/config/
+/.local/
+secrets*.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.kdbx
+id_rsa*
+id_ed25519*
+db-admin-password
+setup-token*
+
+# Dados reais: dumps, exports, backups, uploads
+*.dump
+*.sql.gz
+*.sqlite
+*.sqlite3
+dump*.sql
+backup*.sql
+export*.csv
+export*.json
+/backups/
+/uploads/
+/data/
+
+# Logs e arquivos locais
+*.log
+logs/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

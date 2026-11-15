@@ -1,0 +1,9 @@
+# Varredura de segredos: roda no pre-commit (opcional) e no CI (obrigatório).
+title = "cerebro"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Arquivos gerados que não contêm segredos"
+paths = ['''pnpm-lock\.yaml$''']

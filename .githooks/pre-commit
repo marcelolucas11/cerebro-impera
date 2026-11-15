@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# Impede que um segredo entre no histórico. Ative uma vez com:
+#   git config core.hooksPath .githooks
+set -eu
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "gitleaks não está instalado: instale-o (https://github.com/gitleaks/gitleaks) para commitar." >&2
+  exit 1
+fi
+exec gitleaks git --pre-commit --staged --no-banner --redact --config .gitleaks.toml .
