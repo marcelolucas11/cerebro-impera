@@ -323,6 +323,90 @@ test('items live in stages: each person works on what is theirs, and the list ke
   await expect(stageOf(ana, 'Fazendo')).toContainText('1 item');
 });
 
+test('a list records what the team needs about each item, and each person sees only their own', async () => {
+  const row = (page: Page, title: string) =>
+    page.locator('.item-rows > li').filter({ hasText: title });
+
+  // The owner decides what this list records.
+  await owner.getByRole('button', { name: 'Editar campos' }).click();
+  await expect(owner.getByText('Esta lista ainda não tem campos.')).toBeVisible();
+  await owner.getByLabel('Nome do novo campo').fill('Fornecedor');
+  await owner.getByLabel('Tipo do novo campo').selectOption({ label: 'Escolha única' });
+  await owner.getByLabel('Opção 1 de novo campo').fill('Alfa');
+  await owner.getByLabel('Opção 2 de novo campo').fill('Beta');
+  await owner.getByRole('button', { name: 'Adicionar campo' }).click();
+  await expect(owner.getByLabel('Opção 2 de Fornecedor')).toHaveValue('Beta');
+  for (const [name, kind] of [
+    ['Valor', 'Dinheiro'],
+    ['Data de compra', 'Data'],
+    ['Painel', 'Link'],
+  ] as const) {
+    await owner.getByLabel('Nome do novo campo').fill(name);
+    await owner.getByLabel('Tipo do novo campo').selectOption({ label: kind });
+    await owner.getByRole('button', { name: 'Adicionar campo' }).click();
+    await expect(owner.getByRole('button', { name: `Arquivar campo ${name}` })).toBeVisible();
+  }
+  await shot(owner, 'lista-dono-editando-campos');
+  await owner.getByRole('button', { name: 'Fechar edição dos campos' }).click();
+  await expect(owner.locator('.item-head').first()).toContainText('Fornecedor');
+  await expect(owner.locator('.item-head').first()).toContainText('Data de compra');
+
+  // Filling them in: what does not fit is explained before anything is sent.
+  await owner.getByRole('button', { name: 'Subir campanha do cliente' }).click();
+  const panel = row(owner, 'Subir campanha do cliente').locator('.item-panel');
+  await panel.getByLabel('Fornecedor', { exact: true }).selectOption({ label: 'Beta' });
+  await panel.getByLabel('Valor (BRL)').fill('1.499,90');
+  await panel.getByLabel('Data de compra').fill('2026-11-03');
+  await panel.getByLabel('Painel').fill('javascript:alert(1)');
+  await expect(panel.getByText('Escreva o endereço completo')).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Salvar item' })).toBeDisabled();
+  await panel.getByLabel('Painel').fill('https://exemplo.test/painel');
+  await panel.getByRole('button', { name: 'Salvar item' }).click();
+  const filled = row(owner, 'Subir campanha do cliente').locator('.item-row');
+  await expect(filled).toContainText('Beta');
+  await expect(filled).toContainText('1.499,90');
+  await expect(filled).toContainText('03/11/2026');
+  await expect(filled.getByRole('link', { name: 'https://exemplo.test/painel' })).toHaveAttribute(
+    'rel',
+    'noopener noreferrer',
+  );
+  await shot(owner, 'lista-dono-campos');
+
+  // The employee sees the fields, fills in her own item, and nothing of anyone else's.
+  await ana.reload();
+  await heading(ana, 'Tarefas');
+  await expect(ana.getByRole('button', { name: 'Editar campos' })).toHaveCount(0);
+  await expect(ana.getByText('Subir campanha do cliente')).toHaveCount(0);
+  await expect(ana.getByText('1.499,90')).toHaveCount(0);
+  await ana.getByRole('button', { name: 'Conferir perfis' }).click();
+  const hers = row(ana, 'Conferir perfis').locator('.item-panel');
+  await hers.getByLabel('Fornecedor', { exact: true }).selectOption({ label: 'Alfa' });
+  await hers.getByLabel('Valor (BRL)').fill('250');
+  await hers.getByRole('button', { name: 'Salvar item' }).click();
+  await expect(row(ana, 'Conferir perfis').locator('.item-row')).toContainText('Fornecedor: Alfa');
+  await expect(row(ana, 'Conferir perfis').locator('.item-row')).toContainText(
+    /Valor: R\$\s250,00/,
+  );
+  // A field with nothing in it takes no room on a phone.
+  await expect(
+    row(ana, 'Conferir perfis').locator('.item-cell', { hasText: 'Data de compra' }),
+  ).toBeHidden();
+  await shot(ana, 'lista-funcionaria-campos');
+
+  await owner.reload();
+  await heading(owner, 'Tarefas');
+  await expect(row(owner, 'Conferir perfis').locator('.item-row')).toContainText('Alfa');
+  await expect(row(owner, 'Conferir perfis').locator('.item-row')).toContainText('250,00');
+
+  // Archiving a field hides it and what was filled in; restoring brings both back.
+  await owner.getByRole('button', { name: 'Editar campos' }).click();
+  await owner.getByRole('button', { name: 'Arquivar campo Painel' }).click();
+  await expect(owner.getByRole('link', { name: 'https://exemplo.test/painel' })).toHaveCount(0);
+  await owner.getByRole('button', { name: 'Restaurar Painel' }).click();
+  await expect(owner.getByRole('link', { name: 'https://exemplo.test/painel' })).toBeVisible();
+  await owner.getByRole('button', { name: 'Fechar edição dos campos' }).click();
+});
+
 test('a sensitive list opens only after the code, each time the confirmation is no longer recent', async () => {
   await sql("UPDATE auth.sessions SET step_up_at = now() - interval '1 hour'");
   await owner.getByRole('link', { name: 'Espaços' }).click();

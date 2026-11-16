@@ -1,11 +1,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useState, type ReactNode } from 'react';
-import { api, ApiError, type Item, type Me, type Stage } from '../api.js';
+import { useCallback, useState, type CSSProperties, type ReactNode } from 'react';
+import { api, ApiError, type CustomField, type Item, type Me, type Stage } from '../api.js';
+import { hasValue } from '../fieldvalues.js';
 import { formatDuration } from '../labels.js';
 import { describeError } from '../messages.js';
 import { Link } from '../router.js';
 import { useGuard } from '../stepup.js';
 import { Button, Field, Form, Notice, useAction } from '../ui/kit.js';
+import { FIELD_COLUMNS, FieldEditor } from './FieldEditor.js';
+import { FieldValueView } from './FieldInput.js';
 import { ItemPanel } from './ItemPanel.js';
 import { StageEditor } from './StageEditor.js';
 
@@ -37,13 +40,19 @@ export function ListScreen({
     enabled: list !== undefined,
     refetchInterval: 20_000,
   });
+  const fields = useQuery({
+    queryKey: ['fields', listId],
+    queryFn: () => api.fields(listId),
+    enabled: list !== undefined,
+  });
   const people = useQuery({ queryKey: ['users'], queryFn: api.users, enabled: canSeePeople });
-  const [editingStages, setEditingStages] = useState(false);
+  const [editing, setEditing] = useState<'stages' | 'fields' | null>(null);
 
   const unlock = useAction(
     useCallback(async () => {
       await guard(() => api.stages(listId));
       await queryClient.invalidateQueries({ queryKey: ['stages', listId] });
+      await queryClient.invalidateQueries({ queryKey: ['fields', listId] });
       await queryClient.invalidateQueries({ queryKey: ['items', listId] });
     }, [guard, listId, queryClient]),
   );
@@ -84,7 +93,7 @@ export function ListScreen({
     </header>
   );
 
-  if (needsCode(stages.error) || needsCode(items.error)) {
+  if (needsCode(stages.error) || needsCode(items.error) || needsCode(fields.error)) {
     return (
       <>
         {heading}
@@ -101,7 +110,8 @@ export function ListScreen({
   }
   if (stages.isError) return <Notice tone="error">{describeError(stages.error)}</Notice>;
   if (items.isError) return <Notice tone="error">{describeError(items.error)}</Notice>;
-  if (stages.isPending || items.isPending) {
+  if (fields.isError) return <Notice tone="error">{describeError(fields.error)}</Notice>;
+  if (stages.isPending || items.isPending || fields.isPending) {
     return (
       <>
         {heading}
@@ -109,6 +119,20 @@ export function ListScreen({
       </>
     );
   }
+
+  const columns = fields.data.slice(0, FIELD_COLUMNS);
+  // Lists whose fields could be copied into this one: every other list the person can open.
+  const otherLists = tree.data.lists
+    .filter((other) => other.id !== listId)
+    .map((other) => ({
+      id: other.id,
+      label: [
+        tree.data.spaces.find((candidate) => candidate.id === other.spaceId)?.name,
+        other.name,
+      ]
+        .filter((part) => part !== undefined)
+        .join(' › '),
+    }));
 
   return (
     <>
@@ -118,19 +142,32 @@ export function ListScreen({
           <Button
             variant="quiet"
             onClick={() => {
-              setEditingStages(!editingStages);
+              setEditing(editing === 'stages' ? null : 'stages');
             }}
           >
-            {editingStages ? 'Fechar edição das etapas' : 'Editar etapas'}
+            {editing === 'stages' ? 'Fechar edição das etapas' : 'Editar etapas'}
+          </Button>
+          <Button
+            variant="quiet"
+            onClick={() => {
+              setEditing(editing === 'fields' ? null : 'fields');
+            }}
+          >
+            {editing === 'fields' ? 'Fechar edição dos campos' : 'Editar campos'}
           </Button>
         </div>
       ) : null}
-      {editingStages ? <StageEditor listId={listId} stages={stages.data} /> : null}
+      {editing === 'stages' ? <StageEditor listId={listId} stages={stages.data} /> : null}
+      {editing === 'fields' ? (
+        <FieldEditor listId={listId} fields={fields.data} otherLists={otherLists} />
+      ) : null}
       {stages.data.map((stage) => (
         <StageGroup
           key={stage.id}
           stage={stage}
           stages={stages.data}
+          fields={fields.data}
+          columns={columns}
           items={items.data.filter((item) => item.stageId === stage.id)}
           canEdit={canEdit}
           nameOf={nameOf}
@@ -143,12 +180,17 @@ export function ListScreen({
 function StageGroup({
   stage,
   stages,
+  fields,
+  columns,
   items,
   canEdit,
   nameOf,
 }: {
   stage: Stage;
   stages: Stage[];
+  fields: CustomField[];
+  /** The fields shown as columns of the list. */
+  columns: CustomField[];
   items: Item[];
   canEdit: boolean;
   nameOf: (userId: string | null) => string;
@@ -175,12 +217,30 @@ function StageGroup({
       {open ? (
         <>
           {items.length === 0 ? <p className="field-note">Nenhum item nesta etapa.</p> : null}
+          {items.length > 0 && columns.length > 0 ? (
+            // Read by sight only: each cell below repeats its own field name for screen readers.
+            <div
+              className="item-row has-columns item-head"
+              style={columnsOf(columns)}
+              aria-hidden="true"
+            >
+              <span>Item</span>
+              <span>Responsável</span>
+              <span>Nesta etapa</span>
+              {columns.map((field) => (
+                <span key={field.id}>{field.name}</span>
+              ))}
+              <span>Etapa</span>
+            </div>
+          ) : null}
           <ul className="item-rows">
             {items.map((item) => (
               <ItemRow
                 key={item.id}
                 item={item}
                 stages={stages}
+                fields={fields}
+                columns={columns}
                 canEdit={canEdit}
                 nameOf={nameOf}
               />
@@ -193,14 +253,22 @@ function StageGroup({
   );
 }
 
+/** How many field columns a row has, handed to the stylesheet. */
+const columnsOf = (columns: CustomField[]): CSSProperties =>
+  ({ '--colunas': String(columns.length) }) as CSSProperties;
+
 function ItemRow({
   item,
   stages,
+  fields,
+  columns,
   canEdit,
   nameOf,
 }: {
   item: Item;
   stages: Stage[];
+  fields: CustomField[];
+  columns: CustomField[];
   canEdit: boolean;
   nameOf: (userId: string | null) => string;
 }): ReactNode {
@@ -218,7 +286,10 @@ function ItemRow({
   const assignees = item.assignees.map((userId) => nameOf(userId));
   return (
     <li>
-      <div className="item-row">
+      <div
+        className={columns.length > 0 ? 'item-row has-columns' : 'item-row'}
+        style={columnsOf(columns)}
+      >
         <button
           type="button"
           className="item-title"
@@ -236,6 +307,15 @@ function ItemRow({
           há {formatDuration(Date.now() - Date.parse(item.stageSince))}
           <span className="visually-hidden"> nesta etapa</span>
         </span>
+        {columns.map((field) => (
+          <span
+            key={field.id}
+            className={hasValue(field, item.fields[field.id]) ? 'item-cell' : 'item-cell is-empty'}
+          >
+            <span className="cell-name">{field.name}: </span>
+            <FieldValueView field={field} value={item.fields[field.id]} />
+          </span>
+        ))}
         {canEdit ? (
           <select
             className="stage-select"
@@ -255,7 +335,7 @@ function ItemRow({
         ) : null}
       </div>
       {move.error ? <Notice tone="error">{move.error}</Notice> : null}
-      {open ? <ItemPanel item={item} canEdit={canEdit} nameOf={nameOf} /> : null}
+      {open ? <ItemPanel item={item} fields={fields} canEdit={canEdit} nameOf={nameOf} /> : null}
     </li>
   );
 }

@@ -213,12 +213,57 @@ conexão, atualizava a mesma linha enquanto a primeira transação ainda estava 
 a outra dentro da mesma requisição, e a confirmação travava. O limite de espera garante que um erro
 parecido no futuro falhe rápido e apareça nos testes, em vez de segurar conexões.
 
+## D23 — Campos pertencem à lista; cópias guardam a origem; nada é apagado
+
+**Decisão.** Cada lista define os próprios campos. Copiar um campo para outra lista cria um campo
+novo que guarda a origem do primeiro; uma lista tem cada origem no máximo uma vez. Tipo, lista e
+origem de um campo nunca mudam. Campos e opções de escolha são arquivados, não apagados: somem da
+tela e de qualquer leitura feita pela aplicação, e voltam com tudo o que tinham ao serem
+restaurados. A escala de uma nota é fixa.
+
+**Por quê.** O plano previa campos por espaço, pasta ou lista. Campos só por lista, com cópia que
+preserva a origem, dão o mesmo resultado para relatórios entre listas (dá para somar "o mesmo
+campo" em listas de espaços diferentes) com uma regra de acesso só: quem gerencia a lista. E
+apagar um campo seria apagar uma coluna inteira de trabalho com um clique. _Diverge do plano
+inicial; herança por espaço e pasta pode ser acrescentada depois sem quebrar nada._
+
+## D24 — O valor de um campo é conferido na API e no banco, e as duas regras são comparadas
+
+**Decisão.** O que cada tipo aceita está escrito duas vezes: em TypeScript (para a tela e a API
+explicarem o erro) e em SQL (gatilho que vale para qualquer caminho de escrita). Um teste passa a
+mesma tabela de casos pelas duas e exige a mesma resposta. Dinheiro é guardado em centavos
+inteiros; data como dia do calendário, sem fuso; data e hora como instante exato.
+
+**Por quê.** Importações, automações e a migração vão escrever valores sem passar pela tela. Um
+valor torto guardado hoje vira relatório errado amanhã. Duas regras escritas à mão divergem com o
+tempo; o teste de comparação é o que as mantém iguais.
+
+## D25 — Regras de leitura calculadas uma vez por consulta
+
+**Decisão.** As regras que decidem quem lê itens, responsáveis, histórico, etapas, campos e
+valores perguntam "a lista desta linha está entre as listas que a pessoa pode ler?", e esse
+conjunto é calculado uma única vez por consulta. O que depende de um item (responsáveis, histórico,
+valores) consulta o próprio item, e assim herda a regra dele em vez de repeti-la. As regras de
+escrita continuam conferindo linha a linha. A compilação de consultas em tempo de execução (JIT)
+fica desligada para os usuários da aplicação.
+
+**Por quê.** A primeira versão chamava uma função por linha: abrir uma lista de 500 itens com 8
+campos levava cerca de 2 segundos. Medido depois da mudança: cerca de 30 milissegundos, com 20 mil
+itens e 160 mil valores no banco. O JIT só acrescentava um atraso fixo de 0,2 segundo às consultas
+maiores. As regras antigas e as novas foram conferidas pelos mesmos testes e por enfraquecimento
+proposital de cada condição.
+
 ## Adiado, com motivo
 
-| Item                        | Situação                                                                                     |
-| --------------------------- | -------------------------------------------------------------------------------------------- |
-| Passkeys / WebAuthn         | Opcional no plano; entra junto com a interface (precisa do navegador).                       |
-| CAPTCHA após falhas         | O bloqueio progressivo por conta e por endereço já existe; o CAPTCHA entra com a interface.  |
-| Restrição de login por país | Opcional; depende de base de geolocalização, a decidir na fase de implantação.               |
-| Alertas por e-mail e push   | Os alertas já existem e são listados para os Donos; o envio entra com notificações (Fase 4). |
-| Checagem de senha vazada    | Opcional; a política atual recusa senhas curtas, comuns ou com dados da pessoa.              |
+| Item                           | Situação                                                                                          |
+| ------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Passkeys / WebAuthn            | Opcional no plano; entra junto com a interface (precisa do navegador).                            |
+| CAPTCHA após falhas            | O bloqueio progressivo por conta e por endereço já existe; o CAPTCHA entra com a interface.       |
+| Restrição de login por país    | Opcional; depende de base de geolocalização, a decidir na fase de implantação.                    |
+| Alertas por e-mail e push      | Os alertas já existem e são listados para os Donos; o envio entra com notificações (Fase 4).      |
+| Checagem de senha vazada       | Opcional; a política atual recusa senhas curtas, comuns ou com dados da pessoa.                   |
+| Campo de pessoa                | Depende da lista de pessoas que cada um pode ver para delegar; entra com a delegação (Fase 4).    |
+| Campo de arquivo               | Entra junto com os anexos (Fase 2).                                                               |
+| Campo secreto                  | Fatia própria da Fase 2: valor cifrado, revelação com 2º fator e registrada.                      |
+| Campos por espaço ou pasta     | Ver D23: campos por lista com cópia que preserva a origem cobrem o uso; herança fica para depois. |
+| Colunas configuráveis na lista | Hoje os quatro primeiros campos; a escolha por pessoa entra com as visões salvas (Fase 3).        |

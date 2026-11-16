@@ -4,6 +4,7 @@ import {
   levelAtLeast,
   resolveListAccess,
   type AccessLevel,
+  type FieldValue,
   type ItemScope,
   type ResolvedAccess,
   type StageDraft,
@@ -12,10 +13,11 @@ import { requireOwner, type Actor } from '../actor.js';
 import { one, rows, run, sql, type Tx } from '../db.js';
 import { badRequest, forbidden, notFound, stepUpRequired } from '../http/errors.js';
 import { accessToList, accessToScope, loadOwnGrants, type ListInfo } from './access.js';
+import { writeFieldValues } from './field-values.js';
 
 /*
- * The minimum structure needed to exercise permissions end to end in this
- * phase. Statuses, custom fields, views and the rest arrive in later phases.
+ * Spaces, folders, lists and items, and who may open each of them. Stages and
+ * custom fields have their own modules.
  *
  * New rows get their id from the API and are read back with a separate
  * SELECT: visibility checks cannot see a row within the statement that
@@ -172,6 +174,8 @@ export interface ItemView {
   stageId: string;
   /** Since when the item is in its current stage. */
   stageSince: Date;
+  /** Values of the list's custom fields, by field id. A field with no value is absent. */
+  fields: Record<string, FieldValue>;
 }
 
 interface ItemRow {
@@ -185,6 +189,7 @@ interface ItemRow {
   assignees: string[];
   stage_id: string;
   stage_since: Date;
+  fields: Record<string, FieldValue>;
 }
 
 function toItem(row: ItemRow): ItemView {
@@ -199,13 +204,16 @@ function toItem(row: ItemRow): ItemView {
     assignees: row.assignees,
     stageId: row.stage_id,
     stageSince: row.stage_since,
+    fields: row.fields,
   };
 }
 
 const ITEM_COLUMNS = `i.id, i.list_id, i.title, i.description, i.created_by, i.created_at, i.updated_at,
   i.stage_id, i.stage_since,
   coalesce((SELECT array_agg(ia.user_id ORDER BY ia.assigned_at)
-            FROM app.item_assignees ia WHERE ia.item_id = i.id), '{}'::uuid[]) AS assignees`;
+            FROM app.item_assignees ia WHERE ia.item_id = i.id), '{}'::uuid[]) AS assignees,
+  coalesce((SELECT jsonb_object_agg(v.field_id, v.value)
+            FROM app.item_field_values v WHERE v.item_id = i.id), '{}'::jsonb) AS fields`;
 
 /** Opens a list for the caller, or explains why not, without leaking its existence. */
 export async function openList(
@@ -252,7 +260,12 @@ export async function createItem(
   tx: Tx,
   actor: Actor,
   listId: string,
-  body: { title: string; description?: string | undefined; stageId?: string | undefined },
+  body: {
+    title: string;
+    description?: string | undefined;
+    stageId?: string | undefined;
+    fields?: Readonly<Record<string, FieldValue | null>> | undefined;
+  },
 ): Promise<ItemView> {
   await openList(tx, actor, listId, 'edit');
   if (body.stageId !== undefined) await requireStageOf(tx, listId, body.stageId);
@@ -264,6 +277,7 @@ export async function createItem(
         VALUES (${id}, ${listId}, ${body.title}, ${body.description ?? ''}, ${actor.userId},
                 ${body.stageId ?? null})`,
   );
+  if (body.fields !== undefined) await writeFieldValues(tx, listId, id, body.fields);
   const item = await getItem(tx, id);
   if (!item) throw forbidden();
   return item;
@@ -301,6 +315,7 @@ export async function updateItem(
     title?: string | undefined;
     description?: string | undefined;
     stageId?: string | undefined;
+    fields?: Readonly<Record<string, FieldValue | null>> | undefined;
   },
 ): Promise<ItemView> {
   const { item: current } = await openItem(tx, actor, itemId, 'edit');
@@ -314,6 +329,7 @@ export async function updateItem(
         WHERE id = ${itemId}`,
   );
   if (changed !== 1) throw forbidden();
+  if (body.fields !== undefined) await writeFieldValues(tx, current.listId, itemId, body.fields);
   const item = await getItem(tx, itemId);
   if (!item) throw notFound();
   return item;

@@ -238,6 +238,70 @@ describe('an employee, straight at the database', () => {
     expect(title.rows[0]?.title).toBe('Tarefa do Bruno');
   });
 
+  it('can look at a list they may only view, and neither change it nor move work into it', async () => {
+    const o = s.owner.browser;
+    const showcase =
+      // In a space nobody else in these tests was given, so their own views stay as they were.
+      (await o.post<{ id: string }>('/api/lists', { spaceId: s.financeiro, name: 'Vitrine' })).body
+        .id;
+    const shown = (
+      await o.post<{ id: string }>(`/api/lists/${showcase}/items`, { title: 'Só para ver' })
+    ).body.id;
+    const granted = await o.put('/api/grants', {
+      userId: s.bruno.id,
+      scopeType: 'list',
+      scopeId: showcase,
+      level: 'view',
+      itemScope: 'all',
+    });
+    expect(granted.status).toBe(200);
+    // And a list where he edits everything, to try to carry things into.
+    const depot = (
+      await o.post<{ id: string }>('/api/lists', { spaceId: s.financeiro, name: 'Depósito' })
+    ).body.id;
+    const opened = await o.put('/api/grants', {
+      userId: s.bruno.id,
+      scopeType: 'list',
+      scopeId: depot,
+      level: 'edit',
+      itemScope: 'all',
+    });
+    expect(opened.status).toBe(200);
+
+    expect(await bind(app, s.bruno)).toBe(true);
+    const seen = await app.query<{ id: string }>('SELECT id FROM app.items WHERE list_id = $1', [
+      showcase,
+    ]);
+    expect(seen.rows.map((row) => row.id)).toEqual([shown]);
+    const statements: [string, unknown[]][] = [
+      [`UPDATE app.items SET title = 'alterado' WHERE id = $1`, [shown]],
+      [`UPDATE app.items SET title = 'alterado' WHERE list_id = $1`, [showcase]],
+      [
+        `INSERT INTO app.items (id, list_id, title) VALUES (gen_random_uuid(), $1, 'novo')`,
+        [showcase],
+      ],
+      // His own item, from the list where he does edit, cannot be dropped in here...
+      [`UPDATE app.items SET list_id = $1 WHERE id = $2`, [showcase, s.itemBruno]],
+      // ...and what is shown here cannot be pulled out, not even into a list he edits in full.
+      [`UPDATE app.items SET list_id = $1 WHERE id = $2`, [s.tarefas, shown]],
+      [`UPDATE app.items SET list_id = $1 WHERE id = $2`, [depot, shown]],
+      [`INSERT INTO app.item_assignees (item_id, user_id) VALUES ($1, $2)`, [shown, s.bruno.id]],
+    ];
+    for (const [text, values] of statements) {
+      expect(refused(await attempt(app, text, values)), text).toBe(true);
+    }
+    await app.query('ROLLBACK');
+
+    const after = await env.admin.query<{ id: string; title: string; list_id: string }>(
+      'SELECT id, title, list_id FROM app.items WHERE id = ANY ($1::uuid[]) ORDER BY title',
+      [[shown, s.itemBruno]],
+    );
+    expect(after.rows).toEqual([
+      { id: shown, title: 'Só para ver', list_id: showcase },
+      { id: s.itemBruno, title: 'Tarefa do Bruno', list_id: s.tarefas },
+    ]);
+  });
+
   it('cannot forge authorship', async () => {
     expect(await bind(app, s.ana)).toBe(true);
     const id = randomUUID();

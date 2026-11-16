@@ -89,7 +89,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
             </Button>
           </div>
         </header>
-        <main className="shell-main">
+        <main className={listId !== undefined ? 'shell-main shell-main-wide' : 'shell-main'}>
           {signOut.error ? <Notice tone="error">{signOut.error}</Notice> : null}
           {listId !== undefined ? (
             <ListScreen key={listId} listId={listId} me={user} canSeePeople={can('users.manage')} />
