@@ -5,25 +5,25 @@
 
 ## Onde estamos
 
-**Fase 1 — Fundação e segurança.** Backend, infraestrutura de execução e telas de entrada
-concluídos. Faltam as telas de administração (pessoas, permissões, dispositivos, auditoria).
+**Fase 1 — Fundação e segurança.** Backend, infraestrutura de execução, telas de entrada e telas
+de administração concluídos. Restam o percurso em navegador automatizado no CI e os itens adiados.
 
-| Fase                                                          | Situação                                |
-| ------------------------------------------------------------- | --------------------------------------- |
-| 0. Preparação do repositório (proteções no GitHub)            | depende do mantenedor, ver "Pendências" |
-| **1. Fundação e segurança**                                   | **falta a administração na interface**  |
-| 2. Estrutura (etapas, campos personalizados, anexos, lixeira) | a fazer                                 |
-| 3. Visões (lista, quadro, calendário, tabela, linha do tempo) | a fazer                                 |
-| 4. Tarefas e colaboração                                      | a fazer                                 |
-| 5. Automações                                                 | a fazer                                 |
-| 6. Painéis e relatórios                                       | a fazer                                 |
-| 7. PWA e offline                                              | a fazer                                 |
-| 8. Atualizador assinado                                       | a fazer                                 |
-| 9. Backup e restauração                                       | a fazer                                 |
-| 10. White label, assistente visual e formulários              | a fazer                                 |
-| 11. Blindagem (revisão independente)                          | a fazer                                 |
-| 12. Implantação                                               | só com autorização do mantenedor        |
-| 13. Migração de dados                                         | só com autorização do mantenedor        |
+| Fase                                                          | Situação                                    |
+| ------------------------------------------------------------- | ------------------------------------------- |
+| 0. Preparação do repositório (proteções no GitHub)            | depende do mantenedor, ver "Pendências"     |
+| **1. Fundação e segurança**                                   | **pronta, salvo os restos listados abaixo** |
+| 2. Estrutura (etapas, campos personalizados, anexos, lixeira) | a fazer                                     |
+| 3. Visões (lista, quadro, calendário, tabela, linha do tempo) | a fazer                                     |
+| 4. Tarefas e colaboração                                      | a fazer                                     |
+| 5. Automações                                                 | a fazer                                     |
+| 6. Painéis e relatórios                                       | a fazer                                     |
+| 7. PWA e offline                                              | a fazer                                     |
+| 8. Atualizador assinado                                       | a fazer                                     |
+| 9. Backup e restauração                                       | a fazer                                     |
+| 10. White label, assistente visual e formulários              | a fazer                                     |
+| 11. Blindagem (revisão independente)                          | a fazer                                     |
+| 12. Implantação                                               | só com autorização do mantenedor            |
+| 13. Migração de dados                                         | só com autorização do mantenedor            |
 
 ## Feito na Fase 1
 
@@ -48,7 +48,12 @@ concluídos. Faltam as telas de administração (pessoas, permissões, dispositi
   recuperação, aceite de convite, espera de aprovação de dispositivo e uma tela inicial que lista
   as áreas acessíveis.
 
-### O que os testes provam (109 testes)
+- Administração na interface: pessoas (convidar, papel, suspender, redefinir acesso, encerrar
+  sessões), capacidades, concessões por espaço/pasta/lista, aparelhos (aprovar, recusar, revogar),
+  alertas, registro de auditoria com verificação de integridade, criação de espaços, pastas e
+  listas pelo Dono, e um diálogo único de "confirme que é você" que repete a ação depois do código.
+
+### O que os testes provam (114 testes)
 
 | Arquivo                                    | O que garante                                                                                                                                                                                                                                                                                                          |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -59,12 +64,17 @@ concluídos. Faltam as telas de administração (pessoas, permissões, dispositi
 | `apps/api/test/crypto.test.ts` (16)        | argon2id com sal novo; cifra autenticada presa à linha e à finalidade; resumo com chave para códigos de recuperação; tokens de 256 bits; TOTP sem repetição; segredos com permissão `0600` e nunca sobrescritos                                                                                                        |
 
 | `apps/api/test/web.test.ts` (9) | a página vem com a política que proíbe código embutido e de outras origens; nenhum arquivo de fora da pasta, oculto ou de tipo desconhecido é servido; endereços da API nunca respondem com a página; a API continua recusando outras origens |
-| `apps/web/test/*.test.ts` (8) | a página compilada só carrega arquivos próprios, sem nada embutido; mensagens de erro nunca mostram detalhe técnico |
+| `apps/web/test/*.test.ts` (13) | a página compilada só carrega arquivos próprios, sem nada embutido; mensagens de erro nunca mostram detalhe técnico |
 
 Além disso, o fluxo completo foi percorrido num navegador real contra a API real (instalar, ligar o
 autenticador, guardar códigos, sair, senha errada, entrar com 2º fator, aparelho novo aguardando
 aprovação sem nenhum acesso, convite inválido), em tela de computador e de celular, sem nenhuma
-violação da política de segurança da página. Esse percurso ainda é manual: falta automatizá-lo no CI.
+violação da política de segurança da página. Um segundo percurso põe Dono e funcionária lado a lado:
+convite, aceite no celular, convite reutilizado recusado, aprovação do aparelho com confirmação do
+2º fator, funcionária sem nenhum dado até receber uma lista, só essa lista visível depois, registro
+de auditoria íntegro, e suspensão que derruba a sessão na hora. Esses percursos ainda são manuais:
+falta automatizá-los no CI. (O segundo já pegou um defeito real: a tela de pessoas mostrava
+situação desatualizada; corrigido.)
 
 Os testes do banco foram conferidos por mutação: enfraquecer de propósito uma regra (identidade
 que sobrevive à transação, funcionário vendo a lista inteira, concessão sem gerenciar o escopo) faz
@@ -90,13 +100,13 @@ pnpm check
 
 ## Próximo passo exato
 
-1. **Telas de administração da Fase 1** (`apps/web`): pessoas (convidar, papel, suspender,
-   redefinir acesso), capacidades, concessões por espaço/pasta/lista, dispositivos (aprovar,
-   recusar, revogar), sessões, auditoria e alertas. Um diálogo único de "confirme o código" para
-   quando a API responder `step_up_required`. Roteador de telas.
-2. Automatizar no CI o percurso em navegador real (hoje manual).
-3. Fechar os itens adiados da Fase 1 que dependem da interface (passkeys, CAPTCHA).
-4. Só então a Fase 2.
+1. **Automatizar no CI os percursos em navegador real** (hoje manuais): job que sobe a API com a
+   página e um PostgreSQL descartável e percorre instalação, entrada e administração.
+2. Pequenos restos da interface da Fase 1: lista das próprias sessões (a API já tem), criação de
+   pastas e listas por quem gerencia um espaço sem ser Dono, troca da própria senha (falta na API).
+3. Itens adiados que dependem da interface: passkeys e CAPTCHA.
+4. **Fase 2 — Estrutura:** etapas editáveis por lista, campos personalizados, itens completos,
+   anexos, lixeira, histórico e tempo em cada etapa. Com ela entra o roteador de telas definitivo.
 
 ## Pendências do mantenedor (Fase 0)
 
