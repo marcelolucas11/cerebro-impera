@@ -1,0 +1,118 @@
+# Uma instalação do Cérebro: PostgreSQL e API.
+#
+# Nada neste arquivo é segredo. A chave da instância e as senhas do banco são
+# geradas no primeiro start, dentro do volume "config", e nunca saem dele.
+#
+#   CEREBRO_PUBLIC_ORIGIN=https://cerebro.exemplo.com docker compose --file infra/compose.yaml up --detach
+#
+# A API fica publicada só em 127.0.0.1: quem a expõe à internet é o proxy
+# reverso do servidor (TLS), nunca este arquivo.
+
+name: cerebro
+
+x-api: &api
+  image: ${CEREBRO_IMAGE:-cerebro-api:local}
+  environment:
+    CEREBRO_ENV: production
+    CEREBRO_PUBLIC_ORIGIN: ${CEREBRO_PUBLIC_ORIGIN:?defina CEREBRO_PUBLIC_ORIGIN, por exemplo https://cerebro.exemplo.com}
+    CEREBRO_TRUST_PROXY: 'true'
+    CEREBRO_DB_HOST: postgres
+    CEREBRO_DB_NAME: cerebro
+  volumes:
+    - config:/opt/cerebro/config
+  # Sistema de arquivos somente leitura, sem capacidades do kernel, sem ganho de privilégio.
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 256
+  networks:
+    - db
+
+services:
+  # Roda uma vez: cria os segredos da instância se ainda não existirem.
+  init:
+    <<: *api
+    command: [init-secrets]
+    restart: 'no'
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cerebro
+      POSTGRES_PASSWORD_FILE: /run/cerebro/db-admin-password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - config:/run/cerebro:ro
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready --username postgres --dbname cerebro --quiet']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    # A imagem oficial começa como root para preparar o diretório de dados e
+    # então troca para o usuário "postgres"; só as capacidades que isso exige.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: ${CEREBRO_DB_MEMORY:-1g}
+    pids_limit: 512
+    # Sem "ports": o banco só existe na rede interna.
+    networks:
+      - db
+
+  # Roda a cada start: aplica migrações pendentes com o usuário dono do banco,
+  # que a API nunca usa.
+  migrate:
+    <<: *api
+    command: [migrate]
+    restart: 'no'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *api
+    command: [serve]
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - --eval
+        - "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: ${CEREBRO_API_MEMORY:-512m}
+    ports:
+      - '127.0.0.1:${CEREBRO_HOST_PORT:-3000}:3000'
+    networks:
+      - db
+      - edge
+
+networks:
+  # Sem rota para fora: o banco não alcança a internet nem é alcançado por ela.
+  db:
+    internal: true
+  edge: {}
+
+volumes:
+  config: {}
+  pgdata: {}

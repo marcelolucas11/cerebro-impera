@@ -75,6 +75,63 @@ jobs:
       - name: Testes
         run: pnpm test
 
+  container:
+    name: Imagem e Compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      COMPOSE_FILE: infra/compose.yaml
+      CEREBRO_PUBLIC_ORIGIN: https://cerebro.exemplo.test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Construir a imagem da API
+        run: docker build --file apps/api/Dockerfile --tag cerebro-api:local .
+      - name: Subir uma instalação do zero
+        run: |
+          docker compose up --detach
+          for _ in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:3000/api/health > /dev/null; then break; fi
+            sleep 2
+          done
+          curl --silent --show-error --fail http://127.0.0.1:3000/api/health
+      - name: Conferir o que a instalação promete
+        run: |
+          set -euo pipefail
+          echo "instalação nova pede o assistente e não deixa ninguém entrar"
+          test "$(curl --silent http://127.0.0.1:3000/api/setup/status | jq --raw-output .needsSetup)" = "true"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/api/me)" = "401"
+
+          echo "a API não roda como root e não consegue alterar o próprio código"
+          test "$(docker compose exec -T api id -u)" != "0"
+          if docker compose exec -T api sh -c 'touch /app/dist/x' 2> /dev/null; then exit 1; fi
+
+          echo "os segredos existem só no volume de configuração, com permissão restrita"
+          test "$(docker compose exec -T api stat -c '%a' /opt/cerebro/config/secrets.json)" = "600"
+          docker compose exec -T api test -s /opt/cerebro/config/setup-token
+          token="$(docker compose exec -T api cat /opt/cerebro/config/setup-token)"
+          if docker compose logs --no-color | grep --fixed-strings --quiet "${token}"; then exit 1; fi
+          if docker compose config | grep --ignore-case --quiet 'password:'; then exit 1; fi
+
+          echo "o banco não está publicado para fora da rede interna"
+          if docker compose port postgres 5432 2> /dev/null | grep --quiet .; then exit 1; fi
+
+          echo "reiniciar não troca os segredos nem reabre nada"
+          before="$(docker compose exec -T api sha256sum /opt/cerebro/config/secrets.json)"
+          docker compose up --detach --force-recreate
+          for _ in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:3000/api/health > /dev/null; then break; fi
+            sleep 2
+          done
+          test "${before}" = "$(docker compose exec -T api sha256sum /opt/cerebro/config/secrets.json)"
+      - name: Logs em caso de falha
+        if: failure()
+        run: docker compose logs --no-color --tail 200 || true
+      - name: Derrubar
+        if: always()
+        run: docker compose down --volumes
+
   dependencies:
     name: Auditoria de dependências
     runs-on: ubuntu-24.04
