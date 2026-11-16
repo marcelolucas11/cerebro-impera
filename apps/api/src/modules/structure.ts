@@ -1,14 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import {
+  DEFAULT_STAGES,
   levelAtLeast,
   resolveListAccess,
   type AccessLevel,
   type ItemScope,
   type ResolvedAccess,
+  type StageDraft,
 } from '@cerebro/shared';
 import { requireOwner, type Actor } from '../actor.js';
 import { one, rows, run, sql, type Tx } from '../db.js';
-import { forbidden, notFound, stepUpRequired } from '../http/errors.js';
+import { badRequest, forbidden, notFound, stepUpRequired } from '../http/errors.js';
 import { accessToList, accessToScope, loadOwnGrants, type ListInfo } from './access.js';
 
 /*
@@ -125,6 +127,7 @@ export async function createList(
     folderId?: string | null | undefined;
     name: string;
     isSensitive?: boolean | undefined;
+    stages?: readonly StageDraft[] | undefined;
   },
 ): Promise<ListInfo> {
   const folderId = body.folderId ?? null;
@@ -142,6 +145,14 @@ export async function createList(
     sql`INSERT INTO app.lists (id, space_id, folder_id, name, is_sensitive)
         VALUES (${id}, ${body.spaceId}, ${folderId}, ${body.name}, ${isSensitive})`,
   );
+  // A list is never without stages: it is born with the chosen set or the default one.
+  for (const [position, stage] of (body.stages ?? DEFAULT_STAGES).entries()) {
+    await run(
+      tx,
+      sql`INSERT INTO app.list_stages (id, list_id, name, color, kind, position)
+          VALUES (${randomUUID()}, ${id}, ${stage.name}, ${stage.color}, ${stage.kind}, ${position})`,
+    );
+  }
   return { id, spaceId: body.spaceId, folderId, name: body.name, isSensitive };
 }
 
@@ -158,6 +169,9 @@ export interface ItemView {
   createdAt: Date;
   updatedAt: Date;
   assignees: string[];
+  stageId: string;
+  /** Since when the item is in its current stage. */
+  stageSince: Date;
 }
 
 interface ItemRow {
@@ -169,6 +183,8 @@ interface ItemRow {
   created_at: Date;
   updated_at: Date;
   assignees: string[];
+  stage_id: string;
+  stage_since: Date;
 }
 
 function toItem(row: ItemRow): ItemView {
@@ -181,15 +197,18 @@ function toItem(row: ItemRow): ItemView {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     assignees: row.assignees,
+    stageId: row.stage_id,
+    stageSince: row.stage_since,
   };
 }
 
 const ITEM_COLUMNS = `i.id, i.list_id, i.title, i.description, i.created_by, i.created_at, i.updated_at,
+  i.stage_id, i.stage_since,
   coalesce((SELECT array_agg(ia.user_id ORDER BY ia.assigned_at)
             FROM app.item_assignees ia WHERE ia.item_id = i.id), '{}'::uuid[]) AS assignees`;
 
 /** Opens a list for the caller, or explains why not, without leaking its existence. */
-async function openList(
+export async function openList(
   tx: Tx,
   actor: Actor,
   listId: string,
@@ -233,22 +252,34 @@ export async function createItem(
   tx: Tx,
   actor: Actor,
   listId: string,
-  body: { title: string; description?: string | undefined },
+  body: { title: string; description?: string | undefined; stageId?: string | undefined },
 ): Promise<ItemView> {
   await openList(tx, actor, listId, 'edit');
+  if (body.stageId !== undefined) await requireStageOf(tx, listId, body.stageId);
   const id = randomUUID();
+  // Without a chosen stage, the database puts the item in the list's first one.
   await run(
     tx,
-    sql`INSERT INTO app.items (id, list_id, title, description, created_by)
-        VALUES (${id}, ${listId}, ${body.title}, ${body.description ?? ''}, ${actor.userId})`,
+    sql`INSERT INTO app.items (id, list_id, title, description, created_by, stage_id)
+        VALUES (${id}, ${listId}, ${body.title}, ${body.description ?? ''}, ${actor.userId},
+                ${body.stageId ?? null})`,
   );
   const item = await getItem(tx, id);
   if (!item) throw forbidden();
   return item;
 }
 
+/** A stage can only be used on items of its own list. */
+async function requireStageOf(tx: Tx, listId: string, stageId: string): Promise<void> {
+  const stage = await one(
+    tx,
+    sql`SELECT 1 FROM app.list_stages WHERE id = ${stageId} AND list_id = ${listId}`,
+  );
+  if (!stage) throw badRequest('invalid_stage');
+}
+
 /** The item and the caller's access to it, when the caller can see it at all. */
-async function openItem(
+export async function openItem(
   tx: Tx,
   actor: Actor,
   itemId: string,
@@ -266,14 +297,20 @@ export async function updateItem(
   tx: Tx,
   actor: Actor,
   itemId: string,
-  body: { title?: string | undefined; description?: string | undefined },
+  body: {
+    title?: string | undefined;
+    description?: string | undefined;
+    stageId?: string | undefined;
+  },
 ): Promise<ItemView> {
-  await openItem(tx, actor, itemId, 'edit');
+  const { item: current } = await openItem(tx, actor, itemId, 'edit');
+  if (body.stageId !== undefined) await requireStageOf(tx, current.listId, body.stageId);
   const changed = await run(
     tx,
     sql`UPDATE app.items SET
           title = coalesce(${body.title ?? null}, title),
-          description = coalesce(${body.description ?? null}, description)
+          description = coalesce(${body.description ?? null}, description),
+          stage_id = coalesce(${body.stageId ?? null}::uuid, stage_id)
         WHERE id = ${itemId}`,
   );
   if (changed !== 1) throw forbidden();

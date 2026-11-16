@@ -3,6 +3,7 @@ import { ACCESS_LEVELS, ITEM_SCOPES, SCOPE_TYPES } from './access.js';
 import { CAPABILITIES } from './capabilities.js';
 import { PASSWORD_MAX_LENGTH } from './password.js';
 import { ROLES } from './roles.js';
+import { MAX_STAGES_PER_LIST, STAGE_KINDS } from './stages.js';
 
 /*
  * Every request body is parsed with a *strict* object: unknown keys are
@@ -84,20 +85,66 @@ const titleSchema = z.string().trim().min(1).max(200);
 
 export const createSpaceSchema = z.strictObject({ name: titleSchema });
 export const createFolderSchema = z.strictObject({ spaceId: idSchema, name: titleSchema });
+const stageNameSchema = z.string().trim().min(1).max(60);
+const stageColorSchema = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{6}$/)
+  .transform((value) => value.toLowerCase());
+const stageKindSchema = z.enum(STAGE_KINDS);
+
+/** A stage as it is described before it exists: also the format of an exported set. */
+export const stageDraftSchema = z.strictObject({
+  name: stageNameSchema,
+  color: stageColorSchema,
+  kind: stageKindSchema,
+});
+const stageSetSchema = z
+  .array(stageDraftSchema)
+  .min(1)
+  .max(MAX_STAGES_PER_LIST)
+  .refine(
+    (stages) => new Set(stages.map((stage) => stage.name.toLowerCase())).size === stages.length,
+    'duplicate stage names',
+  );
+
 export const createListSchema = z.strictObject({
   spaceId: idSchema,
   folderId: idSchema.nullable().optional(),
   name: titleSchema,
   isSensitive: z.boolean().optional(),
+  /** Omitted: the list starts with the default set. */
+  stages: stageSetSchema.optional(),
 });
+export const createStageSchema = z.strictObject({
+  name: stageNameSchema,
+  color: stageColorSchema.optional(),
+  kind: stageKindSchema.optional(),
+});
+export const updateStageSchema = z
+  .strictObject({
+    name: stageNameSchema.optional(),
+    color: stageColorSchema.optional(),
+    kind: stageKindSchema.optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, 'empty update');
+export const reorderStagesSchema = z.strictObject({
+  ids: z.array(idSchema).min(1).max(MAX_STAGES_PER_LIST),
+});
+export const deleteStageSchema = z.strictObject({
+  /** Where the items of the removed stage go. Required when it still has items. */
+  moveTo: idSchema.optional(),
+});
+
 export const createItemSchema = z.strictObject({
   title: z.string().trim().min(1).max(500),
   description: z.string().max(50_000).optional(),
+  stageId: idSchema.optional(),
 });
 export const updateItemSchema = z
   .strictObject({
     title: z.string().trim().min(1).max(500).optional(),
     description: z.string().max(50_000).optional(),
+    stageId: idSchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'empty update');
 export const setAssigneesSchema = z.strictObject({ userIds: z.array(idSchema).max(50) });
