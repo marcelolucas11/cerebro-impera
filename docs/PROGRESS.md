@@ -118,9 +118,10 @@ desatualizada; item criado por funcionária aparecia sem responsável e sumia pa
 Os testes do banco foram conferidos por mutação: enfraquecer de propósito uma regra (identidade
 que sobrevive à transação, funcionário vendo a lista inteira, concessão sem gerenciar o escopo) faz
 testes falharem; as regras restauradas voltam a passar. Nas regras de campos e nas regras de
-leitura reescritas foram 41 enfraquecimentos, um por vez; os que passaram despercebidos na
-primeira rodada mostraram lacunas nos testes (quem só pode ver uma lista tentando alterar ou mover
-itens direto no banco), que foram fechadas.
+leitura reescritas foram 40 enfraquecimentos, um por vez. Seis passaram na primeira rodada: quatro
+mostraram lacunas nos testes (quem só pode ver uma lista tentando alterar, preencher ou mover itens
+direto no banco), que foram fechadas; dois são redundantes por desenho (outra camada faz a mesma
+recusa).
 
 ### Como rodar
 
