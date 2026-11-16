@@ -28,6 +28,8 @@ export interface Config {
   argon2: Argon2Params;
   /** Where the one-time first-run token is written. */
   setupTokenFile: string;
+  /** Folder with the built web app, served by the API itself. Null runs the API alone. */
+  webRoot: string | null;
 }
 
 /** OWASP-recommended range for argon2id; raise it if the server can afford it. */
@@ -83,5 +85,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     masterKey: Buffer.from(secrets.masterKey, 'base64'),
     argon2: DEFAULT_ARGON2,
     setupTokenFile: join(configDir, 'setup-token'),
+    webRoot:
+      env.CEREBRO_WEB_ROOT === undefined || env.CEREBRO_WEB_ROOT === ''
+        ? null
+        : env.CEREBRO_WEB_ROOT,
   };
 }

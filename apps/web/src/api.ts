@@ -1,0 +1,124 @@
+/** A refusal from the server, or `network` when it could not be reached. */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly details: Record<string, unknown>;
+
+  constructor(status: number, code: string, details: Record<string, unknown> = {}) {
+    super(code);
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/*
+ * Every call goes to this page's own origin. The session lives in an HttpOnly
+ * cookie the script cannot read, so there is no token to keep (or leak) here.
+ */
+async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method,
+      credentials: 'same-origin',
+      cache: 'no-store',
+      redirect: 'error',
+      headers:
+        method === 'GET'
+          ? { accept: 'application/json' }
+          : { accept: 'application/json', 'content-type': 'application/json' },
+      ...(method === 'GET' ? {} : { body: JSON.stringify(body ?? {}) }),
+    });
+  } catch {
+    throw new ApiError(0, 'network');
+  }
+
+  const text = await response.text();
+  let data: unknown;
+  try {
+    data = text === '' ? undefined : JSON.parse(text);
+  } catch {
+    data = undefined;
+  }
+  if (!response.ok) {
+    const error = isRecord(data) && isRecord(data.error) ? data.error : {};
+    throw new ApiError(
+      response.status,
+      typeof error.code === 'string' ? error.code : 'unknown',
+      isRecord(error.details) ? error.details : {},
+    );
+  }
+  return data as T;
+}
+
+export type Role = 'employee' | 'manager' | 'admin' | 'owner';
+
+export interface SetupStatus {
+  needsSetup: boolean;
+  instanceName: string;
+}
+export interface Enrollment {
+  secret: string;
+  otpauthUri: string;
+}
+export type SignInResult = { status: 'authenticated' } | { status: 'device_pending' };
+export type DeviceStatus = 'pending' | 'approved' | 'rejected' | 'revoked' | 'unknown';
+
+export interface Me {
+  user: { id: string; name: string; email: string; role: Role };
+  capabilities: string[];
+  stepUp: boolean;
+  instanceName: string;
+}
+
+export interface Tree {
+  spaces: { id: string; name: string }[];
+  folders: { id: string; spaceId: string; name: string }[];
+  lists: {
+    id: string;
+    spaceId: string;
+    folderId: string | null;
+    name: string;
+    isSensitive: boolean;
+    level: 'view' | 'comment' | 'edit' | 'manage';
+    itemScope: 'assigned' | 'all';
+  }[];
+}
+
+export interface SetupInput {
+  setupToken: string;
+  instanceName: string;
+  email: string;
+  name: string;
+  password: string;
+  totpSecret: string;
+  totpCode: string;
+}
+
+export const api = {
+  setupStatus: () => request<SetupStatus>('GET', '/api/setup/status'),
+  setupTotp: (input: { setupToken: string; email: string }) =>
+    request<Enrollment>('POST', '/api/setup/totp', input),
+  completeSetup: (input: SetupInput) =>
+    request<{ recoveryCodes: string[] }>('POST', '/api/setup', input),
+
+  signIn: (input: { email: string; password: string }) =>
+    request<{ next: 'totp' | 'enroll_totp' }>('POST', '/api/auth/login', input),
+  verify: (input: { code: string } | { recoveryCode: string }) =>
+    request<SignInResult>('POST', '/api/auth/login/verify', input),
+  enrollStart: () => request<Enrollment>('POST', '/api/auth/totp/enroll'),
+  enrollConfirm: (code: string) =>
+    request<SignInResult & { recoveryCodes: string[] }>('POST', '/api/auth/totp/confirm', { code }),
+  acceptInvite: (input: { token: string; password: string }) =>
+    request<{ next: 'enroll_totp' }>('POST', '/api/auth/invite/accept', input),
+  deviceStatus: () => request<{ status: DeviceStatus }>('GET', '/api/auth/device'),
+  signOut: () => request<{ ok: true }>('POST', '/api/auth/logout'),
+
+  me: () => request<Me>('GET', '/api/me'),
+  tree: () => request<Tree>('GET', '/api/tree'),
+};

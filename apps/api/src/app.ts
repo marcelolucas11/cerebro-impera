@@ -2,12 +2,26 @@ import cookie from '@fastify/cookie';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Deps } from './deps.js';
 import { forbidden, fromDatabaseError, HttpError } from './http/errors.js';
+import { isApiPath, loadBundle, pathOf, serveFromBundle } from './http/web.js';
 import { registerRoutes } from './routes.js';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+/** Sent with every response unless the handler already chose something more specific. */
+const DEFAULT_HEADERS: Record<string, string> = {
+  'cache-control': 'no-store',
+  'content-security-policy': "default-src 'none'; frame-ancestors 'none'",
+  'cross-origin-resource-policy': 'same-origin',
+  'referrer-policy': 'no-referrer',
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+  // Scoped to this host on purpose: sibling subdomains belong to other systems.
+  'strict-transport-security': 'max-age=31536000',
+};
+
 export async function buildApp(deps: Deps): Promise<FastifyInstance> {
   const { config } = deps;
+  const bundle = config.webRoot === null ? null : loadBundle(config.webRoot);
   const app = Fastify({
     logger:
       config.env === 'test'
@@ -34,7 +48,10 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
    * same domain, and browsers treat those as the "same site": SameSite cookies
    * alone would not stop a request forged from one of them. So every
    * state-changing request must carry this application's exact Origin, and any
-   * request the browser labels as coming from elsewhere is refused.
+   * request to the API the browser labels as coming from elsewhere is refused.
+   *
+   * The page itself (static files, no personal data) may be opened from
+   * anywhere: an invite link clicked in a webmail or chat must work.
    */
   app.addHook('onRequest', (request, _reply, done) => {
     const site = request.headers['sec-fetch-site'];
@@ -47,7 +64,12 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
         done(forbidden('bad_origin'));
         return;
       }
-    } else if (site !== undefined && site !== 'same-origin' && site !== 'none') {
+    } else if (
+      (bundle === null || isApiPath(pathOf(request.url))) &&
+      site !== undefined &&
+      site !== 'same-origin' &&
+      site !== 'none'
+    ) {
       done(forbidden('bad_origin'));
       return;
     }
@@ -55,16 +77,9 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
   });
 
   app.addHook('onSend', (_request, reply, payload, done) => {
-    void reply.headers({
-      'cache-control': 'no-store',
-      'content-security-policy': "default-src 'none'; frame-ancestors 'none'",
-      'cross-origin-resource-policy': 'same-origin',
-      'referrer-policy': 'no-referrer',
-      'x-content-type-options': 'nosniff',
-      'x-frame-options': 'DENY',
-      // Scoped to this host on purpose: sibling subdomains belong to other systems.
-      'strict-transport-security': 'max-age=31536000',
-    });
+    for (const [name, value] of Object.entries(DEFAULT_HEADERS)) {
+      if (!reply.hasHeader(name)) void reply.header(name, value);
+    }
     done(null, payload);
   });
 
@@ -89,9 +104,10 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
     return reply.status(500).send({ error: { code: 'internal_error' } });
   });
 
-  app.setNotFoundHandler((_request, reply) =>
-    reply.status(404).send({ error: { code: 'not_found' } }),
-  );
+  app.setNotFoundHandler((request, reply) => {
+    if (bundle !== null && serveFromBundle(bundle, request, reply)) return reply;
+    return reply.status(404).send({ error: { code: 'not_found' } });
+  });
 
   registerRoutes(app, deps);
   return app;
