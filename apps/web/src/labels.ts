@@ -1,4 +1,4 @@
-import type { AccessLevel, ItemScope, UserStatus } from './api.js';
+import type { AccessLevel, ItemScope, StageKind, UserStatus } from './api.js';
 
 /* Names people read for the things the system stores as codes. One place, so they stay consistent. */
 
@@ -94,6 +94,24 @@ export function formatWhen(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? '' : when.format(date);
 }
+
+/** How long something has lasted, in the largest unit that fits: people compare days, not seconds. */
+export function formatDuration(milliseconds: number): string {
+  const minutes = Math.floor(Math.max(0, milliseconds) / 60_000);
+  if (minutes < 1) return 'menos de 1 minuto';
+  if (minutes < 60) return minutes === 1 ? '1 minuto' : `${minutes} minutos`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours === 1 ? '1 hora' : `${hours} horas`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? '1 dia' : `${days} dias`;
+}
+
+export const STAGE_KIND_NAMES: Record<StageKind, string> = {
+  open: 'Ainda não começou',
+  active: 'Em andamento',
+  done: 'Concluído',
+  closed: 'Encerrado sem concluir',
+};
 
 export function lastUsed(iso: string | null): string {
   return iso === null

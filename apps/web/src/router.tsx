@@ -26,6 +26,14 @@ export function usePath(): string {
   return useSyncExternalStore(subscribe, () => window.location.pathname);
 }
 
+const ID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const LIST_PATH = new RegExp(`^/listas/(${ID})$`);
+
+/** The list an address points at, when it is the address of a list. */
+export function listIdFrom(path: string): string | undefined {
+  return LIST_PATH.exec(path)?.[1];
+}
+
 export function Link({
   to,
   current,

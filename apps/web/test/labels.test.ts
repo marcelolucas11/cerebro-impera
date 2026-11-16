@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { actionName, CAPABILITY_NAMES, describeDevice, lastUsed } from '../src/labels.js';
+import {
+  actionName,
+  CAPABILITY_NAMES,
+  describeDevice,
+  formatDuration,
+  lastUsed,
+} from '../src/labels.js';
 
 describe('how a device is described to whoever approves it', () => {
   it('names the browser and the system', () => {
@@ -66,5 +72,27 @@ describe('names for what the system records', () => {
       expect(CAPABILITY_NAMES[key]?.name, key).toBeTruthy();
       expect(CAPABILITY_NAMES[key]?.detail, key).toBeTruthy();
     }
+  });
+});
+
+describe('how long something took, the way people say it', () => {
+  it('uses the largest unit that fits and never a fraction', () => {
+    const minute = 60_000;
+    const cases: [number, string][] = [
+      [0, 'menos de 1 minuto'],
+      [59_000, 'menos de 1 minuto'],
+      [minute, '1 minuto'],
+      [59 * minute, '59 minutos'],
+      [60 * minute, '1 hora'],
+      [23 * 60 * minute + 59 * minute, '23 horas'],
+      [24 * 60 * minute, '1 dia'],
+      [10 * 24 * 60 * minute + 5 * minute, '10 dias'],
+    ];
+    for (const [milliseconds, expected] of cases)
+      expect(formatDuration(milliseconds)).toBe(expected);
+  });
+
+  it('treats a clock that runs backwards as no time at all', () => {
+    expect(formatDuration(-5_000)).toBe('menos de 1 minuto');
   });
 });

@@ -36,6 +36,10 @@ const BY_CODE: Record<string, string> = {
   unauthorized: 'Sua sessão terminou. Entre de novo.',
   rule_violation: 'Isso deixaria o sistema sem nenhum Dono ativo, então não é permitido.',
   conflict: 'Já existe um registro assim.',
+  already_exists: 'Já existe uma com esse nome.',
+  stage_in_use: 'Ainda há itens nesta etapa. Escolha para onde eles vão antes de removê-la.',
+  invalid_stage: 'Essa etapa não pertence a esta lista.',
+  too_many_stages: 'Esta lista já tem o máximo de etapas.',
   setup_closed:
     'Token de instalação incorreto, ou a instalação já foi concluída. O token está no arquivo setup-token do servidor.',
   invalid_invite: 'Este convite não vale mais. Peça um novo a quem administra o sistema.',

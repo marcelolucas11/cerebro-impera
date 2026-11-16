@@ -3,6 +3,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { api, type Tree } from '../api.js';
 import { LEVEL_NAMES } from '../labels.js';
 import { describeError } from '../messages.js';
+import { Link } from '../router.js';
 import { Button, Field, Form, Notice, Select, useAction } from '../ui/kit.js';
 
 /** The areas this person can reach. Owners also shape the structure here. */
@@ -55,7 +56,9 @@ function Lists({ lists }: { lists: Tree['lists'] }): ReactNode {
       {lists.map((list) => (
         <li key={list.id}>
           <span>
-            {list.name}
+            <Link to={`/listas/${list.id}`} current={false}>
+              {list.name}
+            </Link>
             {list.isSensitive ? <span className="tag tag-brand">sensível</span> : null}
           </span>
           <span className="muted">

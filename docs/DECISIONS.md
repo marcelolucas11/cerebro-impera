@@ -183,6 +183,36 @@ estados. Todas as cores e fontes são variáveis: uma instalação white label t
 regras. O roteador de telas entra junto com a navegação por espaços (Fases 2 e 3); até lá as telas
 de entrada são uma máquina de estados simples.
 
+## D20 — Etapas pertencem à lista, e o tempo em cada etapa é escrito pelo banco
+
+**Decisão.** Cada lista tem as próprias etapas (nome, cor, ordem e um significado entre "a fazer",
+"em andamento", "concluído" e "encerrado"). O item aponta para a etapa por uma chave que inclui a
+lista, então um item nunca fica em etapa de outra lista. Uma lista nunca fica sem etapa. A entrada
+e a saída de cada etapa são gravadas por gatilho do banco; a aplicação não tem privilégio para
+escrever, corrigir ou apagar esse histórico, nem para definir "desde quando" o item está na etapa.
+
+**Por quê.** O nome da etapa é livre (cada área usa as suas), mas relatórios precisam saber o que
+conta como aberto ou concluído; o significado resolve isso sem engessar os nomes. E o tempo em
+cada etapa só serve para cobrar e medir se ninguém puder reescrevê-lo.
+
+## D21 — Quem só vê os próprios itens é responsável pelo que cria
+
+**Decisão.** Quando alguém cujo acesso à lista é "só os itens atribuídos a mim" cria um item, o
+banco o atribui a essa pessoa no mesmo instante.
+
+**Por quê.** Sem isso o item some da tela de quem acabou de criar, e a pessoa cria de novo. A regra
+fica no banco para valer por qualquer caminho (tela, automação, importação).
+
+## D22 — Confirmação do 2º fator fora da transação da requisição
+
+**Decisão.** A rota que confirma o 2º fator primeiro identifica quem pede, encerra essa transação
+e só então chama o serviço de login. Todas as conexões têm limite de espera por trava (5 s).
+
+**Por quê.** Toda requisição autenticada atualiza a linha da sessão. O serviço de login, por outra
+conexão, atualizava a mesma linha enquanto a primeira transação ainda estava aberta: uma esperava
+a outra dentro da mesma requisição, e a confirmação travava. O limite de espera garante que um erro
+parecido no futuro falhe rápido e apareça nos testes, em vez de segurar conexões.
+
 ## Adiado, com motivo
 
 | Item                        | Situação                                                                                     |
