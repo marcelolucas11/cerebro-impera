@@ -56,6 +56,7 @@ papéis, gatilhos e row-level security de verdade, então não há banco simulad
 pnpm install --frozen-lockfile
 export TEST_PG_ADMIN_URL='postgres://postgres:<senha>@127.0.0.1:5432/postgres'
 pnpm check        # lint, formatação, tipos e todos os testes
+pnpm e2e          # percurso completo num navegador real (antes: pnpm --filter @cerebro/web exec playwright install chromium)
 ```
 
 Antes do primeiro commit, ative a trava contra segredos:
