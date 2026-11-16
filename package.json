@@ -16,7 +16,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "pnpm --filter @cerebro/shared build && pnpm -r test",
-    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test"
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test",
+    "e2e": "pnpm -r build && pnpm --filter @cerebro/web e2e"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
