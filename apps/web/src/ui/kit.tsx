@@ -7,12 +7,53 @@ import {
   type ReactNode,
   type SyntheticEvent,
 } from 'react';
+import { ApiError } from '../api.js';
 import { describeError } from '../messages.js';
+import { announceSignedOut } from '../session.js';
+import { Cancelled } from '../cancelled.js';
 
 interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {
   label: string;
   hint?: ReactNode;
   error?: string | null;
+}
+
+interface SelectProps<V extends string> {
+  label: string;
+  value: V;
+  options: readonly { value: V; label: string }[];
+  onChange: (value: V) => void;
+  disabled?: boolean;
+}
+
+export function Select<V extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  disabled,
+}: SelectProps<V>): ReactNode {
+  const id = useId();
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <select
+        id={id}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => {
+          const chosen = options.find((option) => option.value === event.target.value);
+          if (chosen) onChange(chosen.value);
+        }}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 }
 
 export function Field({ label, hint, error, ...input }: FieldProps): ReactNode {
@@ -111,6 +152,9 @@ export function useAction<A extends unknown[]>(
       setError(null);
       action(...args)
         .catch((failure: unknown) => {
+          // Backing out of a confirmation is a choice, not a failure.
+          if (failure instanceof Cancelled) return;
+          if (failure instanceof ApiError && failure.code === 'unauthorized') announceSignedOut();
           setError(describeError(failure));
         })
         .finally(() => {
