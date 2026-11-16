@@ -842,9 +842,201 @@ tr[aria-selected='true'] > * {
   align-items: start;
 }
 
+/* ---- Custom fields ----------------------------------------------------- */
+
+.shell-main-wide {
+  max-width: 100rem;
+}
+
+/* A list with field columns: the same row, with one more column per field. */
+.item-row.has-columns {
+  grid-template-columns:
+    minmax(10rem, 1.5fr) 9rem 8rem repeat(var(--colunas, 1), minmax(6rem, 1fr))
+    10rem;
+  column-gap: 1rem;
+}
+
+.item-head {
+  padding: 0.25rem 0;
+  color: var(--texto-suave);
+  font-size: var(--menor);
+}
+
+.item-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* On a wide screen the column heading names the field; the name inside the
+   cell is for screen readers and for small screens, where there are no columns. */
+.cell-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.chosen {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+}
+
+.chosen-option {
+  display: inline-flex;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+.item-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.75rem 1rem;
+  align-items: start;
+}
+
+.item-fields > :has(textarea),
+.item-fields > .ticks {
+  grid-column: 1 / -1;
+}
+
+.item-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.75rem 1.5rem;
+  margin: 0;
+}
+
+.item-facts dt {
+  color: var(--texto-suave);
+  font-size: var(--menor);
+}
+
+.item-facts dd {
+  margin: 0;
+  min-height: 1.5em;
+  overflow-wrap: anywhere;
+}
+
+.ticks {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.ticks legend,
+.field-label {
+  padding: 0;
+  font-size: var(--menor);
+  font-weight: 600;
+}
+
+.tick {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: var(--corpo);
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.field .tick input {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--marca);
+}
+
+.fixed-value {
+  padding: 0.6875rem 0;
+  color: var(--texto-suave);
+}
+
+.field-fields {
+  display: grid;
+  grid-template-columns: minmax(10rem, 24rem) minmax(9rem, 12rem) minmax(10rem, 16rem);
+  gap: 1rem;
+  align-items: start;
+  justify-content: start;
+}
+
+.copy-from {
+  max-width: 28rem;
+}
+
+.options-editor {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  padding-left: 1rem;
+  border-left: 1px solid var(--linha);
+}
+
+.option-row {
+  display: grid;
+  grid-template-columns: minmax(10rem, 20rem) auto auto;
+  gap: 1rem;
+  align-items: end;
+}
+
+.option-row.is-archived input {
+  opacity: 0.55;
+}
+
+/* Not wide enough for columns: each item becomes a short paragraph of facts,
+   every value next to the name of its field. */
+@media (max-width: 76rem) {
+  .item-row.has-columns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.5rem;
+    align-items: baseline;
+  }
+
+  .item-row.has-columns .item-title,
+  .item-row.has-columns .stage-select {
+    flex: 1 1 100%;
+  }
+
+  .item-row.has-columns .stage-select {
+    max-width: 20rem;
+  }
+
+  .item-head.item-head {
+    display: none;
+  }
+
+  .item-cell {
+    white-space: normal;
+  }
+
+  .item-cell.is-empty {
+    display: none;
+  }
+
+  .cell-name {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+    color: var(--texto-suave);
+    font-size: var(--menor);
+  }
+}
+
 @media (max-width: 52rem) {
   .item-row,
   .stage-fields,
+  .field-fields,
+  .option-row,
   .add-item {
     grid-template-columns: minmax(0, 1fr);
   }

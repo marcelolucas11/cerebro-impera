@@ -1,5 +1,6 @@
 import type { PasswordProblem } from '@cerebro/shared';
 import { ApiError, type Role } from './api.js';
+import { describeFieldProblem } from './fieldvalues.js';
 
 /*
  * Every sentence a person reads when something does not go through. Each one
@@ -40,6 +41,13 @@ const BY_CODE: Record<string, string> = {
   stage_in_use: 'Ainda há itens nesta etapa. Escolha para onde eles vão antes de removê-la.',
   invalid_stage: 'Essa etapa não pertence a esta lista.',
   too_many_stages: 'Esta lista já tem o máximo de etapas.',
+  too_many_fields: 'Esta lista já tem o máximo de campos. Arquive um para criar outro.',
+  invalid_field: 'Esse campo não pertence a esta lista, ou foi arquivado.',
+  invalid_option: 'Uma das opções não pertence a este campo. Recarregue a página e tente de novo.',
+  option_cannot_be_removed:
+    'Opções não são apagadas, só arquivadas: assim os itens que já a usam continuam certos.',
+  rating_scale_is_fixed: 'A escala de uma nota não muda depois de criada. Crie outro campo.',
+  invalid_list: 'Escolha outra lista.',
   setup_closed:
     'Token de instalação incorreto, ou a instalação já foi concluída. O token está no arquivo setup-token do servidor.',
   invalid_invite: 'Este convite não vale mais. Peça um novo a quem administra o sistema.',
@@ -66,6 +74,7 @@ export function describeError(error: unknown): string {
       );
       return first ? PASSWORD_PROBLEMS[first] : 'Escolha uma senha mais forte.';
     }
+    if (error.code === 'invalid_field_value') return describeFieldProblem(error.details.problem);
     const known = BY_CODE[error.code];
     if (known !== undefined) return known;
   }

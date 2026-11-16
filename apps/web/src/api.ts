@@ -1,3 +1,5 @@
+import type { FieldConfig, FieldKind, FieldValue } from '@cerebro/shared';
+
 /** A refusal from the server, or `network` when it could not be reached. */
 export class ApiError extends Error {
   readonly status: number;
@@ -170,6 +172,30 @@ export interface Item {
   assignees: string[];
   stageId: string;
   stageSince: string;
+  /** Values of the list's custom fields, by field id. A field with no value is absent. */
+  fields: Record<string, FieldValue>;
+}
+export interface CustomField {
+  id: string;
+  listId: string;
+  originId: string;
+  name: string;
+  kind: FieldKind;
+  config: FieldConfig;
+  position: number;
+  archived: boolean;
+}
+/** An option as it is sent: existing ones carry their id, new ones do not. */
+export interface OptionDraft {
+  id?: string;
+  name: string;
+  color?: string;
+  archived?: boolean;
+}
+export interface FieldConfigDraft {
+  options?: OptionDraft[];
+  currency?: string;
+  max?: number;
 }
 export interface StageStay {
   stageId: string;
@@ -264,8 +290,37 @@ export const api = {
   items: (listId: string) => request<Item[]>('GET', `/api/lists/${listId}/items`),
   createItem: (listId: string, input: { title: string; stageId?: string }) =>
     request<Item>('POST', `/api/lists/${listId}/items`, input),
-  updateItem: (id: string, input: { title?: string; description?: string; stageId?: string }) =>
-    request<Item>('PATCH', `/api/items/${id}`, input),
+  updateItem: (
+    id: string,
+    input: {
+      title?: string;
+      description?: string;
+      stageId?: string;
+      /** `null` clears a field. */
+      fields?: Record<string, FieldValue | null>;
+    },
+  ) => request<Item>('PATCH', `/api/items/${id}`, input),
+  fields: (listId: string, options: { archived?: boolean } = {}) =>
+    request<CustomField[]>(
+      'GET',
+      `/api/lists/${listId}/fields${options.archived === true ? '?archived=1' : ''}`,
+    ),
+  createField: (
+    listId: string,
+    input: { name: string; kind: FieldKind; config?: FieldConfigDraft },
+  ) => request<CustomField>('POST', `/api/lists/${listId}/fields`, input),
+  updateField: (
+    id: string,
+    input: { name?: string; config?: FieldConfigDraft; archived?: boolean },
+  ) => request<CustomField>('PATCH', `/api/fields/${id}`, input),
+  reorderFields: (listId: string, ids: string[]) =>
+    request<CustomField[]>('PUT', `/api/lists/${listId}/fields/order`, { ids }),
+  copyFields: (listId: string, fromListId: string) =>
+    request<{ created: CustomField[]; skipped: string[] }>(
+      'POST',
+      `/api/lists/${listId}/fields/copy`,
+      { fromListId },
+    ),
   stageHistory: (itemId: string) =>
     request<StageStay[]>('GET', `/api/items/${itemId}/stage-history`),
 
