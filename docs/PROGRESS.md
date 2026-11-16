@@ -5,25 +5,25 @@
 
 ## Onde estamos
 
-**Fase 1 — Fundação e segurança.** Backend concluído e testado. Faltam a infraestrutura de
-execução (imagem e Compose) e a interface.
+**Fase 1 — Fundação e segurança.** Backend e infraestrutura de execução concluídos e provados no
+CI. Falta a interface.
 
-| Fase                                                          | Situação                                               |
-| ------------------------------------------------------------- | ------------------------------------------------------ |
-| 0. Preparação do repositório (proteções no GitHub)            | depende do mantenedor, ver "Pendências"                |
-| **1. Fundação e segurança**                                   | **backend pronto; infraestrutura e interface a fazer** |
-| 2. Estrutura (etapas, campos personalizados, anexos, lixeira) | a fazer                                                |
-| 3. Visões (lista, quadro, calendário, tabela, linha do tempo) | a fazer                                                |
-| 4. Tarefas e colaboração                                      | a fazer                                                |
-| 5. Automações                                                 | a fazer                                                |
-| 6. Painéis e relatórios                                       | a fazer                                                |
-| 7. PWA e offline                                              | a fazer                                                |
-| 8. Atualizador assinado                                       | a fazer                                                |
-| 9. Backup e restauração                                       | a fazer                                                |
-| 10. White label, assistente visual e formulários              | a fazer                                                |
-| 11. Blindagem (revisão independente)                          | a fazer                                                |
-| 12. Implantação                                               | só com autorização do mantenedor                       |
-| 13. Migração de dados                                         | só com autorização do mantenedor                       |
+| Fase                                                          | Situação                                                |
+| ------------------------------------------------------------- | ------------------------------------------------------- |
+| 0. Preparação do repositório (proteções no GitHub)            | depende do mantenedor, ver "Pendências"                 |
+| **1. Fundação e segurança**                                   | **backend e infraestrutura prontos; interface a fazer** |
+| 2. Estrutura (etapas, campos personalizados, anexos, lixeira) | a fazer                                                 |
+| 3. Visões (lista, quadro, calendário, tabela, linha do tempo) | a fazer                                                 |
+| 4. Tarefas e colaboração                                      | a fazer                                                 |
+| 5. Automações                                                 | a fazer                                                 |
+| 6. Painéis e relatórios                                       | a fazer                                                 |
+| 7. PWA e offline                                              | a fazer                                                 |
+| 8. Atualizador assinado                                       | a fazer                                                 |
+| 9. Backup e restauração                                       | a fazer                                                 |
+| 10. White label, assistente visual e formulários              | a fazer                                                 |
+| 11. Blindagem (revisão independente)                          | a fazer                                                 |
+| 12. Implantação                                               | só com autorização do mantenedor                        |
+| 13. Migração de dados                                         | só com autorização do mantenedor                        |
 
 ## Feito na Fase 1
 
@@ -38,6 +38,10 @@ execução (imagem e Compose) e a interface.
 - Segredos da instância gerados no servidor (`init-secrets`); migrador com checksum.
 - Repositório: CI (segredos, lint, tipos, testes, dependências), CodeQL, Scorecard, Dependabot,
   CODEOWNERS, trava de pre-commit, `SECURITY.md`, `CONTRIBUTING.md`.
+- Infraestrutura (`apps/api/Dockerfile`, `infra/compose.yaml`): imagem sem root com código somente
+  leitura; banco em rede interna; API publicada só em `127.0.0.1`; segredos gerados no primeiro
+  start. O job "Imagem e Compose" do CI constrói a imagem, sobe uma instalação do zero e confere
+  essas garantias a cada pull request.
 
 ### O que os testes provam (92 testes)
 
@@ -63,24 +67,22 @@ pnpm check
 
 ## Ainda não verificado
 
-- **Os workflows do GitHub Actions nunca rodaram.** Foram validados só como YAML. A primeira
-  execução acontece no primeiro push; corrigir o que aparecer antes de seguir.
-- Nada foi executado em contêiner: não existe imagem nem Compose ainda.
+- Os workflows rodaram e passaram na `main` (CI, CodeQL, Scorecard). O passo "Revisão das
+  dependências novas do PR" reprova enquanto o "Dependency graph" estiver desligado nas
+  configurações do repositório (ver "Pendências").
+- As imagens base ainda são referenciadas por tag, não por digest. Fixar no pipeline de release
+  (Fase 8).
 - `pnpm audit` aponta 1 aviso de severidade moderada (`minimatch`, via `eslint`, só em
   desenvolvimento; não entra no que roda em produção). O CI barra a partir de severidade alta.
-  Resolver quando o `eslint` publicar a correção.
 
 ## Próximo passo exato
 
-1. **Imagem e Compose** (`infra/`): Dockerfile multi-estágio da API (usuário sem root, sistema de
-   arquivos somente leitura), `compose.yaml` com `postgres` e `api` em rede interna, sem portas
-   publicadas além da API em `127.0.0.1`, limites de memória, healthchecks, diretório de
-   configuração montado de fora do repositório. Job no CI que constrói a imagem e sobe o Compose.
-2. **Interface da Fase 1** (`apps/web`, React + Vite): assistente de instalação, login com 2º
-   fator, cadastro do autenticador com QR code, espera de aprovação de dispositivo, tela de
-   pessoas, capacidades e concessões, dispositivos e sessões, auditoria e alertas. CSP estrita.
-3. Fechar os itens adiados da Fase 1 que dependem da interface (passkeys, CAPTCHA).
-4. Só então a Fase 2.
+1. **Interface da Fase 1** (`apps/web`, React + Vite), servida pela própria API com CSP estrita:
+   assistente de instalação, login com 2º fator, cadastro do autenticador com QR code, espera de
+   aprovação de dispositivo, aceite de convite; depois pessoas, capacidades e concessões,
+   dispositivos e sessões, auditoria e alertas.
+2. Fechar os itens adiados da Fase 1 que dependem da interface (passkeys, CAPTCHA).
+3. Só então a Fase 2.
 
 ## Pendências do mantenedor (Fase 0)
 
@@ -88,8 +90,8 @@ pnpm check
 - [ ] Proteção da branch `main`: pull request obrigatório, revisão de mantenedor, CI obrigatório,
       commits assinados, histórico linear, sem force-push. _(Só pode ser ligada depois do primeiro
       commit existir na `main`.)_
-- [ ] Ligar "Private vulnerability reporting", alertas do Dependabot e "Secret scanning" com
-      "Push protection".
+- [ ] Ligar "Private vulnerability reporting", "Dependency graph" e alertas do Dependabot.
+      ("Secret scanning" com "Push protection" já está ligado.)
 - [ ] Segundo mantenedor como colaborador e em `.github/CODEOWNERS`.
 - [ ] Confirmar a licença (padrão atual: AGPL-3.0-only).
 - [ ] Decidir se o repositório ganha um nome genérico.
