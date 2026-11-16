@@ -33,6 +33,9 @@ const BY_CODE: Record<string, string> = {
   invalid_code:
     'Código incorreto ou já usado. Espere o aplicativo mostrar um código novo e digite de novo.',
   challenge_required: 'A etapa da senha expirou. Entre de novo.',
+  unauthorized: 'Sua sessão terminou. Entre de novo.',
+  rule_violation: 'Isso deixaria o sistema sem nenhum Dono ativo, então não é permitido.',
+  conflict: 'Já existe um registro assim.',
   setup_closed:
     'Token de instalação incorreto, ou a instalação já foi concluída. O token está no arquivo setup-token do servidor.',
   invalid_invite: 'Este convite não vale mais. Peça um novo a quem administra o sistema.',

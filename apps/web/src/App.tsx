@@ -3,8 +3,8 @@ import { api, ApiError, type SignInResult } from './api.js';
 import { describeError } from './messages.js';
 import { DevicePending } from './screens/DevicePending.js';
 import { Enroll, Invite } from './screens/Enroll.js';
-import { Home } from './screens/Home.js';
 import { Setup } from './screens/Setup.js';
+import { Shell } from './screens/Shell.js';
 import { SecondFactor, SignIn } from './screens/SignIn.js';
 import { Button, Notice } from './ui/kit.js';
 
@@ -113,6 +113,6 @@ export function App(): ReactNode {
     case 'device-pending':
       return <DevicePending instanceName={instanceName} onSignIn={toSignIn} />;
     case 'app':
-      return <Home onSignedOut={toSignIn} />;
+      return <Shell onSignedOut={toSignIn} />;
   }
 }

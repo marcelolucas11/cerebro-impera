@@ -20,7 +20,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * Every call goes to this page's own origin. The session lives in an HttpOnly
  * cookie the script cannot read, so there is no token to keep (or leak) here.
  */
-async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+async function request<T>(method: Method, path: string, body?: unknown): Promise<T> {
   let response: Response;
   try {
     response = await fetch(path, {
@@ -90,6 +92,72 @@ export interface Tree {
   }[];
 }
 
+export type UserStatus = 'invited' | 'active' | 'suspended';
+export type AccessLevel = 'none' | 'view' | 'comment' | 'edit' | 'manage';
+export type ItemScope = 'assigned' | 'all';
+export type ScopeType = 'space' | 'folder' | 'list';
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  status: UserStatus;
+  createdAt: string;
+  capabilities: string[];
+}
+export interface InviteLink {
+  token: string;
+  kind: 'invite' | 'reset';
+  expiresAt: string;
+}
+export interface Grant {
+  id: string;
+  userId: string;
+  scopeType: ScopeType;
+  scopeId: string;
+  level: AccessLevel;
+  itemScope: ItemScope;
+  grantedBy: string;
+  updatedAt: string;
+}
+export interface Device {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userRole: Role;
+  status: Exclude<DeviceStatus, 'unknown'>;
+  userAgent: string;
+  createdAt: string;
+  createdIp: string | null;
+  lastSeenAt: string | null;
+}
+export interface Alert {
+  id: string;
+  at: string;
+  kind: string;
+  severity: 'info' | 'warning' | 'critical';
+  actorUserId: string | null;
+  acknowledgedAt: string | null;
+}
+export interface AuditEntry {
+  seq: number;
+  at: string;
+  actorUserId: string | null;
+  ip: string | null;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+}
+export interface GrantInput {
+  userId: string;
+  scopeType: ScopeType;
+  scopeId: string;
+  level: AccessLevel;
+  itemScope?: ItemScope;
+}
+
 export interface SetupInput {
   setupToken: string;
   instanceName: string;
@@ -121,4 +189,42 @@ export const api = {
 
   me: () => request<Me>('GET', '/api/me'),
   tree: () => request<Tree>('GET', '/api/tree'),
+  stepUp: (code: string) => request<unknown>('POST', '/api/auth/step-up', { code }),
+
+  users: () => request<User[]>('GET', '/api/users'),
+  createUser: (input: { email: string; name: string; role: Role }) =>
+    request<{ user: User; invite: InviteLink }>('POST', '/api/users', input),
+  updateUser: (id: string, input: { role?: Role; status?: 'active' | 'suspended' }) =>
+    request<unknown>('PATCH', `/api/users/${id}`, input),
+  setCapabilities: (id: string, capabilities: string[]) =>
+    request<unknown>('PUT', `/api/users/${id}/capabilities`, { capabilities }),
+  newAccessLink: (id: string) => request<InviteLink>('POST', `/api/users/${id}/invite`),
+  revokeSessions: (id: string) => request<unknown>('POST', `/api/users/${id}/revoke-sessions`),
+  userGrants: (id: string) => request<Grant[]>('GET', `/api/users/${id}/grants`),
+  putGrant: (input: GrantInput) => request<Grant>('PUT', '/api/grants', input),
+  deleteGrant: (id: string) => request<unknown>('DELETE', `/api/grants/${id}`),
+
+  devices: () => request<Device[]>('GET', '/api/devices'),
+  decideDevice: (id: string, decision: 'approve' | 'reject' | 'revoke') =>
+    request<unknown>('POST', `/api/devices/${id}/decision`, { decision }),
+
+  alerts: () => request<Alert[]>('GET', '/api/alerts'),
+  acknowledgeAlert: (id: string) => request<unknown>('POST', `/api/alerts/${id}/acknowledge`),
+  audit: (before?: number) =>
+    request<AuditEntry[]>(
+      'GET',
+      `/api/audit?limit=50${before === undefined ? '' : `&before=${before}`}`,
+    ),
+  verifyAudit: () =>
+    request<{ ok: boolean; checked: number; brokenSeq: number | null }>('GET', '/api/audit/verify'),
+
+  createSpace: (name: string) => request<{ id: string }>('POST', '/api/spaces', { name }),
+  createFolder: (input: { spaceId: string; name: string }) =>
+    request<{ id: string }>('POST', '/api/folders', input),
+  createList: (input: {
+    spaceId: string;
+    folderId: string | null;
+    name: string;
+    isSensitive: boolean;
+  }) => request<{ id: string }>('POST', '/api/lists', input),
 };
