@@ -151,6 +151,38 @@ serviço precisa abrir as próprias modificações.
 Código, identificadores e comentários em inglês; documentação e interface em português (com
 internacionalização prevista).
 
+## D17 — A própria API serve a página, a partir da memória
+
+**Decisão.** A página compilada (`apps/web/dist`) é lida uma vez na inicialização para uma tabela
+fixa de endereços exatos. Uma requisição só pode escolher uma entrada dessa tabela: nenhum caminho
+vindo da rede é resolvido no sistema de arquivos. Arquivos ocultos, atalhos e tipos desconhecidos
+ficam de fora. Sem dependência extra para servir arquivos.
+
+**Por quê.** Uma origem só (página e API), sem regra de proxy para errar, e sem a classe inteira de
+falhas de "sair da pasta". _Diverge do desenho inicial (contêiner `web` separado) por ser mais
+simples e mais fechado._
+
+## D18 — A página não executa nada que não seja dela
+
+**Decisão.** A página é servida com uma política (CSP) que só permite scripts, estilos, fontes e
+requisições da própria origem: nada embutido, nada de fora, nunca em moldura, e formulários nunca
+enviados pelo navegador por conta própria. As fontes vão empacotadas junto. A página pode ser
+aberta por um link vindo de qualquer lugar (um convite clicado no e-mail precisa funcionar); a API
+continua recusando requisições de outras origens.
+
+**Por quê.** Se um texto malicioso chegar à tela (um nome, um comentário), a política impede que
+ele vire código. O token de convite viaja depois do `#` do endereço, parte que o navegador nunca
+envia ao servidor, então não aparece em logs nem em proxies.
+
+## D19 — Interface: tipografia e cores a serviço da leitura
+
+**Decisão.** Uma família tipográfica desenhada para não confundir caracteres parecidos (I, l, 1,
+O, 0), porque a ferramenta é feita de nomes, códigos e status lidos o dia todo. Fundo escuro em
+ardósia, um único tom de destaque para a ação principal e a etapa atual, verde e vermelho só para
+estados. Todas as cores e fontes são variáveis: uma instalação white label troca os valores, não as
+regras. O roteador de telas entra junto com a navegação por espaços (Fases 2 e 3); até lá as telas
+de entrada são uma máquina de estados simples.
+
 ## Adiado, com motivo
 
 | Item                        | Situação                                                                                     |

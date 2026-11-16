@@ -103,6 +103,14 @@ jobs:
           test "$(curl --silent http://127.0.0.1:3000/api/setup/status | jq --raw-output .needsSetup)" = "true"
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/api/me)" = "401"
 
+          echo "a página vem com a política que proíbe código embutido e de outras origens"
+          curl --silent --show-error --fail --dump-header headers.txt --output page.html http://127.0.0.1:3000/
+          grep --quiet '<div id="app">' page.html
+          grep --ignore-case --quiet "^content-security-policy: default-src 'none'; script-src 'self'; style-src 'self'" headers.txt
+          if grep --ignore-case '^content-security-policy:' headers.txt | grep --quiet 'unsafe'; then exit 1; fi
+          asset="$(grep --only-matching '/assets/[^"]*\.js' page.html | head -n 1)"
+          curl --silent --show-error --fail --output /dev/null "http://127.0.0.1:3000${asset}"
+
           echo "a API não roda como root e não consegue alterar o próprio código"
           test "$(docker compose exec -T api id -u)" != "0"
           if docker compose exec -T api sh -c 'touch /app/dist/x' 2> /dev/null; then exit 1; fi

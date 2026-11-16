@@ -28,7 +28,7 @@ export interface TestEnv {
 }
 
 /** A private, fully migrated database plus an API instance wired to it. */
-export async function createTestEnv(): Promise<TestEnv> {
+export async function createTestEnv(options: { webRoot?: string } = {}): Promise<TestEnv> {
   const shared = inject('testDatabase');
   const adminUrl = new URL(shared.adminUrl);
   const database = `${shared.template.replace(/template$/, '')}${randomBytes(6).toString('hex')}`;
@@ -61,6 +61,7 @@ export async function createTestEnv(): Promise<TestEnv> {
     // Deliberately cheap: these tests are about behaviour, not hashing cost.
     argon2: { memoryCost: 4096, timeCost: 1, parallelism: 1 },
     setupTokenFile: join(configDir, 'setup-token'),
+    webRoot: options.webRoot ?? null,
   };
 
   const clock = {
