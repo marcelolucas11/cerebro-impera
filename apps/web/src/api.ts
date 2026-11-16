@@ -150,6 +150,35 @@ export interface AuditEntry {
   targetType: string | null;
   targetId: string | null;
 }
+export type StageKind = 'open' | 'active' | 'done' | 'closed';
+export interface Stage {
+  id: string;
+  listId: string;
+  name: string;
+  color: string;
+  kind: StageKind;
+  position: number;
+}
+export interface Item {
+  id: string;
+  listId: string;
+  title: string;
+  description: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  assignees: string[];
+  stageId: string;
+  stageSince: string;
+}
+export interface StageStay {
+  stageId: string;
+  stageName: string;
+  enteredAt: string;
+  leftAt: string | null;
+  movedBy: string | null;
+}
+
 export interface GrantInput {
   userId: string;
   scopeType: ScopeType;
@@ -217,6 +246,28 @@ export const api = {
     ),
   verifyAudit: () =>
     request<{ ok: boolean; checked: number; brokenSeq: number | null }>('GET', '/api/audit/verify'),
+
+  stages: (listId: string) => request<Stage[]>('GET', `/api/lists/${listId}/stages`),
+  createStage: (listId: string, input: { name: string; color: string; kind: StageKind }) =>
+    request<Stage>('POST', `/api/lists/${listId}/stages`, input),
+  updateStage: (id: string, input: { name?: string; color?: string; kind?: StageKind }) =>
+    request<Stage>('PATCH', `/api/stages/${id}`, input),
+  reorderStages: (listId: string, ids: string[]) =>
+    request<Stage[]>('PUT', `/api/lists/${listId}/stages/order`, { ids }),
+  deleteStage: (id: string, moveTo?: string) =>
+    request<{ moved: number }>(
+      'DELETE',
+      `/api/stages/${id}`,
+      moveTo === undefined ? {} : { moveTo },
+    ),
+
+  items: (listId: string) => request<Item[]>('GET', `/api/lists/${listId}/items`),
+  createItem: (listId: string, input: { title: string; stageId?: string }) =>
+    request<Item>('POST', `/api/lists/${listId}/items`, input),
+  updateItem: (id: string, input: { title?: string; description?: string; stageId?: string }) =>
+    request<Item>('PATCH', `/api/items/${id}`, input),
+  stageHistory: (itemId: string) =>
+    request<StageStay[]>('GET', `/api/items/${itemId}/stage-history`),
 
   createSpace: (name: string) => request<{ id: string }>('POST', '/api/spaces', { name }),
   createFolder: (input: { spaceId: string; name: string }) =>

@@ -69,6 +69,16 @@ export async function authenticatorCode(secret: string): Promise<string> {
   return String(number).padStart(6, '0');
 }
 
+/**
+ * Saves a picture of the screen when CEREBRO_E2E_SHOTS names a folder, so a
+ * change to the interface can be looked at, not only asserted on.
+ */
+export async function shot(page: Page, name: string): Promise<void> {
+  const folder = process.env.CEREBRO_E2E_SHOTS;
+  if (folder === undefined || folder === '') return;
+  await page.screenshot({ path: join(folder, `${name}.png`), fullPage: true });
+}
+
 export async function heading(page: Page, name: string): Promise<void> {
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
 }

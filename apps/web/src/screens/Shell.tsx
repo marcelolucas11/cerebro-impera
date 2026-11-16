@@ -2,11 +2,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, type ReactNode } from 'react';
 import { api } from '../api.js';
 import { describeError, ROLE_NAMES } from '../messages.js';
-import { Link, usePath } from '../router.js';
+import { Link, listIdFrom, usePath } from '../router.js';
 import { onSignedOut as listenForSignOut } from '../session.js';
 import { StepUpProvider } from '../stepup.js';
 import { Button, Notice, useAction } from '../ui/kit.js';
 import { Devices } from './Devices.js';
+import { ListScreen } from './ListScreen.js';
 import { People } from './People.js';
 import { Security } from './Security.js';
 import { Spaces } from './Spaces.js';
@@ -59,6 +60,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
     { to: '/aparelhos', label: 'Aparelhos', show: true },
     { to: '/seguranca', label: 'Segurança', show: can('audit.view') },
   ].filter((section) => section.show);
+  const listId = listIdFrom(path);
   const here = sections.find((section) => section.to === path);
 
   return (
@@ -68,7 +70,11 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
           <p className="shell-brand">{instanceName}</p>
           <nav className="shell-nav" aria-label="Seções">
             {sections.map((section) => (
-              <Link key={section.to} to={section.to} current={section.to === path}>
+              <Link
+                key={section.to}
+                to={section.to}
+                current={section.to === path || (section.to === '/' && listId !== undefined)}
+              >
                 {section.label}
               </Link>
             ))}
@@ -85,7 +91,9 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
         </header>
         <main className="shell-main">
           {signOut.error ? <Notice tone="error">{signOut.error}</Notice> : null}
-          {here === undefined ? (
+          {listId !== undefined ? (
+            <ListScreen key={listId} listId={listId} me={user} canSeePeople={can('users.manage')} />
+          ) : here === undefined ? (
             <>
               <h1>Esta página não existe</h1>
               <p className="lead">

@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { authenticatorCode, heading, PASSWORD, setupToken, sql, watch } from './support.js';
+import { authenticatorCode, heading, PASSWORD, setupToken, shot, sql, watch } from './support.js';
 
 /*
  * One installation, from the first minute to a working team, in a real
@@ -246,6 +246,104 @@ test('opening one list to her shows that list and nothing else', async () => {
   await expect(ana.locator('main')).not.toContainText('Dinheiro');
 });
 
+test('items live in stages: each person works on what is theirs, and the list keeps the time', async () => {
+  const stageOf = (page: Page, name: string) => page.getByRole('region', { name: `Etapa ${name}` });
+
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  for (const name of ['A fazer', 'Fazendo', 'Feito']) {
+    await expect(stageOf(owner, name)).toContainText('0 itens');
+  }
+  await stageOf(owner, 'A fazer')
+    .getByRole('button', { name: 'Adicionar item em A fazer' })
+    .click();
+  await stageOf(owner, 'A fazer')
+    .getByLabel('Novo item em A fazer')
+    .fill('Subir campanha do cliente');
+  await stageOf(owner, 'A fazer').getByRole('button', { name: 'Adicionar', exact: true }).click();
+  await expect(stageOf(owner, 'A fazer')).toContainText('Subir campanha do cliente');
+  await expect(stageOf(owner, 'A fazer')).toContainText('1 item');
+
+  // The employee opens the same list and sees only what is hers: nothing yet.
+  await ana.goto('/');
+  await ana.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(ana, 'Tarefas');
+  await expect(ana.getByText('Você vê aqui só os itens que são seus.')).toBeVisible();
+  await expect(ana.locator('main')).not.toContainText('Subir campanha do cliente');
+  await expect(ana.getByRole('button', { name: 'Editar etapas' })).toHaveCount(0);
+
+  await stageOf(ana, 'A fazer').getByRole('button', { name: 'Adicionar item em A fazer' }).click();
+  await stageOf(ana, 'A fazer').getByLabel('Novo item em A fazer').fill('Conferir perfis');
+  await stageOf(ana, 'A fazer').getByRole('button', { name: 'Adicionar', exact: true }).click();
+  await expect(stageOf(ana, 'A fazer')).toContainText('Conferir perfis');
+  // What she creates is hers from the start.
+  await expect(stageOf(ana, 'A fazer')).toContainText('Com você');
+  await ana.getByLabel('Etapa de Conferir perfis').selectOption({ label: 'Fazendo' });
+  await expect(stageOf(ana, 'Fazendo')).toContainText('Conferir perfis');
+  await expect(stageOf(ana, 'A fazer')).toContainText('0 itens');
+
+  // Opening the item shows where it has been and for how long.
+  await ana.getByRole('button', { name: 'Conferir perfis' }).click();
+  const stays = ana.locator('.stays li');
+  await expect(stays).toHaveCount(2);
+  await expect(stays.nth(0)).toContainText('A fazer');
+  await expect(stays.nth(1)).toContainText('Fazendo');
+  await expect(stays.nth(1)).toContainText('etapa atual');
+  await expect(stays.nth(1)).toContainText('por você');
+  await shot(ana, 'lista-funcionaria-celular');
+
+  // The owner sees everyone's items, and reshapes the stages of the list.
+  await owner.reload();
+  await heading(owner, 'Tarefas');
+  await expect(stageOf(owner, 'Fazendo')).toContainText('Conferir perfis');
+  await expect(stageOf(owner, 'Fazendo')).toContainText('Com Ana Souza');
+  await owner.getByRole('button', { name: 'Editar etapas' }).click();
+  await owner.getByLabel('Nome da nova etapa').fill('Bloqueado');
+  await owner.getByRole('button', { name: 'Adicionar etapa' }).click();
+  await expect(stageOf(owner, 'Bloqueado')).toBeVisible();
+  await shot(owner, 'lista-dono-editando-etapas');
+
+  // A stage that still holds an item is not removed until the item has somewhere to go.
+  await owner.getByRole('button', { name: 'Remover A fazer' }).click();
+  await expect(owner.getByText('Ainda há itens nesta etapa.').first()).toBeVisible();
+  await expect(stageOf(owner, 'A fazer')).toBeVisible();
+  await owner.getByLabel('Mover os itens de A fazer para').selectOption({ label: 'Fazendo' });
+  await owner.getByRole('button', { name: 'Mover os itens e remover' }).click();
+  await expect(stageOf(owner, 'A fazer')).toHaveCount(0);
+  await expect(stageOf(owner, 'Fazendo')).toContainText('Subir campanha do cliente');
+  await expect(stageOf(owner, 'Fazendo')).toContainText('2 itens');
+  await owner.getByRole('button', { name: 'Fechar edição das etapas' }).click();
+  await shot(owner, 'lista-dono');
+
+  await ana.reload();
+  await heading(ana, 'Tarefas');
+  await expect(stageOf(ana, 'A fazer')).toHaveCount(0);
+  await expect(stageOf(ana, 'Bloqueado')).toBeVisible();
+  await expect(stageOf(ana, 'Fazendo')).toContainText('1 item');
+});
+
+test('a sensitive list opens only after the code, each time the confirmation is no longer recent', async () => {
+  await sql("UPDATE auth.sessions SET step_up_at = now() - interval '1 hour'");
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Dinheiro' }).click();
+  await expect(owner.getByRole('heading', { name: /^Dinheiro/ })).toBeVisible();
+  await expect(owner.getByText('Esta lista é sensível')).toBeVisible();
+  await expect(owner.getByRole('region', { name: /^Etapa / })).toHaveCount(0);
+
+  await owner.getByRole('button', { name: 'Confirmar código e abrir' }).click();
+  const dialog = owner.getByRole('dialog');
+  await dialog.getByLabel('Código de 6 dígitos').fill(await authenticatorCode(ownerKey));
+  await dialog.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(owner.getByRole('region', { name: 'Etapa A fazer' })).toBeVisible();
+
+  // The employee was never given this list: for her it does not exist.
+  const listAddress = new URL(owner.url()).pathname;
+  await ana.goto(listAddress);
+  await heading(ana, 'Lista não encontrada');
+  await ana.goto('/');
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');
@@ -259,6 +357,7 @@ test('everything is on the record, and the record is intact', async () => {
     'Aparelho novo pediu aprovação',
     'Aparelho aprovado',
     'Acesso concedido',
+    'Lista sensível aberta',
   ]) {
     await expect(record, entry).toContainText(entry);
   }

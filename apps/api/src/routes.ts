@@ -5,10 +5,13 @@ import {
   createItemSchema,
   createListSchema,
   createSpaceSchema,
+  createStageSchema,
   createUserSchema,
+  deleteStageSchema,
   deviceDecisionSchema,
   idSchema,
   loginSchema,
+  reorderStagesSchema,
   secondFactorSchema,
   setAssigneesSchema,
   setCapabilitiesSchema,
@@ -16,6 +19,7 @@ import {
   setupTotpSchema,
   totpConfirmSchema,
   updateItemSchema,
+  updateStageSchema,
   updateUserSchema,
   upsertGrantSchema,
 } from '@cerebro/shared';
@@ -29,6 +33,7 @@ import * as auth from './modules/auth.js';
 import * as grants from './modules/grants.js';
 import * as oversight from './modules/oversight.js';
 import * as people from './modules/people.js';
+import * as stages from './modules/stages.js';
 import * as structure from './modules/structure.js';
 
 function paramId(request: FastifyRequest): string {
@@ -74,7 +79,11 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   app.post('/api/auth/step-up', async (request) => {
     const body = parse(totpConfirmSchema, request.body);
-    await signedIn(request, (_tx, actor) => auth.stepUp(deps, request, actor, body));
+    // The request's own transaction ends before the login service touches the
+    // session. Both may write the same session row, and one waiting for the
+    // other inside a single request would stall it.
+    const actor = await signedIn(request, (_tx, who) => Promise.resolve(who));
+    await auth.stepUp(deps, request, actor, body);
     return { ok: true };
   });
   app.post('/api/auth/logout', async (request, reply) => {
@@ -193,6 +202,36 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     const body = parse(setAssigneesSchema, request.body);
     return signedIn(request, (tx, actor) => structure.setAssignees(tx, actor, id, body.userIds));
+  });
+
+  // ---- Stages --------------------------------------------------------------------
+  app.get('/api/lists/:id/stages', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => stages.listStages(tx, actor, id));
+  });
+  app.post('/api/lists/:id/stages', (request) => {
+    const id = paramId(request);
+    const body = parse(createStageSchema, request.body);
+    return signedIn(request, (tx, actor) => stages.createStage(tx, actor, id, body));
+  });
+  app.put('/api/lists/:id/stages/order', (request) => {
+    const id = paramId(request);
+    const body = parse(reorderStagesSchema, request.body);
+    return signedIn(request, (tx, actor) => stages.reorderStages(tx, actor, id, body.ids));
+  });
+  app.patch('/api/stages/:id', (request) => {
+    const id = paramId(request);
+    const body = parse(updateStageSchema, request.body);
+    return signedIn(request, (tx, actor) => stages.updateStage(tx, actor, id, body));
+  });
+  app.delete('/api/stages/:id', (request) => {
+    const id = paramId(request);
+    const body = parse(deleteStageSchema, request.body ?? {});
+    return signedIn(request, (tx, actor) => stages.deleteStage(tx, actor, id, body));
+  });
+  app.get('/api/items/:id/stage-history', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => stages.itemStageHistory(tx, actor, id));
   });
 
   // ---- Oversight -----------------------------------------------------------------

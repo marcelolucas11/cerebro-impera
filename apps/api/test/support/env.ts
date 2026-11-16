@@ -158,8 +158,8 @@ export class Browser {
   patch<T = unknown>(url: string, body: unknown = {}): Promise<ApiResponse<T>> {
     return this.request<T>('PATCH', url, body);
   }
-  delete<T = unknown>(url: string): Promise<ApiResponse<T>> {
-    return this.request<T>('DELETE', url);
+  delete<T = unknown>(url: string, body?: unknown): Promise<ApiResponse<T>> {
+    return this.request<T>('DELETE', url, body);
   }
 }
 

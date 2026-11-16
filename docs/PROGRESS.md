@@ -5,26 +5,26 @@
 
 ## Onde estamos
 
-**Fase 1 — Fundação e segurança.** Backend, infraestrutura de execução, telas de entrada e telas
-de administração concluídos, com o percurso em navegador real rodando no CI. Restam pequenos
-itens listados em "Próximo passo".
+**Fase 2 — Estrutura, em andamento.** A Fase 1 (fundação e segurança) está pronta, com o percurso
+em navegador real rodando no CI. Da Fase 2 já existem as etapas por lista, o tempo em cada etapa e
+a tela de lista agrupada por etapa. Falta o que está em "Próximo passo".
 
-| Fase                                                          | Situação                                    |
-| ------------------------------------------------------------- | ------------------------------------------- |
-| 0. Preparação do repositório (proteções no GitHub)            | depende do mantenedor, ver "Pendências"     |
-| **1. Fundação e segurança**                                   | **pronta, salvo os restos listados abaixo** |
-| 2. Estrutura (etapas, campos personalizados, anexos, lixeira) | a fazer                                     |
-| 3. Visões (lista, quadro, calendário, tabela, linha do tempo) | a fazer                                     |
-| 4. Tarefas e colaboração                                      | a fazer                                     |
-| 5. Automações                                                 | a fazer                                     |
-| 6. Painéis e relatórios                                       | a fazer                                     |
-| 7. PWA e offline                                              | a fazer                                     |
-| 8. Atualizador assinado                                       | a fazer                                     |
-| 9. Backup e restauração                                       | a fazer                                     |
-| 10. White label, assistente visual e formulários              | a fazer                                     |
-| 11. Blindagem (revisão independente)                          | a fazer                                     |
-| 12. Implantação                                               | só com autorização do mantenedor            |
-| 13. Migração de dados                                         | só com autorização do mantenedor            |
+| Fase                                                              | Situação                                         |
+| ----------------------------------------------------------------- | ------------------------------------------------ |
+| 0. Preparação do repositório (proteções no GitHub)                | depende do mantenedor, ver "Pendências"          |
+| 1. Fundação e segurança                                           | pronta, salvo os restos listados abaixo          |
+| **2. Estrutura (etapas, campos personalizados, anexos, lixeira)** | **em andamento: etapas e tela de lista prontas** |
+| 3. Visões (lista, quadro, calendário, tabela, linha do tempo)     | a fazer                                          |
+| 4. Tarefas e colaboração                                          | a fazer                                          |
+| 5. Automações                                                     | a fazer                                          |
+| 6. Painéis e relatórios                                           | a fazer                                          |
+| 7. PWA e offline                                                  | a fazer                                          |
+| 8. Atualizador assinado                                           | a fazer                                          |
+| 9. Backup e restauração                                           | a fazer                                          |
+| 10. White label, assistente visual e formulários                  | a fazer                                          |
+| 11. Blindagem (revisão independente)                              | a fazer                                          |
+| 12. Implantação                                                   | só com autorização do mantenedor                 |
+| 13. Migração de dados                                             | só com autorização do mantenedor                 |
 
 ## Feito na Fase 1
 
@@ -54,28 +54,47 @@ itens listados em "Próximo passo".
   alertas, registro de auditoria com verificação de integridade, criação de espaços, pastas e
   listas pelo Dono, e um diálogo único de "confirme que é você" que repete a ação depois do código.
 
-### O que os testes provam (114 testes)
+## Feito na Fase 2 (até aqui)
 
-| Arquivo                                    | O que garante                                                                                                                                                                                                                                                                                                          |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/shared/test/access.test.ts` (12) | resolução de acesso e regra "ninguém concede o que não tem"                                                                                                                                                                                                                                                            |
-| `apps/api/test/auth.test.ts` (22)          | instalação fechada sem o token; 2º fator obrigatório; código de uso único; dispositivo novo sem sessão até aprovação; convite de uso único; força bruta bloqueada; sessão revogada ou conta suspensa cai na hora; origem cruzada e subdomínio irmão recusados                                                          |
-| `apps/api/test/authorization.test.ts` (19) | pela API: funcionário A não vê nem altera nada do B; ADM sem concessão não vê nada; ADM não concede fora da própria área nem para iguais ou superiores; ninguém se promove; lista sensível exige 2º fator; o último Dono não pode ser rebaixado                                                                        |
-| `apps/api/test/database.test.ts` (23)      | direto no banco, com as credenciais da API e sem código da API: as mesmas garantias; identidade não pode ser forjada nem sobrevive à transação; credenciais inalcançáveis; auditoria não pode ser editada nem apagada; adulteração com acesso total é detectada; toda tabela tem RLS; nenhuma função aberta a `PUBLIC` |
-| `apps/api/test/crypto.test.ts` (16)        | argon2id com sal novo; cifra autenticada presa à linha e à finalidade; resumo com chave para códigos de recuperação; tokens de 256 bits; TOTP sem repetição; segredos com permissão `0600` e nunca sobrescritos                                                                                                        |
+- Etapas por lista (`0008_stages.sql`): cada lista tem as próprias etapas, com nome, cor, ordem e
+  significado (a fazer, em andamento, concluído, encerrado). Todo item está sempre em uma etapa da
+  própria lista; uma lista nunca fica sem etapa; remover uma etapa em uso exige dizer para onde vão
+  os itens.
+- Tempo em cada etapa: o banco, e só ele, registra quando o item entrou e saiu de cada etapa e quem
+  moveu. A aplicação não consegue escrever nem corrigir esse histórico.
+- Quem vê a lista vê as etapas; só quem gerencia a lista altera as etapas; quem edita um item pode
+  movê-lo de etapa.
+- Tela de lista (`/listas/:id`): itens agrupados por etapa, mudança de etapa na própria linha,
+  criação de item dentro da etapa, painel do item com título, descrição e o tempo em cada etapa, e
+  editor de etapas para quem gerencia. Lista sensível só abre depois do 2º fator.
+- Item criado por quem só enxerga os próprios itens já nasce atribuído a essa pessoa
+  (`0009_self_assignment.sql`); antes ele sumia da tela de quem acabou de criar.
 
-| `apps/api/test/web.test.ts` (9) | a página vem com a política que proíbe código embutido e de outras origens; nenhum arquivo de fora da pasta, oculto ou de tipo desconhecido é servido; endereços da API nunca respondem com a página; a API continua recusando outras origens |
-| `apps/web/test/*.test.ts` (13) | a página compilada só carrega arquivos próprios, sem nada embutido; mensagens de erro nunca mostram detalhe técnico |
+### O que os testes provam (138 testes)
 
-**Percurso em navegador real** (`apps/web/e2e`, 10 passos, job "Percurso em navegador real" no CI):
+| Arquivo                                    | O que garante                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/shared/test/access.test.ts` (12) | resolução de acesso e regra "ninguém concede o que não tem"                                                                                                                                                                                                                                                                               |
+| `apps/api/test/auth.test.ts` (22)          | instalação fechada sem o token; 2º fator obrigatório; código de uso único; dispositivo novo sem sessão até aprovação; convite de uso único; força bruta bloqueada; sessão revogada ou conta suspensa cai na hora; origem cruzada e subdomínio irmão recusados                                                                             |
+| `apps/api/test/authorization.test.ts` (20) | pela API: funcionário A não vê nem altera nada do B; ADM sem concessão não vê nada; ADM não concede fora da própria área nem para iguais ou superiores; ninguém se promove; lista sensível exige 2º fator; o 2º fator pode ser confirmado depois de um tempo parado; o último Dono não pode ser rebaixado                                 |
+| `apps/api/test/database.test.ts` (23)      | direto no banco, com as credenciais da API e sem código da API: as mesmas garantias; identidade não pode ser forjada nem sobrevive à transação; credenciais inalcançáveis; auditoria não pode ser editada nem apagada; adulteração com acesso total é detectada; toda tabela tem RLS; nenhuma função aberta a `PUBLIC`                    |
+| `apps/api/test/crypto.test.ts` (16)        | argon2id com sal novo; cifra autenticada presa à linha e à finalidade; resumo com chave para códigos de recuperação; tokens de 256 bits; TOTP sem repetição; segredos com permissão `0600` e nunca sobrescritos                                                                                                                           |
+| `apps/api/test/stages.test.ts` (21)        | pela API e direto no banco: item sempre em uma etapa da própria lista; lista nunca sem etapa; só quem gerencia altera etapas; funcionário move só o que é dele; o histórico de etapas não pode ser escrito nem apagado pela aplicação; etapa em uso não some sem destino; item criado por quem só vê os seus nasce atribuído a quem criou |
+| `apps/api/test/web.test.ts` (9)            | a página vem com a política que proíbe código embutido e de outras origens; nenhum arquivo de fora da pasta, oculto ou de tipo desconhecido é servido; endereços da API nunca respondem com a página; a API continua recusando outras origens                                                                                             |
+| `apps/web/test/*.test.ts` (15)             | a página compilada só carrega arquivos próprios, sem nada embutido; mensagens de erro nunca mostram detalhe técnico; durações e datas escritas por extenso                                                                                                                                                                                |
+
+**Percurso em navegador real** (`apps/web/e2e`, 12 passos, job "Percurso em navegador real" no CI):
 um Dono no computador e uma funcionária no celular, contra uma instalação criada do zero pelos
 mesmos comandos de produção. Instalação recusada sem o token do servidor; senha fraca explicada na
 hora; mesma resposta para senha errada e e-mail inexistente; só a senha não abre nada; convite
 aceito no celular e recusado na segunda vez; aparelho novo sem nenhum acesso até a aprovação;
 aprovação que exige o 2º fator de novo; funcionária sem nenhum dado nem tela de administração;
-uma lista liberada e só ela visível; registro de auditoria íntegro; suspensão que derruba a sessão
-na hora; e nenhuma violação da política de segurança da página do começo ao fim. (Esse percurso já
-pegou um defeito real: a tela de pessoas mostrava situação desatualizada; corrigido.)
+uma lista liberada e só ela visível; itens criados e movidos entre etapas pelas duas pessoas, cada
+uma vendo só o que pode; lista sensível fechada até o código; registro de auditoria íntegro; suspensão que derruba a sessão
+na hora; e nenhuma violação da política de segurança da página do começo ao fim. Esse percurso já pegou
+três defeitos reais, todos corrigidos e cobertos por teste: a tela de pessoas mostrava situação
+desatualizada; item criado por funcionária aparecia sem responsável e sumia para ela; e confirmar o
+2º fator depois de um minuto parado travava a requisição (ver D22).
 
 Os testes do banco foram conferidos por mutação: enfraquecer de propósito uma regra (identidade
 que sobrevive à transação, funcionário vendo a lista inteira, concessão sem gerenciar o escopo) faz
@@ -101,12 +120,14 @@ pnpm check
 
 ## Próximo passo exato
 
-1. **Fase 2 — Estrutura:** etapas editáveis por lista (com modelos), campos personalizados, itens
-   completos, anexos, lixeira, histórico e tempo em cada etapa. Com ela entra o roteador de telas
-   definitivo. Começar pelas migrações e pela API (com testes nas duas camadas), depois a tela.
+1. **Fase 2 — Estrutura, o que falta:** campos personalizados por lista (texto, número, data,
+   escolha, pessoa, link, dinheiro), itens completos (prazo, prioridade, subitens), anexos, lixeira,
+   histórico de alterações e modelos de etapas reutilizáveis. Sempre nesta ordem: migração e API
+   com testes nas duas camadas, depois a tela e o passo no percurso em navegador.
 2. Pequenos restos da interface da Fase 1, a encaixar durante a Fase 2: lista das próprias sessões
    (a API já tem), criação de pastas e listas por quem gerencia um espaço sem ser Dono, troca da
-   própria senha (falta na API).
+   própria senha (falta na API), e uma lista de pessoas para delegar itens sem precisar da
+   capacidade de gerenciar usuários.
 3. Itens adiados que dependem da interface: passkeys e CAPTCHA.
 
 ## Pendências do mantenedor (Fase 0)
