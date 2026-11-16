@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { ACCESS_LEVELS, ITEM_SCOPES, SCOPE_TYPES } from './access.js';
 import { CAPABILITIES } from './capabilities.js';
+import {
+  FIELD_KINDS,
+  MAX_FIELD_OPTIONS,
+  MAX_FIELDS_PER_LIST,
+  MAX_LABELS_PER_VALUE,
+} from './fields.js';
 import { PASSWORD_MAX_LENGTH } from './password.js';
 import { ROLES } from './roles.js';
 import { MAX_STAGES_PER_LIST, STAGE_KINDS } from './stages.js';
@@ -135,16 +141,69 @@ export const deleteStageSchema = z.strictObject({
   moveTo: idSchema.optional(),
 });
 
+const fieldNameSchema = z.string().trim().min(1).max(60);
+const fieldOptionSchema = z.strictObject({
+  /** Present for an option that already exists; omitted for a new one. */
+  id: idSchema.optional(),
+  name: z.string().trim().min(1).max(60),
+  color: stageColorSchema.optional(),
+  archived: z.boolean().optional(),
+});
+const fieldConfigSchema = z.strictObject({
+  options: z.array(fieldOptionSchema).max(MAX_FIELD_OPTIONS).optional(),
+  currency: z
+    .string()
+    .regex(/^[A-Z]{3}$/)
+    .optional(),
+  max: z.number().int().min(3).max(10).optional(),
+});
+export const createFieldSchema = z.strictObject({
+  name: fieldNameSchema,
+  kind: z.enum(FIELD_KINDS),
+  config: fieldConfigSchema.optional(),
+});
+export const updateFieldSchema = z
+  .strictObject({
+    name: fieldNameSchema.optional(),
+    config: fieldConfigSchema.optional(),
+    archived: z.boolean().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, 'empty update');
+export const reorderFieldsSchema = z.strictObject({
+  ids: z.array(idSchema).min(1).max(MAX_FIELDS_PER_LIST),
+});
+export const copyFieldsSchema = z.strictObject({
+  fromListId: idSchema,
+  /** Omitted: every field of the other list. */
+  fieldIds: z.array(idSchema).min(1).max(MAX_FIELDS_PER_LIST).optional(),
+});
+export const listFieldsQuerySchema = z.strictObject({
+  archived: z.enum(['1']).optional(),
+});
+/** Only the shape is checked here; whether a value fits its field is `fieldValueProblem`. */
+const fieldValueSchema = z.union([
+  z.string().max(20_000),
+  z.number(),
+  z.boolean(),
+  z.array(idSchema).max(MAX_LABELS_PER_VALUE),
+]);
+/** Values by field id. `null` clears the field. */
+const fieldValuesSchema = z
+  .record(idSchema, fieldValueSchema.nullable())
+  .refine((values) => Object.keys(values).length <= MAX_FIELDS_PER_LIST, 'too many fields');
+
 export const createItemSchema = z.strictObject({
   title: z.string().trim().min(1).max(500),
   description: z.string().max(50_000).optional(),
   stageId: idSchema.optional(),
+  fields: fieldValuesSchema.optional(),
 });
 export const updateItemSchema = z
   .strictObject({
     title: z.string().trim().min(1).max(500).optional(),
     description: z.string().max(50_000).optional(),
     stageId: idSchema.optional(),
+    fields: fieldValuesSchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'empty update');
 export const setAssigneesSchema = z.strictObject({ userIds: z.array(idSchema).max(50) });

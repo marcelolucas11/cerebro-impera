@@ -1,6 +1,8 @@
 import {
   acceptInviteSchema,
   auditQuerySchema,
+  copyFieldsSchema,
+  createFieldSchema,
   createFolderSchema,
   createItemSchema,
   createListSchema,
@@ -10,7 +12,9 @@ import {
   deleteStageSchema,
   deviceDecisionSchema,
   idSchema,
+  listFieldsQuerySchema,
   loginSchema,
+  reorderFieldsSchema,
   reorderStagesSchema,
   secondFactorSchema,
   setAssigneesSchema,
@@ -18,6 +22,7 @@ import {
   setupSchema,
   setupTotpSchema,
   totpConfirmSchema,
+  updateFieldSchema,
   updateItemSchema,
   updateStageSchema,
   updateUserSchema,
@@ -30,6 +35,7 @@ import type { Deps } from './deps.js';
 import { clearCookie, SESSION_COOKIE } from './http/cookies.js';
 import { parse } from './http/request.js';
 import * as auth from './modules/auth.js';
+import * as fields from './modules/fields.js';
 import * as grants from './modules/grants.js';
 import * as oversight from './modules/oversight.js';
 import * as people from './modules/people.js';
@@ -232,6 +238,35 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.get('/api/items/:id/stage-history', (request) => {
     const id = paramId(request);
     return signedIn(request, (tx, actor) => stages.itemStageHistory(tx, actor, id));
+  });
+
+  // ---- Custom fields -------------------------------------------------------------
+  app.get('/api/lists/:id/fields', (request) => {
+    const id = paramId(request);
+    const query = parse(listFieldsQuerySchema, request.query);
+    return signedIn(request, (tx, actor) =>
+      fields.listFields(tx, actor, id, { includeArchived: query.archived === '1' }),
+    );
+  });
+  app.post('/api/lists/:id/fields', (request) => {
+    const id = paramId(request);
+    const body = parse(createFieldSchema, request.body);
+    return signedIn(request, (tx, actor) => fields.createField(tx, actor, id, body));
+  });
+  app.put('/api/lists/:id/fields/order', (request) => {
+    const id = paramId(request);
+    const body = parse(reorderFieldsSchema, request.body);
+    return signedIn(request, (tx, actor) => fields.reorderFields(tx, actor, id, body.ids));
+  });
+  app.post('/api/lists/:id/fields/copy', (request) => {
+    const id = paramId(request);
+    const body = parse(copyFieldsSchema, request.body);
+    return signedIn(request, (tx, actor) => fields.copyFields(tx, actor, id, body));
+  });
+  app.patch('/api/fields/:id', (request) => {
+    const id = paramId(request);
+    const body = parse(updateFieldSchema, request.body);
+    return signedIn(request, (tx, actor) => fields.updateField(tx, actor, id, body));
   });
 
   // ---- Oversight -----------------------------------------------------------------
