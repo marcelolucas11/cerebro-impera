@@ -152,6 +152,25 @@ describe('an item', () => {
     expect(direct.body.stageId).toBe(stage(tarefas, 'Feito').id);
   });
 
+  it('is assigned to its creator when the creator only sees their own items', async () => {
+    const hers = await s.ana.browser.post<Item & { assignees: string[] }>(
+      `/api/lists/${s.tarefas}/items`,
+      { title: 'Criado pela Ana' },
+    );
+    expect(hers.body.assignees).toEqual([s.ana.id]);
+    // Someone who sees the whole list decides who is responsible; nothing is assumed.
+    const owners = await s.owner.browser.post<Item & { assignees: string[] }>(
+      `/api/lists/${s.tarefas}/items`,
+      { title: 'Criado pelo Dono' },
+    );
+    expect(owners.body.assignees).toEqual([]);
+    // Being responsible for her own item does not let her hand it to someone else.
+    const delegate = await s.ana.browser.put(`/api/items/${hers.body.id}/assignees`, {
+      userIds: [s.bruno.id],
+    });
+    expect(delegate.status).toBe(403);
+  });
+
   it('cannot be put in a stage of another list, or in one that does not exist', async () => {
     for (const stageId of [stage(perfis, 'Fazendo').id, randomUUID()]) {
       const moved = await s.owner.browser.patch<ErrorBody>(`/api/items/${s.itemNobody}`, {
@@ -454,15 +473,48 @@ describe('straight at the database', () => {
     ]);
     expect(foreign).toMatchObject({ ok: false, code: '23503' });
 
-    // She reads the history of her own item and of no other.
+    // She reads the history of her own items and of no other.
     const history = await app.query<{ item_id: string }>(
       'SELECT DISTINCT item_id FROM app.item_stage_history',
     );
-    expect(history.rows.map((row) => row.item_id)).toEqual([s.itemAna]);
+    const hers = await app.query<{ id: string }>('SELECT id FROM app.items');
+    const seen = history.rows.map((row) => row.item_id).sort();
+    expect(seen).toEqual(hers.rows.map((row) => row.id).sort());
+    expect(seen).toContain(s.itemAna);
+    expect(seen).not.toContain(s.itemBruno);
+    expect(seen).not.toContain(s.itemNobody);
+    expect(
+      (
+        await env.admin.query('SELECT 1 FROM app.item_stage_history WHERE item_id = $1', [
+          s.itemBruno,
+        ])
+      ).rowCount,
+    ).toBeGreaterThan(0);
     const visible = await app.query<{ list_id: string }>(
       'SELECT DISTINCT list_id FROM app.list_stages',
     );
     expect(visible.rows.map((row) => row.list_id)).toEqual([s.tarefas]);
+    // An item she creates with plain SQL is hers from birth, and recorded as such by herself.
+    const own = randomUUID();
+    await app.query('INSERT INTO app.items (id, list_id, title) VALUES ($1, $2, $3)', [
+      own,
+      s.tarefas,
+      'direto',
+    ]);
+    const assigned = await app.query<{ user_id: string; assigned_by: string }>(
+      'SELECT user_id, assigned_by FROM app.item_assignees WHERE item_id = $1',
+      [own],
+    );
+    expect(assigned.rows).toEqual([{ user_id: s.ana.id, assigned_by: s.ana.id }]);
+    expect(
+      refused(
+        await attempt(app, 'INSERT INTO app.item_assignees (item_id, user_id) VALUES ($1, $2)', [
+          own,
+          s.bruno.id,
+        ]),
+      ),
+    ).toBe(true);
+
     // Whether a stage she cannot manage still holds items is not hers to know.
     const probe = await app.query<{ in_use: boolean }>('SELECT app.stage_in_use($1) AS in_use', [
       doing?.id,

@@ -50,6 +50,8 @@ export function createPools(db: DbConfig, overrides: { max?: number } = {}): Poo
     database: db.database,
     max: overrides.max ?? 10,
     statement_timeout: 15_000,
+    // Waiting on another transaction's lock is never normal here: fail soon and loudly.
+    lock_timeout: 5_000,
     idle_in_transaction_session_timeout: 30_000,
     application_name: 'cerebro-api',
   };

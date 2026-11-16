@@ -79,7 +79,11 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   app.post('/api/auth/step-up', async (request) => {
     const body = parse(totpConfirmSchema, request.body);
-    await signedIn(request, (_tx, actor) => auth.stepUp(deps, request, actor, body));
+    // The request's own transaction ends before the login service touches the
+    // session. Both may write the same session row, and one waiting for the
+    // other inside a single request would stall it.
+    const actor = await signedIn(request, (_tx, who) => Promise.resolve(who));
+    await auth.stepUp(deps, request, actor, body);
     return { ok: true };
   });
   app.post('/api/auth/logout', async (request, reply) => {

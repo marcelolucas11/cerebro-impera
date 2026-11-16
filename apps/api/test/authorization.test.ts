@@ -393,6 +393,24 @@ describe('grants', () => {
     expect((await treeOf(s.nuno)).lists).toEqual([]);
   });
 
+  it('can be confirmed right after the session sat idle for a while', async () => {
+    // The usual moment to be asked for the code: coming back after a pause.
+    await env.admin.query(
+      `UPDATE auth.sessions SET last_seen_at = now() - interval '5 minutes', step_up_at = NULL
+       WHERE user_id = $1`,
+      [s.owner.id],
+    );
+    const started = Date.now();
+    const confirmed = await s.owner.browser.post('/api/auth/step-up', {
+      code: codeFor(env, s.owner),
+    });
+    env.clock.advance();
+    expect(confirmed.status).toBe(200);
+    expect(Date.now() - started).toBeLessThan(5_000);
+    const me = await s.owner.browser.get<{ stepUp: boolean }>('/api/me');
+    expect(me.body.stepUp).toBe(true);
+  });
+
   it('let the most specific rule win: "none" on a list hides it inside a granted space', async () => {
     const hidden = await s.owner.browser.put<Grant>('/api/grants', {
       userId: s.marta.id,
