@@ -398,6 +398,18 @@ test('a list records what the team needs about each item, and each person sees o
   await expect(row(owner, 'Conferir perfis').locator('.item-row')).toContainText('Alfa');
   await expect(row(owner, 'Conferir perfis').locator('.item-row')).toContainText('250,00');
 
+  // Everything done to an item is on its history, said in words, newest first.
+  await owner.getByRole('button', { name: 'Conferir perfis' }).click();
+  const opened = row(owner, 'Conferir perfis').locator('.item-panel');
+  await opened.getByRole('button', { name: 'Ver o que mudou neste item' }).click();
+  const story = opened.locator('.changes > li');
+  await expect(story.first()).toContainText('Ana Souza preencheu');
+  await expect(story.filter({ hasText: 'Ana Souza preencheu Fornecedor: Alfa' })).toHaveCount(1);
+  await expect(story.filter({ hasText: /Ana Souza preencheu Valor: R\$\s250,00/ })).toHaveCount(1);
+  await expect(story.last()).toContainText('criou o item');
+  await shot(owner, 'historico-do-item');
+  await owner.getByRole('button', { name: 'Conferir perfis' }).click();
+
   // Archiving a field hides it and what was filled in; restoring brings both back.
   await owner.getByRole('button', { name: 'Editar campos' }).click();
   await owner.getByRole('button', { name: 'Arquivar campo Painel' }).click();

@@ -77,6 +77,9 @@ export function ListScreen({
   const nameOf = (userId: string | null): string =>
     userId === null ? 'sistema' : userId === me.id ? 'você' : (names.get(userId) ?? 'outra pessoa');
   const canEdit = list.level === 'edit' || list.level === 'manage';
+  // Only lists this person can open are named; any other is "outra lista" in the history.
+  const listNameOf = (id: string): string | undefined =>
+    tree.data.lists.find((candidate) => candidate.id === id)?.name;
 
   const heading = (
     <header className="list-head">
@@ -171,6 +174,7 @@ export function ListScreen({
           items={items.data.filter((item) => item.stageId === stage.id)}
           canEdit={canEdit}
           nameOf={nameOf}
+          listNameOf={listNameOf}
         />
       ))}
     </>
@@ -185,6 +189,7 @@ function StageGroup({
   items,
   canEdit,
   nameOf,
+  listNameOf,
 }: {
   stage: Stage;
   stages: Stage[];
@@ -194,6 +199,7 @@ function StageGroup({
   items: Item[];
   canEdit: boolean;
   nameOf: (userId: string | null) => string;
+  listNameOf: (listId: string) => string | undefined;
 }): ReactNode {
   const [open, setOpen] = useState(true);
   return (
@@ -243,6 +249,7 @@ function StageGroup({
                 columns={columns}
                 canEdit={canEdit}
                 nameOf={nameOf}
+                listNameOf={listNameOf}
               />
             ))}
           </ul>
@@ -264,6 +271,7 @@ function ItemRow({
   columns,
   canEdit,
   nameOf,
+  listNameOf,
 }: {
   item: Item;
   stages: Stage[];
@@ -271,6 +279,7 @@ function ItemRow({
   columns: CustomField[];
   canEdit: boolean;
   nameOf: (userId: string | null) => string;
+  listNameOf: (listId: string) => string | undefined;
 }): ReactNode {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -335,7 +344,15 @@ function ItemRow({
         ) : null}
       </div>
       {move.error ? <Notice tone="error">{move.error}</Notice> : null}
-      {open ? <ItemPanel item={item} fields={fields} canEdit={canEdit} nameOf={nameOf} /> : null}
+      {open ? (
+        <ItemPanel
+          item={item}
+          fields={fields}
+          canEdit={canEdit}
+          nameOf={nameOf}
+          listNameOf={listNameOf}
+        />
+      ) : null}
     </li>
   );
 }

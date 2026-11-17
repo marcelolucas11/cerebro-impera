@@ -208,6 +208,11 @@ export const updateItemSchema = z
   .refine((value) => Object.keys(value).length > 0, 'empty update');
 export const setAssigneesSchema = z.strictObject({ userIds: z.array(idSchema).max(50) });
 
+export const itemHistoryQuerySchema = z.strictObject({
+  before: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
 export const auditQuerySchema = z.strictObject({
   before: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),

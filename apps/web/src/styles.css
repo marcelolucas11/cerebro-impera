@@ -821,6 +821,40 @@ tr[aria-selected='true'] > * {
   justify-content: space-between;
 }
 
+/* The history of an item: one sentence per change, the moment on the right. A thin
+   rule on the left keeps a long story readable as one column. */
+.changes {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  padding: 0 0 0 0.875rem;
+  border-left: 2px solid var(--linha);
+  list-style: none;
+}
+
+.changes li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.125rem 1rem;
+  justify-content: space-between;
+  overflow-wrap: anywhere;
+}
+
+.changes details {
+  margin-top: 0.25rem;
+}
+
+.changes summary {
+  color: var(--texto-suave);
+  font-size: var(--menor);
+  cursor: pointer;
+}
+
+.changes summary:focus-visible {
+  outline: 2px solid var(--marca);
+  outline-offset: 2px;
+}
+
 .stage-editor {
   display: grid;
   gap: 1.25rem;

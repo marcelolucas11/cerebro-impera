@@ -197,6 +197,17 @@ export interface FieldConfigDraft {
   currency?: string;
   max?: number;
 }
+export interface ItemChange {
+  id: number;
+  at: string;
+  /** Null when the change was not made by a signed-in person. */
+  actor: string | null;
+  what:
+    'created' | 'title' | 'description' | 'list' | 'stage' | 'assigned' | 'unassigned' | 'field';
+  fieldId: string | null;
+  old: unknown;
+  new: unknown;
+}
 export interface StageStay {
   stageId: string;
   stageName: string;
@@ -323,6 +334,12 @@ export const api = {
     ),
   stageHistory: (itemId: string) =>
     request<StageStay[]>('GET', `/api/items/${itemId}/stage-history`),
+  /** Newest first, fifty at a time. `before` continues from the last line of the previous page. */
+  itemHistory: (itemId: string, before?: number) =>
+    request<ItemChange[]>(
+      'GET',
+      `/api/items/${itemId}/history${before === undefined ? '' : `?before=${before}`}`,
+    ),
 
   createSpace: (name: string) => request<{ id: string }>('POST', '/api/spaces', { name }),
   createFolder: (input: { spaceId: string; name: string }) =>
