@@ -10,6 +10,7 @@ import type { Engine } from './engine.js';
 
 const BODY_LIMIT = 4096;
 
+/** The body, or null when it is larger than any request the API sends. */
 function readBody(request: IncomingMessage): Promise<string | null> {
   return new Promise((resolve) => {
     let size = 0;
@@ -36,7 +37,7 @@ function readBody(request: IncomingMessage): Promise<string | null> {
 function admitted(
   key: Buffer,
   request: IncomingMessage,
-  body: string | null,
+  body: string,
   seen: Map<string, number>,
   at: number,
 ): string | null {
@@ -49,10 +50,9 @@ function admitted(
     'x-cerebro-nonce': header('x-cerebro-nonce'),
     'x-cerebro-signature': header('x-cerebro-signature'),
   };
-  const authentic =
-    body !== null &&
-    verify(key, { method: request.method ?? '', path: request.url ?? '', body, headers }, at);
-  if (!authentic) return null;
+  if (!verify(key, { method: request.method ?? '', path: request.url ?? '', body, headers }, at)) {
+    return null;
+  }
   const nonce = headers['x-cerebro-nonce'] ?? '';
   for (const [old, when] of seen) if (at - when > 2 * SIGNATURE_WINDOW_MS) seen.delete(old);
   if (seen.has(nonce)) return null;
@@ -71,6 +71,10 @@ export function updaterServer(engine: Engine, key: Buffer, now: () => number = D
     };
     void (async () => {
       const body = await readBody(request);
+      if (body === null) {
+        answer(413, { error: { code: 'too_large' } });
+        return;
+      }
       const nonce = admitted(key, request, body, seen, now());
       if (nonce === null) {
         answer(401, { error: { code: 'unsigned' } });
@@ -82,7 +86,7 @@ export function updaterServer(engine: Engine, key: Buffer, now: () => number = D
         } else if (request.method === 'POST' && request.url === '/check') {
           answer(200, await engine.check());
         } else if (request.method === 'POST' && request.url === '/apply') {
-          const parsed = JSON.parse(body ?? '{}') as { version?: unknown };
+          const parsed = JSON.parse(body) as { version?: unknown };
           if (typeof parsed.version !== 'string') {
             answer(400, { error: { code: 'bad_request' } });
             return;

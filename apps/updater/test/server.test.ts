@@ -91,6 +91,6 @@ describe('the updater door', () => {
     expect(await refused.json()).toEqual({ error: { code: 'signature_invalid' } });
     expect((await send('POST', '/apply', '{}')).status).toBe(400);
     expect((await send('GET', '/qualquer')).status).toBe(404);
-    expect((await send('POST', '/apply', 'x'.repeat(5000))).status).toBe(401);
+    expect((await send('POST', '/apply', 'x'.repeat(5000))).status).toBe(413);
   });
 });
