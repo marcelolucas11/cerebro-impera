@@ -29,6 +29,8 @@ import {
   setupTotpSchema,
   setSecretSchema,
   bulkSchema,
+  addCheckSchema,
+  updateCheckSchema,
   searchQuerySchema,
   orderItemsSchema,
   createViewSchema,
@@ -62,6 +64,7 @@ import * as people from './modules/people.js';
 import * as searching from './modules/search.js';
 import * as secrets from './modules/secrets.js';
 import * as views from './modules/views.js';
+import * as checklist from './modules/checklist.js';
 import * as stages from './modules/stages.js';
 import * as structure from './modules/structure.js';
 
@@ -319,6 +322,27 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     const body = parse(bulkSchema, request.body);
     return signedIn(request, (tx, actor) => structure.bulkChange(tx, actor, id, body));
+  });
+
+  // ---- Checklist -------------------------------------------------------------------
+  app.get('/api/items/:id/checklist', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => checklist.listChecks(tx, actor, id));
+  });
+  app.post('/api/items/:id/checklist', (request) => {
+    const id = paramId(request);
+    const body = parse(addCheckSchema, request.body);
+    return signedIn(request, (tx, actor) => checklist.addCheck(tx, actor, id, body));
+  });
+  app.patch('/api/checklist/:id', (request) => {
+    const id = paramId(request);
+    const body = parse(updateCheckSchema, request.body);
+    return signedIn(request, (tx, actor) => checklist.updateCheck(tx, actor, id, body));
+  });
+  app.delete('/api/checklist/:id', async (request) => {
+    const id = paramId(request);
+    await signedIn(request, (tx, actor) => checklist.removeCheck(tx, actor, id));
+    return { ok: true };
   });
 
   // ---- Saved views -----------------------------------------------------------------
