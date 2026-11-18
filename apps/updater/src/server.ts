@@ -28,12 +28,41 @@ function readBody(request: IncomingMessage): Promise<string | null> {
   });
 }
 
-export function updaterServer(engine: Engine, key: Buffer, now: () => number = Date.now): Server {
-  // One-time numbers seen within the window; older ones can no longer be replayed anyway.
-  const seen = new Map<string, number>();
-  const forgetOld = (at: number): void => {
-    for (const [nonce, when] of seen) if (at - when > 2 * SIGNATURE_WINDOW_MS) seen.delete(nonce);
+/**
+ * The one-time number of a request that is signed with the key, fresh and not seen before
+ * (and from then on seen); null for anything else. The signature is checked first: only
+ * then is anything the request says taken into account.
+ */
+function admitted(
+  key: Buffer,
+  request: IncomingMessage,
+  body: string | null,
+  seen: Map<string, number>,
+  at: number,
+): string | null {
+  const header = (name: string): string | undefined => {
+    const value = request.headers[name];
+    return typeof value === 'string' ? value : undefined;
   };
+  const headers = {
+    'x-cerebro-time': header('x-cerebro-time'),
+    'x-cerebro-nonce': header('x-cerebro-nonce'),
+    'x-cerebro-signature': header('x-cerebro-signature'),
+  };
+  const authentic =
+    body !== null &&
+    verify(key, { method: request.method ?? '', path: request.url ?? '', body, headers }, at);
+  if (!authentic) return null;
+  const nonce = headers['x-cerebro-nonce'] ?? '';
+  for (const [old, when] of seen) if (at - when > 2 * SIGNATURE_WINDOW_MS) seen.delete(old);
+  if (seen.has(nonce)) return null;
+  seen.set(nonce, at);
+  return nonce;
+}
+
+export function updaterServer(engine: Engine, key: Buffer, now: () => number = Date.now): Server {
+  // One-time numbers already used, while they could still be replayed.
+  const seen = new Map<string, number>();
 
   return createServer((request, reply) => {
     const answer = (status: number, value: unknown): void => {
@@ -42,43 +71,18 @@ export function updaterServer(engine: Engine, key: Buffer, now: () => number = D
     };
     void (async () => {
       const body = await readBody(request);
-      const at = now();
-      const header = (name: string): string | undefined => {
-        const value = request.headers[name];
-        return typeof value === 'string' ? value : undefined;
-      };
-      const nonce = header('x-cerebro-nonce');
-      const signed =
-        body !== null &&
-        nonce !== undefined &&
-        !seen.has(nonce) &&
-        verify(
-          key,
-          {
-            method: request.method ?? '',
-            path: request.url ?? '',
-            body,
-            headers: {
-              'x-cerebro-time': header('x-cerebro-time'),
-              'x-cerebro-nonce': nonce,
-              'x-cerebro-signature': header('x-cerebro-signature'),
-            },
-          },
-          at,
-        );
-      if (!signed) {
+      const nonce = admitted(key, request, body, seen, now());
+      if (nonce === null) {
         answer(401, { error: { code: 'unsigned' } });
         return;
       }
-      forgetOld(at);
-      seen.set(nonce, at);
       try {
         if (request.method === 'GET' && request.url === '/status') {
           answer(200, await engine.status());
         } else if (request.method === 'POST' && request.url === '/check') {
           answer(200, await engine.check());
         } else if (request.method === 'POST' && request.url === '/apply') {
-          const parsed = JSON.parse(body) as { version?: unknown };
+          const parsed = JSON.parse(body ?? '{}') as { version?: unknown };
           if (typeof parsed.version !== 'string') {
             answer(400, { error: { code: 'bad_request' } });
             return;
