@@ -13,12 +13,13 @@ import {
 } from '../filters.js';
 import { formatDuration } from '../labels.js';
 import { describeError } from '../messages.js';
-import { Link, navigate, type ListView } from '../router.js';
+import { Link, listPath, navigate, type ListView } from '../router.js';
 import { useGuard } from '../stepup.js';
 import { Button, Notice, useAction } from '../ui/kit.js';
 import { FIELD_COLUMNS, FieldEditor } from './FieldEditor.js';
 import { AddItem } from './AddItem.js';
 import { Board } from './Board.js';
+import { Calendar } from './Calendar.js';
 import { FieldValueView } from './FieldInput.js';
 import { ItemPanel } from './ItemPanel.js';
 import { ListTools } from './ListTools.js';
@@ -138,11 +139,14 @@ export function ListScreen({
         <p className="muted">Você vê aqui só os itens que são seus.</p>
       ) : null}
       <nav className="view-switch" aria-label="Ver como">
-        <Link to={`/listas/${listId}${search}`} current={view === 'list'}>
+        <Link to={listPath(listId, 'list', search)} current={view === 'list'}>
           Lista
         </Link>
-        <Link to={`/listas/${listId}/quadro${search}`} current={view === 'board'}>
+        <Link to={listPath(listId, 'board', search)} current={view === 'board'}>
           Quadro
+        </Link>
+        <Link to={listPath(listId, 'calendar', search)} current={view === 'calendar'}>
+          Calendário
         </Link>
       </nav>
     </header>
@@ -248,7 +252,7 @@ export function ListScreen({
         search={search}
         onApply={(saved) => {
           const parsed = fromSearch(saved.query);
-          navigate(`/listas/${listId}${saved.kind === 'board' ? '/quadro' : ''}${saved.query}`);
+          navigate(listPath(listId, saved.kind, saved.query));
           reshape(parsed.filter, parsed.sort);
         }}
       />
@@ -269,6 +273,16 @@ export function ListScreen({
         <Board
           listId={listId}
           stages={shownStages}
+          items={visible}
+          fields={fields.data}
+          canEdit={canEdit}
+          nameOf={nameOf}
+          listNameOf={listNameOf}
+          workers={handsOutWork ? (workers.data ?? []) : null}
+        />
+      ) : null}
+      {view === 'calendar' ? (
+        <Calendar
           items={visible}
           fields={fields.data}
           canEdit={canEdit}

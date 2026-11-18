@@ -1601,3 +1601,178 @@ audio.file-preview {
   color: var(--texto-suave);
   font-size: var(--menor);
 }
+
+/* ---- The calendar ------------------------------------------------------------ */
+
+/* A month as seven columns of days. Days outside the month stay, dimmed, so a
+   week is always whole; today carries the brand mark. On a phone the grid gives
+   way to an agenda: only the days that have something, each named in full. */
+.calendar-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  align-items: end;
+  justify-content: space-between;
+}
+
+.calendar-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+}
+
+.calendar-month {
+  min-width: 11rem;
+  font-size: var(--maior);
+  font-weight: 650;
+  text-align: center;
+}
+
+.calendar-month::first-letter {
+  text-transform: uppercase;
+}
+
+.calendar-head,
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+}
+
+.calendar-head span {
+  padding: 0 0.5rem 0.25rem;
+  color: var(--texto-suave);
+  font-size: var(--menor);
+}
+
+.calendar {
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  background: var(--linha);
+  list-style: none;
+  overflow: hidden;
+}
+
+.calendar-day {
+  display: grid;
+  gap: 0.25rem;
+  align-content: start;
+  min-height: 6.5rem;
+  padding: 0.375rem 0.5rem 0.5rem;
+  background: var(--fundo);
+}
+
+.calendar-day.is-outside {
+  background: color-mix(in srgb, var(--fundo) 70%, var(--superficie));
+}
+
+.calendar-day.is-outside .calendar-day-number {
+  color: var(--texto-suave);
+  opacity: 0.6;
+}
+
+.calendar-day.is-today .calendar-day-number {
+  justify-self: start;
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  background: var(--marca);
+  color: var(--sobre-marca);
+  font-weight: 650;
+}
+
+.calendar-day-number {
+  font-family: var(--fonte-exata);
+  font-size: var(--menor);
+}
+
+.calendar-day-name {
+  display: none;
+}
+
+.calendar-items {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.calendar-item {
+  width: 100%;
+  padding: 0.125rem 0.375rem;
+  border: 0;
+  border-left: 2px solid var(--marca);
+  border-radius: 2px;
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+  font-size: var(--menor);
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.calendar-item:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.calendar-undated {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.calendar-undated summary {
+  color: var(--texto-suave);
+  cursor: pointer;
+}
+
+.calendar-nothing {
+  margin: 0;
+}
+
+@media (max-width: 52rem) {
+  .calendar-head {
+    display: none;
+  }
+
+  .calendar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    border: 0;
+    background: none;
+  }
+
+  .calendar-day {
+    min-height: 0;
+    padding: 0.625rem 0;
+    border-bottom: 1px solid var(--linha);
+  }
+
+  .calendar-day.is-empty,
+  .calendar-day.is-outside {
+    display: none;
+  }
+
+  .calendar-day-number {
+    display: none;
+  }
+
+  .calendar-day-name {
+    display: block;
+    font-weight: 600;
+  }
+
+  .calendar-day-name::first-letter {
+    text-transform: uppercase;
+  }
+
+  .calendar-item {
+    padding: 0.375rem 0.5rem;
+    font-size: var(--corpo);
+  }
+}

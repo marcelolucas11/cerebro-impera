@@ -111,6 +111,7 @@ describe('saved views', () => {
       expect((await make({ name })).status, JSON.stringify(name)).toBe(400);
     }
     expect((await make({ kind: 'calendario' })).status).toBe(400);
+    expect((await make({ name: 'No calendário', kind: 'calendar' })).status).toBe(200);
     expect((await make({ name: 'Repetida' })).status).toBe(200);
     const twice = await make({ name: 'REPETIDA' });
     expect(twice.status).toBe(409);

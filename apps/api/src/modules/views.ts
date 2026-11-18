@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { MAX_VIEWS_PER_LIST } from '@cerebro/shared';
+import { MAX_VIEWS_PER_LIST, type ViewKind } from '@cerebro/shared';
 import type { Actor } from '../actor.js';
 import { one, rows, run, sql, type Tx } from '../db.js';
 import { badRequest, conflict, notFound } from '../http/errors.js';
@@ -14,7 +14,7 @@ export interface SavedView {
   id: string;
   listId: string;
   name: string;
-  kind: 'list' | 'board';
+  kind: ViewKind;
   query: string;
   updatedAt: Date;
 }
@@ -23,7 +23,7 @@ interface ViewRow {
   id: string;
   list_id: string;
   name: string;
-  kind: 'list' | 'board';
+  kind: ViewKind;
   query: string;
   updated_at: Date;
 }
@@ -68,7 +68,7 @@ export async function createView(
   tx: Tx,
   actor: Actor,
   listId: string,
-  body: { name: string; kind: 'list' | 'board'; query: string },
+  body: { name: string; kind: ViewKind; query: string },
 ): Promise<SavedView> {
   await openList(tx, actor, listId, 'view');
   if (await nameTaken(tx, actor, listId, body.name, null)) throw conflict('view_name_taken');
@@ -110,7 +110,7 @@ export async function updateView(
   viewId: string,
   body: {
     name?: string | undefined;
-    kind?: 'list' | 'board' | undefined;
+    kind?: ViewKind | undefined;
     query?: string | undefined;
   },
 ): Promise<SavedView> {

@@ -33,7 +33,7 @@ interface Drag {
   over: string | null;
 }
 
-interface PanelProps {
+export interface PanelProps {
   fields: CustomField[];
   canEdit: boolean;
   nameOf: (userId: string | null) => string;
@@ -304,7 +304,7 @@ function Card({
 }
 
 /** An item opened from the board, over it, with everything the list shows when a row opens. */
-function ItemDialog({
+export function ItemDialog({
   item,
   onClose,
   ...panel

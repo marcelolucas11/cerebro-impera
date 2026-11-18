@@ -853,6 +853,47 @@ test('a list is narrowed and ordered, stays that way across a reload and the boa
   await tools.getByRole('button', { name: 'Limpar filtros e ordem' }).click();
 });
 
+test('the calendar puts each item on its day, and becomes an agenda on a phone', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  const now = new Date();
+  const today = [now.getFullYear(), now.getMonth() + 1, now.getDate()]
+    .map((part) => String(part).padStart(2, '0'))
+    .join('-');
+  await owner.getByRole('button', { name: 'Conferir perfis', exact: true }).click();
+  const row = owner.locator('.item-rows > li').filter({ hasText: 'Conferir perfis' });
+  await row.getByLabel('Data de compra').fill(today);
+  await row.getByRole('button', { name: 'Salvar item' }).click();
+  await expect(row.getByRole('button', { name: 'Salvar item' })).toBeDisabled();
+
+  await owner
+    .getByRole('navigation', { name: 'Ver como' })
+    .getByRole('link', { name: 'Calendário' })
+    .click();
+  const todayCell = owner.locator('.calendar-day.is-today');
+  await expect(todayCell.getByRole('button', { name: 'Conferir perfis' })).toBeVisible();
+  await shot(owner, 'calendario');
+  await todayCell.getByRole('button', { name: 'Conferir perfis' }).click();
+  const dialog = owner.getByRole('dialog', { name: 'Conferir perfis' });
+  await expect(dialog.getByLabel('Data de compra')).toHaveValue(today);
+  await dialog.getByRole('button', { name: 'Fechar', exact: true }).first().click();
+
+  await owner.getByRole('button', { name: 'Próximo mês' }).click();
+  await expect(owner.locator('.calendar-day.is-today')).toHaveCount(0);
+  await owner.getByRole('button', { name: 'Voltar para hoje' }).click();
+  await expect(todayCell.getByRole('button', { name: 'Conferir perfis' })).toBeVisible();
+
+  // On a phone: only the days that have something, each named in full.
+  await owner.setViewportSize({ width: 390, height: 844 });
+  await expect(owner.locator('.calendar-head')).toBeHidden();
+  await expect(todayCell.locator('.calendar-day-name')).toContainText('hoje');
+  await expect(owner.locator('.calendar-day.is-empty').first()).toBeHidden();
+  expect(await owner.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await shot(owner, 'calendario-celular');
+  await owner.setViewportSize({ width: 1280, height: 900 });
+});
+
 test('the board shows the list by stage, and a card is dragged from one to another', async () => {
   await owner.getByRole('link', { name: 'Espaços' }).click();
   await owner.getByRole('link', { name: 'Tarefas' }).click();

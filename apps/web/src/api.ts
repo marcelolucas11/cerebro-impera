@@ -266,7 +266,7 @@ export interface SavedView {
   id: string;
   listId: string;
   name: string;
-  kind: 'list' | 'board';
+  kind: 'list' | 'board' | 'calendar';
   query: string;
   updatedAt: string;
 }
@@ -435,8 +435,10 @@ export const api = {
     ),
 
   views: (listId: string) => request<SavedView[]>('GET', `/api/lists/${listId}/views`),
-  createView: (listId: string, input: { name: string; kind: 'list' | 'board'; query: string }) =>
-    request<SavedView>('POST', `/api/lists/${listId}/views`, input),
+  createView: (
+    listId: string,
+    input: { name: string; kind: 'list' | 'board' | 'calendar'; query: string },
+  ) => request<SavedView>('POST', `/api/lists/${listId}/views`, input),
   deleteView: (id: string) => request<{ ok: true }>('DELETE', `/api/views/${id}`),
   /** Keeps a secret, or clears it with null. */
   setSecret: (itemId: string, fieldId: string, value: string | null) =>
