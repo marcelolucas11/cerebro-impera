@@ -279,7 +279,7 @@ para mandar à lixeira.
 
 **Por quê.** Apagar por engano é o erro mais caro e o mais comum; 30 dias dão tempo de perceber.
 Com o prazo só no banco, nenhuma falha da aplicação apaga algo antes da hora. _Rever com o
-Rodrigo:_ hoje um funcionário pode mandar para a lixeira os próprios itens (como no ClickUp). Fica
+mantenedor:_ hoje um funcionário pode mandar para a lixeira os próprios itens (como no ClickUp). Fica
 registrado no histórico e o Dono vê e restaura; se preferir, dá para exigir "gerenciar" na lista.
 
 ## Adiado, com motivo
