@@ -169,6 +169,25 @@ describe('what is typed in a field', () => {
   });
 });
 
+describe('a people field', () => {
+  const people = field('people');
+  it('takes the people chosen, or nothing', () => {
+    expect(valueOf(people, [A, B], undefined)).toEqual({ ok: true, value: [A, B] });
+    expect(valueOf(people, [], [A])).toEqual({ ok: true, value: null });
+    expect(valueOf(people, [A, A], undefined).ok).toBe(false);
+    expect(draftOf(people, [A])).toEqual([A]);
+    expect(draftOf(people, undefined)).toEqual([]);
+  });
+
+  it('is read as names when names are known, and as a count otherwise', () => {
+    const names: Record<string, string> = { [A]: 'Ana', [B]: 'Bruno' };
+    expect(showValue(people, [A, B], (id) => names[id] ?? 'outra pessoa')).toBe('Ana, Bruno');
+    expect(showValue(people, [A])).toBe('1 pessoa');
+    expect(showValue(people, [A, B])).toBe('2 pessoas');
+    expect(showValue(people, undefined)).toBe('');
+  });
+});
+
 describe('a stored value as it is read', () => {
   it('is written the way people here write numbers, money and dates', () => {
     expect(showValue(field('number'), 1250.5)).toBe('1.250,5');

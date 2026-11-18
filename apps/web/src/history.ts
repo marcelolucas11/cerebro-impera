@@ -68,7 +68,9 @@ export function describeChange(change: ItemChange, context: HistoryContext): Cha
       const field = change.fieldId === null ? undefined : context.fieldOf(change.fieldId);
       if (!field) return { sentence: `${who} alterou um campo` };
       const show = (value: unknown): string =>
-        value === null || value === undefined ? '' : showValue(field, value as FieldValue);
+        value === null || value === undefined
+          ? ''
+          : showValue(field, value as FieldValue, context.nameOf);
       const [before, after] = [show(change.old), show(change.new)];
       if (change.old === null || change.old === undefined) {
         return { sentence: `${who} preencheu ${field.name}: ${after}` };

@@ -327,6 +327,16 @@ do aparelho. Ao trocar, todas as outras sessões da pessoa terminam; a atual con
 precisam cair na hora. Exigir o código impede que alguém com o computador aberto e destrancado
 troque a senha e tome a conta.
 
+## D32 — Campo de pessoas segue a regra de delegar
+
+**Decisão.** Um campo de pessoas só nomeia quem pode editar a lista do item, conferido por
+gatilho no banco. Quem já foi nomeado continua se perder o acesso, como uma opção arquivada.
+Nomes só aparecem para quem já os vê (quem gerencia pessoas ou distribui trabalho na lista); os
+demais veem "você" ou "outra pessoa".
+
+**Por quê.** É a mesma pergunta de passar um item para alguém, então a resposta é a mesma. E o
+campo não pode virar um jeito de um funcionário descobrir quem são os colegas.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

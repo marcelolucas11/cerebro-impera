@@ -350,7 +350,7 @@ function ItemRow({
             className={hasValue(field, item.fields[field.id]) ? 'item-cell' : 'item-cell is-empty'}
           >
             <span className="cell-name">{field.name}: </span>
-            <FieldValueView field={field} value={item.fields[field.id]} />
+            <FieldValueView field={field} value={item.fields[field.id]} nameOf={nameOf} />
           </span>
         ))}
         {canEdit ? (

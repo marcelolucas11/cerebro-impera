@@ -27,6 +27,8 @@ export function FieldInput({
   previous,
   error,
   onChange,
+  workers,
+  nameOf,
 }: {
   field: CustomField;
   draft: FieldDraft;
@@ -34,6 +36,9 @@ export function FieldInput({
   previous: FieldValue | undefined;
   error: string | null;
   onChange: (draft: FieldDraft) => void;
+  /** Who can be named here; null for someone who does not hand out work in this list. */
+  workers: { id: string; name: string }[] | null;
+  nameOf: (userId: string | null) => string;
 }): ReactNode {
   const id = useId();
   const noteId = `${id}-note`;
@@ -62,6 +67,49 @@ export function FieldInput({
         </label>
         {note}
       </div>
+    );
+  }
+
+  if (field.kind === 'people') {
+    const chosen = Array.isArray(draft) ? draft : [];
+    if (workers === null) {
+      // Not someone who hands out work here: the field is read, not chosen.
+      return (
+        <div className="field">
+          <span className="field-label">{field.name}</span>
+          <p className="fixed-value">
+            {chosen.length === 0 ? 'Ninguém' : chosen.map((id) => nameOf(id)).join(', ')}
+          </p>
+        </div>
+      );
+    }
+    const offered = [
+      ...workers,
+      ...chosen
+        .filter((id) => !workers.some((worker) => worker.id === id))
+        .map((id) => ({ id, name: nameOf(id) })),
+    ];
+    return (
+      <fieldset className="field ticks" aria-describedby={error ? noteId : undefined}>
+        <legend>{field.name}</legend>
+        {offered.map((person) => (
+          <label key={person.id} className="tick">
+            <input
+              type="checkbox"
+              checked={chosen.includes(person.id)}
+              onChange={(event) => {
+                onChange(
+                  event.target.checked
+                    ? [...chosen, person.id]
+                    : chosen.filter((other) => other !== person.id),
+                );
+              }}
+            />
+            {person.name}
+          </label>
+        ))}
+        {note}
+      </fieldset>
     );
   }
 
@@ -171,9 +219,11 @@ export function FieldInput({
 export function FieldValueView({
   field,
   value,
+  nameOf,
 }: {
   field: CustomField;
   value: FieldValue | undefined;
+  nameOf: (userId: string | null) => string;
 }): ReactNode {
   if (field.kind === 'select' || field.kind === 'labels') {
     const options = optionsOf(field, value);
@@ -189,7 +239,7 @@ export function FieldValueView({
       </span>
     );
   }
-  const text = showValue(field, value);
+  const text = showValue(field, value, nameOf);
   if (text === '') return null;
   const link = linkOf(field, value);
   if (link !== null) {

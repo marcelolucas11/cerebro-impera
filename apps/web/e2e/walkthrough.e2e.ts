@@ -496,6 +496,22 @@ test('work is handed to someone who can do it, and she finds it at once', async 
   await expect(item.locator('.item-row')).toContainText('Com Ana Souza');
   await shot(owner, 'responsaveis');
 
+  // A field that names people offers the same people, and nobody else.
+  await owner.getByRole('button', { name: 'Editar campos' }).click();
+  await owner.getByLabel('Nome do novo campo').fill('Conferido por');
+  await owner.getByLabel('Tipo do novo campo').selectOption({ label: 'Pessoas' });
+  await owner.getByRole('button', { name: 'Adicionar campo' }).click();
+  await expect(owner.getByRole('button', { name: 'Arquivar campo Conferido por' })).toBeVisible();
+  await owner.getByRole('button', { name: 'Fechar edição dos campos' }).click();
+  // The item is still open: the new field is there to fill in.
+  const checked = item.getByRole('group', { name: 'Conferido por' });
+  await expect(checked.getByRole('checkbox')).toHaveCount(2);
+  await checked.getByRole('checkbox', { name: 'Ana Souza' }).check();
+  await item.getByRole('button', { name: 'Salvar item' }).click();
+  await expect(
+    item.getByRole('group', { name: 'Conferido por' }).getByRole('checkbox', { name: 'Ana Souza' }),
+  ).toBeChecked();
+
   await ana.goto('/');
   await ana.getByRole('link', { name: 'Tarefas' }).click();
   await heading(ana, 'Tarefas');
@@ -505,6 +521,10 @@ test('work is handed to someone who can do it, and she finds it at once', async 
   // She works on her items; handing out work is not hers to do.
   await ana.getByRole('button', { name: 'Subir campanha do cliente', exact: true }).click();
   await expect(ana.getByRole('group', { name: 'Responsáveis' })).toHaveCount(0);
+  // She reads who checked it, without being offered anyone to choose.
+  const hers = ana.locator('.item-rows > li').filter({ hasText: 'Subir campanha do cliente' });
+  await expect(hers.getByRole('group', { name: 'Conferido por' })).toHaveCount(0);
+  await expect(hers.locator('.item-panel')).toContainText('Conferido por');
 });
 
 test('everything is on the record, and the record is intact', async () => {
