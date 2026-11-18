@@ -2225,3 +2225,9 @@ audio.file-preview {
 .subsection h3 .stage-count {
   margin-left: 0.5rem;
 }
+
+/* A person named in a comment: the name in the brand's color, nothing else. */
+.mention {
+  color: var(--marca);
+  font-weight: 600;
+}

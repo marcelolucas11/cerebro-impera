@@ -6,6 +6,7 @@ import { draftOf, sameValue, valueOf, type FieldDraft } from '../fieldvalues.js'
 import { isoDay } from '../calendar.js';
 import { formatDay, PRIORITY_NAMES, priorityLabel } from '../due.js';
 import { describeChange } from '../history.js';
+import { mentionsIn, splitMentions, type Named } from '../mentions.js';
 import { formatDuration, formatWhen } from '../labels.js';
 import { describeError } from '../messages.js';
 import { useGuard } from '../stepup.js';
@@ -350,17 +351,31 @@ function Comments({
   const queryClient = useQueryClient();
   const bodyId = useId();
   const [body, setBody] = useState('');
+  const [picked, setPicked] = useState<Named[]>([]);
   const said = useQuery({ queryKey: ['comments', item.id], queryFn: () => api.comments(item.id) });
+  // The names this item's conversation needs, for whoever sees it.
+  const people = useQuery({
+    queryKey: ['item-people', item.id],
+    queryFn: () => api.itemPeople(item.id),
+  });
+  const names = new Map((people.data ?? []).map((person) => [person.id, person.name]));
+  const nameHere = (userId: string | null): string =>
+    userId !== null && userId !== meId && names.has(userId)
+      ? (names.get(userId) ?? '')
+      : nameOf(userId);
+  const mentionable = (people.data ?? []).filter((person) => person.seesItem && person.id !== meId);
   const refresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['comments', item.id] });
+    await queryClient.invalidateQueries({ queryKey: ['item-people', item.id] });
     await queryClient.invalidateQueries({ queryKey: ['items', item.listId] });
   }, [item.id, item.listId, queryClient]);
   const send = useAction(
     useCallback(async () => {
-      await api.addComment(item.id, body);
+      await api.addComment(item.id, body, mentionsIn(body, picked));
       setBody('');
+      setPicked([]);
       await refresh();
-    }, [item.id, body, refresh]),
+    }, [item.id, body, picked, refresh]),
   );
   const found = said.data ?? [];
   return (
@@ -377,7 +392,8 @@ function Comments({
               key={comment.id}
               comment={comment}
               mine={comment.authorId === meId}
-              nameOf={nameOf}
+              nameOf={nameHere}
+              mentionNames={comment.mentions.flatMap((id) => names.get(id) ?? [])}
               onChange={refresh}
             />
           ))}
@@ -397,6 +413,26 @@ function Comments({
               }}
             />
           </div>
+          {mentionable.length > 0 ? (
+            <Select
+              label="Mencionar alguém"
+              value=""
+              onChange={(personId) => {
+                const person = mentionable.find((candidate) => candidate.id === personId);
+                if (!person) return;
+                setPicked((current) => [...current, { id: person.id, name: person.name }]);
+                setBody(
+                  (current) =>
+                    `${current}${current === '' || current.endsWith(' ') ? '' : ' '}@${person.name} `,
+                );
+              }}
+              options={[
+                { value: '', label: 'Escolha a pessoa' },
+                ...mentionable.map((person) => ({ value: person.id, label: person.name })),
+              ]}
+            />
+          ) : null}
+          <p className="field-note">Só aparecem para mencionar as pessoas que veem este item.</p>
           {send.error ? <Notice tone="error">{send.error}</Notice> : null}
           <Button type="submit" busy={send.busy} disabled={body.trim() === ''}>
             Comentar
@@ -411,11 +447,14 @@ function CommentEntry({
   comment,
   mine,
   nameOf,
+  mentionNames,
   onChange,
 }: {
   comment: ItemComment;
   mine: boolean;
   nameOf: (userId: string | null) => string;
+  /** The names of the people mentioned, as written in the text. */
+  mentionNames: string[];
   onChange: () => Promise<void>;
 }): ReactNode {
   const editId = useId();
@@ -446,10 +485,7 @@ function CommentEntry({
   if (comment.removedAt !== null) {
     return (
       <li className="comment is-removed">
-        <p className="muted">
-          Comentário de {author} apagado por {nameOf(comment.removedBy)} em{' '}
-          {formatWhen(comment.removedAt)}.
-        </p>
+        <p className="muted">{removalSentence(comment, mine, author, nameOf)}</p>
       </li>
     );
   }
@@ -497,7 +533,17 @@ function CommentEntry({
           </div>
         </Form>
       ) : (
-        <p className="comment-body">{comment.body}</p>
+        <p className="comment-body">
+          {splitMentions(comment.body, mentionNames).map((part, index) =>
+            part.mention ? (
+              <span key={index} className="mention">
+                {part.text}
+              </span>
+            ) : (
+              part.text
+            ),
+          )}
+        </p>
       )}
       {!editing && (comment.canEdit || comment.canRemove || comment.versions > 0) ? (
         <div className="comment-actions">
@@ -545,6 +591,25 @@ function CommentEntry({
 }
 
 const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** Who removed a comment, and when, said the way it reads to this person. */
+function removalSentence(
+  comment: ItemComment,
+  mine: boolean,
+  author: string,
+  nameOf: (userId: string | null) => string,
+): string {
+  const when = formatWhen(comment.removedAt ?? comment.createdAt);
+  const byAuthor = comment.removedBy === comment.authorId;
+  if (mine) {
+    return byAuthor
+      ? `Você apagou o seu comentário em ${when}.`
+      : `Seu comentário foi apagado por ${nameOf(comment.removedBy)} em ${when}.`;
+  }
+  return byAuthor
+    ? `${author} apagou o próprio comentário em ${when}.`
+    : `Comentário de ${author} apagado por ${nameOf(comment.removedBy)} em ${when}.`;
+}
 
 /** The item's checklist: lines ticked by whoever edits the item, read by whoever sees it. */
 function Checklist({ item, canEdit }: { item: Item; canEdit: boolean }): ReactNode {

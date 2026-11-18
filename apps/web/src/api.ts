@@ -278,8 +278,17 @@ export interface ItemComment {
   removedAt: string | null;
   removedBy: string | null;
   versions: number;
+  /** People mentioned in it; empty once removed. */
+  mentions: string[];
   canEdit: boolean;
   canRemove: boolean;
+}
+/** Someone who sees an item, or took part in its comments. */
+export interface ItemPerson {
+  id: string;
+  name: string;
+  /** Can see the item now, so can be mentioned on it. */
+  seesItem: boolean;
 }
 /** One line of an item's checklist. */
 export interface CheckLine {
@@ -439,8 +448,9 @@ export const api = {
 
   items: (listId: string) => request<Item[]>('GET', `/api/lists/${listId}/items`),
   comments: (itemId: string) => request<ItemComment[]>('GET', `/api/items/${itemId}/comments`),
-  addComment: (itemId: string, body: string) =>
-    request<ItemComment>('POST', `/api/items/${itemId}/comments`, { body }),
+  addComment: (itemId: string, body: string, mentions: string[] = []) =>
+    request<ItemComment>('POST', `/api/items/${itemId}/comments`, { body, mentions }),
+  itemPeople: (itemId: string) => request<ItemPerson[]>('GET', `/api/items/${itemId}/people`),
   editComment: (commentId: string, body: string) =>
     request<ItemComment>('PATCH', `/api/comments/${commentId}`, { body }),
   removeComment: (commentId: string) =>
