@@ -117,7 +117,8 @@ export function Devices({ me }: { me: Me['user'] }): ReactNode {
           ))}
         </ul>
         <p className="field-note">
-          Revogar encerra na hora as sessões daquele aparelho. Para voltar a usá-lo, a pessoa
+          Revogar encerra na hora as sessões daquele aparelho e, no próximo contato dele com o
+          servidor, apaga o que ele guardou para ler sem conexão. Para voltar a usá-lo, a pessoa
           precisa entrar e ser aprovada de novo.
         </p>
       </section>

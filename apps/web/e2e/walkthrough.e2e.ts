@@ -1389,7 +1389,7 @@ test('the app can be installed, and its worker keeps the page and never anything
   ).toEqual([]);
 });
 
-test('a phone keeps the lists it opened, sealed, to read offline, and forgets them on signing out', async () => {
+test('a phone keeps the lists it opened, sealed, to read offline', async () => {
   await ana.getByRole('link', { name: 'Espaços' }).click();
   await ana.getByRole('link', { name: 'Tarefas' }).click();
   await heading(ana, 'Tarefas');
@@ -1453,26 +1453,6 @@ test('a phone keeps the lists it opened, sealed, to read offline, and forgets th
   expect(
     problems.splice(before).filter((problem) => !/ERR_INTERNET_DISCONNECTED/.test(problem)),
   ).toEqual([]);
-
-  // Signing out takes everything the device kept, the key included.
-  await ana.getByRole('button', { name: 'Sair' }).click();
-  await expect(ana.getByLabel('E-mail')).toBeVisible();
-  expect(
-    await ana.evaluate(async () =>
-      (await indexedDB.databases()).some((db) => db.name === 'cerebro-offline'),
-    ),
-  ).toBe(false);
-  // Offline now, there is nothing to open: the page says so and waits for the connection.
-  const after = problems.length;
-  await anaContext.setOffline(true);
-  await ana.reload();
-  await expect(ana.getByText('Sem conexão com o servidor.', { exact: false })).toBeVisible();
-  await shot(ana, 'sem-conexao-celular');
-  await anaContext.setOffline(false);
-  await expect(ana.getByLabel('E-mail')).toBeVisible();
-  expect(
-    problems.splice(after).filter((problem) => !/ERR_INTERNET_DISCONNECTED/.test(problem)),
-  ).toEqual([]);
 });
 
 test('everything is on the record, and the record is intact', async () => {
@@ -1516,7 +1496,27 @@ test('suspending her throws her out at once and keeps her out', async () => {
   await owner.getByRole('button', { name: 'Suspender conta' }).click();
   await expect(owner.getByText('Conta suspensa.')).toBeVisible();
 
+  // On her phone's next contact the server turns it away, and what it kept is erased.
+  const keptOnPhone = (): Promise<boolean> =>
+    ana.evaluate(async () =>
+      (await indexedDB.databases()).some((db) => db.name === 'cerebro-offline'),
+    );
+  expect(await keptOnPhone()).toBe(true);
   await ana.reload();
+  await heading(ana, 'Entrar');
+  await expect.poll(keptOnPhone).toBe(false);
+  // Offline now, there is nothing to open: the page says so and waits for the connection.
+  const before = problems.length;
+  await anaContext.setOffline(true);
+  await ana.reload();
+  await expect(ana.getByText('Sem conexão com o servidor.', { exact: false })).toBeVisible();
+  await shot(ana, 'sem-conexao-celular');
+  await anaContext.setOffline(false);
+  await heading(ana, 'Entrar');
+  expect(
+    problems.splice(before).filter((problem) => !/ERR_INTERNET_DISCONNECTED/.test(problem)),
+  ).toEqual([]);
+
   await signIn(ana, 'ana@exemplo.test', PASSWORD);
   // The answer does not even confirm that the account exists.
   await expect(ana.getByRole('alert')).toHaveText('E-mail ou senha incorretos.');
@@ -1852,6 +1852,17 @@ test('the board shows the list by stage, and a card is dragged from one to anoth
   expect(await owner.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await shot(owner, 'quadro-celular');
   await owner.setViewportSize({ width: 1280, height: 900 });
+});
+
+test('signing out takes everything the device kept, the key included', async () => {
+  const kept = (): Promise<boolean> =>
+    owner.evaluate(async () =>
+      (await indexedDB.databases()).some((db) => db.name === 'cerebro-offline'),
+    );
+  expect(await kept()).toBe(true);
+  await owner.getByRole('button', { name: 'Sair' }).click();
+  await heading(owner, 'Entrar');
+  expect(await kept()).toBe(false);
 });
 
 test('the page never broke its own security policy along the way', () => {
