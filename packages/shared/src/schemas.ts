@@ -6,6 +6,7 @@ import {
   MAX_FIELD_OPTIONS,
   MAX_FIELDS_PER_LIST,
   MAX_LABELS_PER_VALUE,
+  MAX_SECRET_LENGTH,
 } from './fields.js';
 import { MAX_FILE_NAME_LENGTH, safeFileName } from './files.js';
 import { PASSWORD_MAX_LENGTH } from './password.js';
@@ -224,6 +225,11 @@ export const updateItemSchema = z
     fields: fieldValuesSchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'empty update');
+/** A secret as typed, or null to clear it. Never trimmed. */
+export const setSecretSchema = z.strictObject({
+  value: z.string().min(1).max(MAX_SECRET_LENGTH).nullable(),
+});
+
 export const startUploadSchema = z.strictObject({
   name: z
     .string()

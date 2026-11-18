@@ -85,6 +85,7 @@ const ACTION_NAMES: Record<string, string> = {
   'password.changed': 'Senha trocada pela própria pessoa',
   'items.purged': 'Itens removidos de vez da lixeira, depois de 30 dias',
   'attachment.downloaded': 'Anexo de lista sensível baixado',
+  'secret.revealed': 'Valor secreto revelado',
   'attachment.blocked': 'Anexo bloqueado pelo antivírus',
   'attachments.purged': 'Anexos removidos de vez, depois do prazo',
   'access_grants.insert': 'Acesso concedido',

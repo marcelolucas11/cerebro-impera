@@ -1,4 +1,4 @@
-import type { FieldValue } from '@cerebro/shared';
+import { hasCapability, type FieldValue } from '@cerebro/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useId, useState, type ReactNode } from 'react';
 import { api, type CustomField, type Item, type ItemChange } from '../api.js';
@@ -10,6 +10,7 @@ import { useGuard } from '../stepup.js';
 import { Button, Field, Form, Notice, Select, useAction } from '../ui/kit.js';
 import { Attachments } from './Attachments.js';
 import { FieldInput, FieldValueView } from './FieldInput.js';
+import { SecretField } from './SecretField.js';
 
 /** One item opened in place: what it says, what its list records about it, and every stage it has been through. */
 export function ItemPanel({
@@ -30,6 +31,13 @@ export function ItemPanel({
 }): ReactNode {
   const queryClient = useQueryClient();
   const descriptionId = useId();
+  const me = useQuery({ queryKey: ['me'], queryFn: api.me, retry: false });
+  const canReveal =
+    me.data !== undefined &&
+    hasCapability(
+      { role: me.data.user.role, capabilities: me.data.capabilities },
+      'secret_fields.reveal',
+    );
   const [title, setTitle] = useState(item.title);
   const [description, setDescription] = useState(item.description);
   const [drafts, setDrafts] = useState<Record<string, FieldDraft>>({});
@@ -39,8 +47,12 @@ export function ItemPanel({
     queryFn: () => api.stageHistory(item.id),
   });
 
+  // Secrets are kept and revealed one by one, never through the item's form.
+  const ordinary = fields.filter((field) => field.kind !== 'secret');
+  const secrets = fields.filter((field) => field.kind === 'secret');
+
   // What each field would be saved as, or what is wrong with what was typed.
-  const parsed = fields.map((field) => {
+  const parsed = ordinary.map((field) => {
     const draft = drafts[field.id] ?? draftOf(field, item.fields[field.id]);
     const touched = field.id in drafts;
     const result = touched ? valueOf(field, draft, item.fields[field.id]) : null;
@@ -130,9 +142,9 @@ export function ItemPanel({
       ) : (
         <>
           <p className="item-description">{item.description || 'Sem descrição.'}</p>
-          {fields.length > 0 ? (
+          {ordinary.length > 0 ? (
             <dl className="item-facts">
-              {fields.map((field) => (
+              {ordinary.map((field) => (
                 <div key={field.id}>
                   <dt>{field.name}</dt>
                   <dd>
@@ -144,6 +156,24 @@ export function ItemPanel({
           ) : null}
         </>
       )}
+      {secrets.length > 0 ? (
+        <div className="item-secrets">
+          {secrets.map((field) => (
+            <SecretField
+              key={field.id}
+              item={item}
+              field={field}
+              canEdit={canEdit}
+              canReveal={canReveal}
+            />
+          ))}
+          <p className="field-note">
+            {canReveal
+              ? 'Revelar ou copiar pede o código do autenticador e fica no registro de auditoria.'
+              : 'Só um Dono, ou quem recebeu dele a capacidade de revelar campos secretos, vê o valor.'}
+          </p>
+        </div>
+      ) : null}
       <Attachments item={item} canEdit={canEdit} nameOf={nameOf} />
       <div className="subsection">
         <h3>Tempo em cada etapa</h3>

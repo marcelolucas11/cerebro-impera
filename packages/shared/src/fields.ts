@@ -19,6 +19,7 @@ export const FIELD_KINDS = [
   'phone',
   'rating',
   'people',
+  'secret',
 ] as const;
 export type FieldKind = (typeof FIELD_KINDS)[number];
 
@@ -154,7 +155,8 @@ export type FieldValueProblem =
   | 'too_many_labels'
   | 'duplicate_label'
   | 'too_many_people'
-  | 'duplicate_person';
+  | 'duplicate_person'
+  | 'kept_apart';
 
 function isRealDate(value: string): boolean {
   const match = DATE_PATTERN.exec(value);
@@ -244,6 +246,9 @@ export function fieldValueProblem(
       if (value.length > MAX_PEOPLE_PER_VALUE) return 'too_many_people';
       return new Set(value).size === value.length ? null : 'duplicate_person';
     }
+    case 'secret':
+      // Never among the ordinary values: see secretValueProblem.
+      return 'kept_apart';
     case 'labels': {
       if (!Array.isArray(value) || !value.every((id) => typeof id === 'string')) {
         return 'wrong_type';
@@ -257,4 +262,17 @@ export function fieldValueProblem(
         : 'unknown_option';
     }
   }
+}
+
+/** The longest secret kept, in characters. */
+export const MAX_SECRET_LENGTH = 2000;
+
+/**
+ * What is wrong with a secret, or null when it can be kept. Taken exactly as
+ * typed: spaces at either end may be part of a password.
+ */
+export function secretValueProblem(value: unknown): 'wrong_type' | 'empty' | 'too_long' | null {
+  if (typeof value !== 'string') return 'wrong_type';
+  if (value === '') return 'empty';
+  return value.length > MAX_SECRET_LENGTH ? 'too_long' : null;
 }

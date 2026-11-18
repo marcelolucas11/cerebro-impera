@@ -8,6 +8,7 @@ const ANA = 'ana';
 const OPTION = '11111111-1111-4111-8111-111111111111';
 const fields: Record<string, FieldLike> = {
   valor: { id: 'valor', name: 'Valor', kind: 'money', config: { currency: 'BRL' } },
+  senha: { id: 'senha', name: 'Senha do painel', kind: 'secret', config: {} },
   fornecedor: {
     id: 'fornecedor',
     name: 'Fornecedor',
@@ -108,5 +109,22 @@ describe('a line of an item’s history', () => {
       'Você tirou o anexo “contrato.pdf” da lixeira',
     );
     expect(say({ what: 'attachment_added', new: null })).toBe('Você anexou um arquivo');
+  });
+
+  it('says a secret changed, and never what it is', () => {
+    const marker = { secret: true };
+    expect(say({ what: 'field', fieldId: 'senha', new: marker })).toBe(
+      'Você guardou um valor em Senha do painel',
+    );
+    expect(say({ what: 'field', fieldId: 'senha', old: marker, new: marker })).toBe(
+      'Você trocou o valor de Senha do painel',
+    );
+    expect(say({ what: 'field', fieldId: 'senha', old: marker })).toBe(
+      'Você apagou o valor de Senha do painel',
+    );
+    // Even if a value ever reached this screen, it would not be written out.
+    expect(say({ what: 'field', fieldId: 'senha', old: 'antiga', new: 'nova' })).toBe(
+      'Você trocou o valor de Senha do painel',
+    );
   });
 });
