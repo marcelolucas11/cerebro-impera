@@ -60,6 +60,10 @@ export function describeChange(change: ItemChange, context: HistoryContext): Cha
       return change.old === change.actor
         ? { sentence: `${who} saiu do item` }
         : { sentence: `${who} tirou ${context.nameOf(text(change.old))} do item` };
+    case 'trashed':
+      return { sentence: `${who} mandou o item para a lixeira` };
+    case 'restored':
+      return { sentence: `${who} tirou o item da lixeira` };
     case 'field': {
       const field = change.fieldId === null ? undefined : context.fieldOf(change.fieldId);
       if (!field) return { sentence: `${who} alterou um campo` };

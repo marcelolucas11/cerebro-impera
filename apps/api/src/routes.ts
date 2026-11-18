@@ -242,6 +242,19 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return signedIn(request, (tx, actor) => stages.itemStageHistory(tx, actor, id));
   });
 
+  app.post('/api/items/:id/trash', async (request) => {
+    const id = paramId(request);
+    await signedIn(request, (tx, actor) => structure.trashItem(tx, actor, id));
+    return { ok: true };
+  });
+  app.post('/api/items/:id/restore', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => structure.restoreItem(tx, actor, id));
+  });
+  app.get('/api/lists/:id/trash', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => structure.listTrash(tx, actor, id));
+  });
   app.get('/api/items/:id/history', (request) => {
     const id = paramId(request);
     const query = parse(itemHistoryQuerySchema, request.query);

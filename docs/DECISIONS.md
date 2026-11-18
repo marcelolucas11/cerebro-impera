@@ -266,6 +266,22 @@ campo segue a regra do campo: arquivado ou deixado em outra lista, não é lido.
 de registrar, e sem que alguém com acesso amplo apague o próprio rastro. O registro de auditoria
 já cobre ações de segurança; este cobre o trabalho do dia a dia e é lido por quem trabalha no item.
 
+## D27 — Lixeira de 30 dias, e nenhuma outra forma de remover um item
+
+**Decisão.** Quem pode editar um item pode mandá-lo para a lixeira e trazê-lo de volta. Na
+lixeira o item some de listas e contagens, e nada nele (nem responsáveis, nem campos) muda, exceto a
+etapa quando a etapa dele é removida da lista. Depois de 30 dias ele é removido de vez, junto com
+valores, responsáveis e histórico. A aplicação não tem permissão para remover itens: só a função
+do banco que limpa a lixeira, com o prazo escrito nela, e que fica no registro de auditoria. A data
+de envio e quem enviou são escritos pelo banco; nem o dono do banco altera essa data sem desligar
+a proteção. Sem o 2º fator recente, os itens de uma lista sensível ficam fora de alcance também
+para mandar à lixeira.
+
+**Por quê.** Apagar por engano é o erro mais caro e o mais comum; 30 dias dão tempo de perceber.
+Com o prazo só no banco, nenhuma falha da aplicação apaga algo antes da hora. _Rever com o
+mantenedor:_ hoje um funcionário pode mandar para a lixeira os próprios itens (como no ClickUp). Fica
+registrado no histórico e o Dono vê e restaura; se preferir, dá para exigir "gerenciar" na lista.
+
 ## Adiado, com motivo
 
 | Item                           | Situação                                                                                          |

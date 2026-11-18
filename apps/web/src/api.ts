@@ -174,6 +174,9 @@ export interface Item {
   stageSince: string;
   /** Values of the list's custom fields, by field id. A field with no value is absent. */
   fields: Record<string, FieldValue>;
+  /** Set only for an item in the trash. */
+  trashedAt: string | null;
+  trashedBy: string | null;
 }
 export interface CustomField {
   id: string;
@@ -203,7 +206,16 @@ export interface ItemChange {
   /** Null when the change was not made by a signed-in person. */
   actor: string | null;
   what:
-    'created' | 'title' | 'description' | 'list' | 'stage' | 'assigned' | 'unassigned' | 'field';
+    | 'created'
+    | 'title'
+    | 'description'
+    | 'list'
+    | 'stage'
+    | 'assigned'
+    | 'unassigned'
+    | 'field'
+    | 'trashed'
+    | 'restored';
   fieldId: string | null;
   old: unknown;
   new: unknown;
@@ -334,6 +346,9 @@ export const api = {
     ),
   stageHistory: (itemId: string) =>
     request<StageStay[]>('GET', `/api/items/${itemId}/stage-history`),
+  trashItem: (id: string) => request<{ ok: true }>('POST', `/api/items/${id}/trash`),
+  restoreItem: (id: string) => request<Item>('POST', `/api/items/${id}/restore`),
+  trash: (listId: string) => request<Item[]>('GET', `/api/lists/${listId}/trash`),
   /** Newest first, fifty at a time. `before` continues from the last line of the previous page. */
   itemHistory: (itemId: string, before?: number) =>
     request<ItemChange[]>(

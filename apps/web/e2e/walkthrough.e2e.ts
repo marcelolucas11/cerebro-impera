@@ -284,7 +284,7 @@ test('items live in stages: each person works on what is theirs, and the list ke
   await expect(stageOf(ana, 'A fazer')).toContainText('0 itens');
 
   // Opening the item shows where it has been and for how long.
-  await ana.getByRole('button', { name: 'Conferir perfis' }).click();
+  await ana.getByRole('button', { name: 'Conferir perfis', exact: true }).click();
   const stays = ana.locator('.stays li');
   await expect(stays).toHaveCount(2);
   await expect(stays.nth(0)).toContainText('A fazer');
@@ -352,7 +352,7 @@ test('a list records what the team needs about each item, and each person sees o
   await expect(owner.locator('.item-head').first()).toContainText('Data de compra');
 
   // Filling them in: what does not fit is explained before anything is sent.
-  await owner.getByRole('button', { name: 'Subir campanha do cliente' }).click();
+  await owner.getByRole('button', { name: 'Subir campanha do cliente', exact: true }).click();
   const panel = row(owner, 'Subir campanha do cliente').locator('.item-panel');
   await panel.getByLabel('Fornecedor', { exact: true }).selectOption({ label: 'Beta' });
   await panel.getByLabel('Valor (BRL)').fill('1.499,90');
@@ -378,7 +378,7 @@ test('a list records what the team needs about each item, and each person sees o
   await expect(ana.getByRole('button', { name: 'Editar campos' })).toHaveCount(0);
   await expect(ana.getByText('Subir campanha do cliente')).toHaveCount(0);
   await expect(ana.getByText('1.499,90')).toHaveCount(0);
-  await ana.getByRole('button', { name: 'Conferir perfis' }).click();
+  await ana.getByRole('button', { name: 'Conferir perfis', exact: true }).click();
   const hers = row(ana, 'Conferir perfis').locator('.item-panel');
   await hers.getByLabel('Fornecedor', { exact: true }).selectOption({ label: 'Alfa' });
   await hers.getByLabel('Valor (BRL)').fill('250');
@@ -399,7 +399,7 @@ test('a list records what the team needs about each item, and each person sees o
   await expect(row(owner, 'Conferir perfis').locator('.item-row')).toContainText('250,00');
 
   // Everything done to an item is on its history, said in words, newest first.
-  await owner.getByRole('button', { name: 'Conferir perfis' }).click();
+  await owner.getByRole('button', { name: 'Conferir perfis', exact: true }).click();
   const opened = row(owner, 'Conferir perfis').locator('.item-panel');
   await opened.getByRole('button', { name: 'Ver o que mudou neste item' }).click();
   const story = opened.locator('.changes > li');
@@ -408,7 +408,25 @@ test('a list records what the team needs about each item, and each person sees o
   await expect(story.filter({ hasText: /Ana Souza preencheu Valor: R\$\s250,00/ })).toHaveCount(1);
   await expect(story.last()).toContainText('criou o item');
   await shot(owner, 'historico-do-item');
-  await owner.getByRole('button', { name: 'Conferir perfis' }).click();
+  await owner.getByRole('button', { name: 'Conferir perfis', exact: true }).click();
+
+  // An item thrown away leaves the list, waits in the trash, and comes back as it was.
+  await owner.getByRole('button', { name: 'Subir campanha do cliente', exact: true }).click();
+  await row(owner, 'Subir campanha do cliente')
+    .getByRole('button', { name: 'Mandar para a lixeira Subir campanha do cliente' })
+    .click();
+  await expect(owner.locator('.item-rows').getByText('Subir campanha do cliente')).toHaveCount(0);
+  await owner.getByRole('button', { name: 'Lixeira' }).click();
+  const binned = owner.locator('.trash li').filter({ hasText: 'Subir campanha do cliente' });
+  await expect(binned).toContainText('Mandado por você');
+  await expect(binned).toContainText('sai de vez em');
+  await shot(owner, 'lixeira');
+  await binned.getByRole('button', { name: 'Restaurar Subir campanha do cliente' }).click();
+  await expect(owner.getByText('A lixeira está vazia.')).toBeVisible();
+  await expect(row(owner, 'Subir campanha do cliente').locator('.item-row')).toContainText(
+    '1.499,90',
+  );
+  await owner.getByRole('button', { name: 'Lixeira' }).click();
 
   // Archiving a field hides it and what was filled in; restoring brings both back.
   await owner.getByRole('button', { name: 'Editar campos' }).click();

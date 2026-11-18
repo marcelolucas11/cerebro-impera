@@ -160,6 +160,7 @@ export function ItemPanel({
           })}
         </ol>
       </div>
+      {canEdit ? <SendToTrash item={item} /> : null}
       <ItemHistory
         // What the item is now is part of the key: a change made here shows up at once.
         key={item.updatedAt}
@@ -253,6 +254,27 @@ function ItemHistory({
           Ver mudanças mais antigas
         </Button>
       ) : null}
+    </div>
+  );
+}
+
+/** Sends the item to the trash of its list, where it can be brought back for 30 days. */
+function SendToTrash({ item }: { item: Item }): ReactNode {
+  const queryClient = useQueryClient();
+  const send = useAction(
+    useCallback(async () => {
+      await api.trashItem(item.id);
+      await queryClient.invalidateQueries({ queryKey: ['items', item.listId] });
+      await queryClient.invalidateQueries({ queryKey: ['trash', item.listId] });
+    }, [item.id, item.listId, queryClient]),
+  );
+  return (
+    <div className="subsection">
+      <Button variant="quiet" busy={send.busy} onClick={send.run}>
+        Mandar para a lixeira<span className="visually-hidden"> {item.title}</span>
+      </Button>
+      <p className="field-note">Fica 30 dias na lixeira da lista, de onde pode voltar como está.</p>
+      {send.error ? <Notice tone="error">{send.error}</Notice> : null}
     </div>
   );
 }

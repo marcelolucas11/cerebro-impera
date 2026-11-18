@@ -177,6 +177,7 @@ export function ListScreen({
           listNameOf={listNameOf}
         />
       ))}
+      <Trash listId={listId} canEdit={canEdit} nameOf={nameOf} />
     </>
   );
 }
@@ -407,5 +408,100 @@ function AddItem({ stage }: { stage: Stage }): ReactNode {
       </div>
       {add.error ? <Notice tone="error">{add.error}</Notice> : null}
     </Form>
+  );
+}
+
+const TRASH_DAYS = 30;
+const DAY = 24 * 60 * 60 * 1000;
+const shortDate = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
+
+/** What was thrown away from this list, as far as this person can see, and the way back. */
+function Trash({
+  listId,
+  canEdit,
+  nameOf,
+}: {
+  listId: string;
+  canEdit: boolean;
+  nameOf: (userId: string | null) => string;
+}): ReactNode {
+  const [open, setOpen] = useState(false);
+  const trash = useQuery({
+    queryKey: ['trash', listId],
+    queryFn: () => api.trash(listId),
+    enabled: open,
+  });
+  return (
+    <section className="trash" aria-label="Lixeira desta lista">
+      <h2>
+        <button
+          type="button"
+          className="stage-toggle"
+          aria-expanded={open}
+          onClick={() => {
+            setOpen(!open);
+          }}
+        >
+          Lixeira
+          {trash.data !== undefined ? (
+            <span className="stage-count">
+              {trash.data.length === 1 ? '1 item' : `${trash.data.length} itens`}
+            </span>
+          ) : null}
+        </button>
+      </h2>
+      {open ? (
+        <>
+          <p className="field-note">
+            Itens ficam aqui por {TRASH_DAYS} dias e depois são removidos de vez, com tudo o que
+            tinham.
+          </p>
+          {trash.isError ? <Notice tone="error">{describeError(trash.error)}</Notice> : null}
+          {trash.data?.length === 0 ? <p className="field-note">A lixeira está vazia.</p> : null}
+          <ul className="rows">
+            {(trash.data ?? []).map((item) => (
+              <TrashedItem key={item.id} item={item} canEdit={canEdit} nameOf={nameOf} />
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+function TrashedItem({
+  item,
+  canEdit,
+  nameOf,
+}: {
+  item: Item;
+  canEdit: boolean;
+  nameOf: (userId: string | null) => string;
+}): ReactNode {
+  const queryClient = useQueryClient();
+  const restore = useAction(
+    useCallback(async () => {
+      await api.restoreItem(item.id);
+      await queryClient.invalidateQueries({ queryKey: ['trash', item.listId] });
+      await queryClient.invalidateQueries({ queryKey: ['items', item.listId] });
+    }, [item.id, item.listId, queryClient]),
+  );
+  const sentAt = Date.parse(item.trashedAt ?? '');
+  return (
+    <li>
+      <span>
+        {item.title}
+        <span className="row-detail">
+          Mandado por {nameOf(item.trashedBy)} em {shortDate.format(sentAt)}; sai de vez em{' '}
+          {shortDate.format(sentAt + TRASH_DAYS * DAY)}
+        </span>
+      </span>
+      {canEdit ? (
+        <Button variant="quiet" busy={restore.busy} onClick={restore.run}>
+          Restaurar<span className="visually-hidden"> {item.title}</span>
+        </Button>
+      ) : null}
+      {restore.error ? <Notice tone="error">{restore.error}</Notice> : null}
+    </li>
   );
 }
