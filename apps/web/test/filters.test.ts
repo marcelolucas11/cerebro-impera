@@ -3,6 +3,7 @@ import type { Item } from '../src/api.js';
 import type { FieldLike } from '../src/fieldvalues.js';
 import {
   DEFAULT_SORT,
+  defaultColumns,
   fromSearch,
   isFiltering,
   matches,
@@ -184,7 +185,10 @@ describe('in the address', () => {
       field: { id: 'valor', test: { op: 'atLeast', value: 100 } },
     };
     const sort = { key: 'field:valor' as const, descending: true };
-    expect(fromSearch(toSearch(filter, sort))).toEqual({ filter, sort });
+    expect(fromSearch(toSearch(filter, sort))).toEqual({ filter, sort, columns: null });
+    const columns = ['etapa', 'valor', 'responsaveis'];
+    expect(fromSearch(toSearch(filter, sort, columns)).columns).toEqual(columns);
+    expect(fromSearch(toSearch(NO_FILTER, DEFAULT_SORT, [])).columns).toEqual([]);
     expect(toSearch(NO_FILTER, DEFAULT_SORT)).toBe('');
     expect(isFiltering(NO_FILTER)).toBe(false);
     expect(isFiltering(filter)).toBe(true);
@@ -196,5 +200,26 @@ describe('in the address', () => {
     expect(odd.sort).toEqual(DEFAULT_SORT);
     const notANumber = fromSearch('?campo=valor&teste=atLeast&valor=muito');
     expect(notANumber.filter.field).toBeNull();
+    expect(fromSearch('?colunas=etapa,<b>,etapa,ok-1').columns).toEqual(['etapa', 'ok-1']);
+  });
+});
+
+describe('a table without a choice of columns', () => {
+  it('shows stage, who and the first fields, leaving long texts out', () => {
+    const many: FieldLike[] = [
+      { id: 'notas', name: 'Notas', kind: 'long_text', config: {} },
+      ...fields,
+      { id: 'extra', name: 'Extra', kind: 'text', config: {} },
+    ];
+    expect(defaultColumns(many)).toEqual([
+      'etapa',
+      'responsaveis',
+      'fornecedor',
+      'valor',
+      'entrega',
+      'obs',
+      'senha',
+      'pronto',
+    ]);
   });
 });

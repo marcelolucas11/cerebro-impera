@@ -1,4 +1,5 @@
 import type { FieldConfig, FieldKind, FieldValue } from '@cerebro/shared';
+import type { ListView } from './router.js';
 
 /** A refusal from the server, or `network` when it could not be reached. */
 export class ApiError extends Error {
@@ -266,7 +267,7 @@ export interface SavedView {
   id: string;
   listId: string;
   name: string;
-  kind: 'list' | 'board' | 'calendar';
+  kind: ListView;
   query: string;
   updatedAt: string;
 }
@@ -435,10 +436,8 @@ export const api = {
     ),
 
   views: (listId: string) => request<SavedView[]>('GET', `/api/lists/${listId}/views`),
-  createView: (
-    listId: string,
-    input: { name: string; kind: 'list' | 'board' | 'calendar'; query: string },
-  ) => request<SavedView>('POST', `/api/lists/${listId}/views`, input),
+  createView: (listId: string, input: { name: string; kind: ListView; query: string }) =>
+    request<SavedView>('POST', `/api/lists/${listId}/views`, input),
   deleteView: (id: string) => request<{ ok: true }>('DELETE', `/api/views/${id}`),
   /** Keeps a secret, or clears it with null. */
   setSecret: (itemId: string, fieldId: string, value: string | null) =>
