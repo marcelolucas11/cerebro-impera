@@ -121,6 +121,7 @@ export function ListTools({
   }
 
   const sortOptions: { value: SortKey; label: string }[] = [
+    { value: 'manual', label: 'Ordem do quadro' },
     { value: 'stage', label: 'Tempo na etapa' },
     { value: 'title', label: 'Título' },
     { value: 'created', label: 'Criação' },

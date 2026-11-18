@@ -981,6 +981,15 @@ test('the board shows the list by stage, and a card is dragged from one to anoth
   await owner.getByLabel('Etapa de Conferir perfis').selectOption({ label: 'Fazendo' });
   await expect(cardIn('Fazendo')).toBeVisible();
 
+  // Placed by hand, here the keyboard's way, one place up; everyone sees the same order.
+  const inDoing = column('Fazendo').locator('.card .card-title');
+  await expect(inDoing).toHaveText(['Subir campanha do cliente', 'Conferir perfis']);
+  await cardIn('Fazendo').hover();
+  await cardIn('Fazendo').getByRole('button', { name: 'Subir Conferir perfis' }).click();
+  await expect(inDoing).toHaveText(['Conferir perfis', 'Subir campanha do cliente']);
+  await owner.reload();
+  await expect(inDoing).toHaveText(['Conferir perfis', 'Subir campanha do cliente']);
+
   // A card opens the whole item over the board.
   await column('Fazendo').getByRole('button', { name: 'Conferir perfis', exact: true }).click();
   const dialog = owner.getByRole('dialog', { name: 'Conferir perfis' });

@@ -26,6 +26,7 @@ const item = (id: string, fields: Item['fields']): Item => ({
   stageSince: '2026-11-01T00:00:00Z',
   fields,
   secrets: [],
+  position: null,
   trashedAt: null,
   trashedBy: null,
 });

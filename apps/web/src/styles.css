@@ -1854,3 +1854,23 @@ audio.file-preview {
 .table-sort:hover {
   color: var(--texto);
 }
+
+/* Where a dragged card would land, and the keyboard's way to move it by one. */
+.card-drop-line {
+  height: 3px;
+  margin: -0.125rem 0;
+  border-radius: 2px;
+  background: var(--marca);
+}
+
+/* Out of the way until the card is pointed at or reached with the keyboard. */
+.card-shift {
+  display: none;
+  gap: 0.75rem;
+  font-size: var(--menor);
+}
+
+.card:hover .card-shift,
+.card:focus-within .card-shift {
+  display: flex;
+}

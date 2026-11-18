@@ -8,7 +8,16 @@ import {
   type ReactNode,
 } from 'react';
 import { api, type CustomField, type Item, type Stage } from '../api.js';
-import { columnsOf, dropTarget, edgeScroll, moved, stageUnder } from '../board.js';
+import {
+  columnsOf,
+  dropTarget,
+  edgeScroll,
+  indexAt,
+  moved,
+  placeAt,
+  placed,
+  stageUnder,
+} from '../board.js';
 import { Cancelled } from '../cancelled.js';
 import { hasValue } from '../fieldvalues.js';
 import { formatDuration } from '../labels.js';
@@ -31,6 +40,8 @@ interface Drag {
   offsetY: number;
   width: number;
   over: string | null;
+  /** Where among the cards of that column it would go; null when the order is not manual. */
+  index: number | null;
 }
 
 export interface PanelProps {
@@ -50,8 +61,15 @@ export function Board({
   listId,
   stages,
   items,
+  manualOrder,
   ...panel
-}: PanelProps & { listId: string; stages: Stage[]; items: Item[] }): ReactNode {
+}: PanelProps & {
+  listId: string;
+  stages: Stage[];
+  items: Item[];
+  /** The board shows its own order, so cards can be placed by hand. */
+  manualOrder: boolean;
+}): ReactNode {
   const queryClient = useQueryClient();
   const guard = useGuard();
   const board = useRef<HTMLDivElement>(null);
@@ -91,6 +109,43 @@ export function Board({
     [guard, listId, queryClient, stages],
   );
 
+  /** Moves to a stage (if another) and places the column in the given order, all shown at once. */
+  const place = useCallback(
+    async (item: Item, stageId: string, ids: string[]): Promise<void> => {
+      const key = ['items', listId];
+      const before = queryClient.getQueryData<Item[]>(key);
+      queryClient.setQueryData<Item[]>(key, (current) =>
+        current === undefined
+          ? current
+          : placed(
+              current.map((one) =>
+                one.id === item.id && one.stageId !== stageId
+                  ? moved(one, stageId, Date.now())
+                  : one,
+              ),
+              ids,
+            ),
+      );
+      setError(null);
+      try {
+        if (item.stageId !== stageId) {
+          await guard(() => api.updateItem(item.id, { stageId }));
+        }
+        await guard(() => api.orderStage(listId, stageId, ids));
+        const name = stages.find((stage) => stage.id === stageId)?.name ?? '';
+        setSaid(`${item.title} ficou na posição ${ids.indexOf(item.id) + 1} de ${name}.`);
+      } catch (failure) {
+        queryClient.setQueryData(key, before);
+        if (!(failure instanceof Cancelled)) setError(describeError(failure));
+      } finally {
+        await queryClient.invalidateQueries({ queryKey: key });
+      }
+    },
+    [guard, listId, queryClient, stages],
+  );
+  const idsIn = (stageId: string): string[] =>
+    columns.find((column) => column.stage.id === stageId)?.items.map((one) => one.id) ?? [];
+
   const take = (item: Item, event: ReactPointerEvent<HTMLElement>): void => {
     if (event.button !== 0) return;
     event.preventDefault();
@@ -104,6 +159,7 @@ export function Board({
       offsetY: card ? event.clientY - card.top : 0,
       width: card?.width ?? 240,
       over: item.stageId,
+      index: null,
     });
   };
   const follow = (event: ReactPointerEvent<HTMLElement>): void => {
@@ -113,17 +169,33 @@ export function Board({
     if (board.current && area) {
       board.current.scrollLeft += edgeScroll(event.clientX, area.left, area.right);
     }
-    update({
-      ...current,
-      x: event.clientX,
-      y: event.clientY,
-      over: stageUnder(document.elementsFromPoint(event.clientX, event.clientY)),
-    });
+    const over = stageUnder(document.elementsFromPoint(event.clientX, event.clientY));
+    let index: number | null = null;
+    if (manualOrder && over !== null) {
+      const middles = [
+        ...(board.current?.querySelectorAll(`[data-stage-id="${over}"] [data-item-id]`) ?? []),
+      ]
+        .filter((card) => card.getAttribute('data-item-id') !== current.item.id)
+        .map((card) => {
+          const box = card.getBoundingClientRect();
+          return box.top + box.height / 2;
+        });
+      index = indexAt(event.clientY, middles);
+    }
+    update({ ...current, x: event.clientX, y: event.clientY, over, index });
   };
   const drop = (): void => {
     const current = dragRef.current;
     update(null);
     if (!current) return;
+    if (manualOrder && current.over !== null && current.index !== null) {
+      if (!stages.some((stage) => stage.id === current.over)) return;
+      const before = idsIn(current.over);
+      const ids = placeAt(before, current.item.id, current.index);
+      if (current.over === current.item.stageId && ids.join() === before.join()) return;
+      void place(current.item, current.over, ids);
+      return;
+    }
     const target = dropTarget(current.item.stageId, current.over, stages);
     if (target !== null) void move(current.item, target);
   };
@@ -139,7 +211,9 @@ export function Board({
           <section
             key={stage.id}
             className={
-              drag !== null && drag.over === stage.id && drag.item.stageId !== stage.id
+              drag !== null &&
+              drag.over === stage.id &&
+              (drag.item.stageId !== stage.id || drag.index !== null)
                 ? 'board-column is-target'
                 : 'board-column'
             }
@@ -154,11 +228,32 @@ export function Board({
               </span>
             </h2>
             <ul className="cards">
-              {cards.map((item) => (
+              {cards.map((item, position) => (
                 <Card
                   key={item.id}
                   item={item}
                   stages={stages}
+                  dropBefore={
+                    drag !== null &&
+                    drag.over === stage.id &&
+                    drag.index !== null &&
+                    cards.filter((one) => one.id !== drag.item.id)[drag.index]?.id === item.id
+                  }
+                  shift={
+                    manualOrder && panel.canEdit
+                      ? {
+                          up: position > 0,
+                          down: position < cards.length - 1,
+                          by: (delta: number) => {
+                            void place(
+                              item,
+                              stage.id,
+                              placeAt(idsIn(stage.id), item.id, position + delta),
+                            );
+                          },
+                        }
+                      : null
+                  }
                   lifted={drag?.item.id === item.id}
                   onOpen={() => {
                     setOpenId(item.id);
@@ -179,6 +274,12 @@ export function Board({
                   {...panel}
                 />
               ))}
+              {drag !== null &&
+              drag.over === stage.id &&
+              drag.index !== null &&
+              drag.index >= cards.filter((one) => one.id !== drag.item.id).length ? (
+                <li className="card-drop-line" aria-hidden="true" />
+              ) : null}
             </ul>
             {panel.canEdit ? <AddItem stage={stage} /> : null}
           </section>
@@ -219,6 +320,8 @@ interface Handle {
 function Card({
   item,
   stages,
+  dropBefore,
+  shift,
   lifted,
   onOpen,
   onMove,
@@ -229,6 +332,10 @@ function Card({
 }: PanelProps & {
   item: Item;
   stages: Stage[];
+  /** A card being dragged would land just above this one. */
+  dropBefore: boolean;
+  /** Moving up or down by one, for the keyboard; null when the order is not manual. */
+  shift: { up: boolean; down: boolean; by: (delta: number) => void } | null;
   lifted: boolean;
   onOpen: () => void;
   onMove: (stageId: string) => void;
@@ -243,63 +350,88 @@ function Card({
     .slice(0, CARD_FIELDS);
   const assignees = item.assignees.map((userId) => nameOf(userId));
   return (
-    <li className={lifted ? 'card is-lifted' : 'card'}>
-      <div className="card-top">
-        {canEdit ? (
-          // Pointer only: the stage menu below is the way for the keyboard.
-          <span
-            className="card-handle"
-            aria-hidden="true"
-            title="Arraste para outra etapa"
-            {...handle}
-          >
-            ⠿
-          </span>
+    <>
+      {dropBefore ? <li className="card-drop-line" aria-hidden="true" /> : null}
+      <li className={lifted ? 'card is-lifted' : 'card'} data-item-id={item.id}>
+        <div className="card-top">
+          {canEdit ? (
+            // Pointer only: the stage menu below is the way for the keyboard.
+            <span
+              className="card-handle"
+              aria-hidden="true"
+              title="Arraste para outra etapa"
+              {...handle}
+            >
+              ⠿
+            </span>
+          ) : null}
+          <button type="button" className="card-title" onClick={onOpen}>
+            {item.title}
+          </button>
+        </div>
+        {shown.length > 0 ? (
+          <dl className="card-fields">
+            {shown.map((field) => (
+              <div key={field.id}>
+                <dt>{field.name}</dt>
+                <dd>
+                  {field.kind === 'secret' ? (
+                    <>
+                      <span aria-hidden="true">••••••</span>
+                      <span className="visually-hidden">guardado</span>
+                    </>
+                  ) : (
+                    <FieldValueView field={field} value={item.fields[field.id]} nameOf={nameOf} />
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
         ) : null}
-        <button type="button" className="card-title" onClick={onOpen}>
-          {item.title}
-        </button>
-      </div>
-      {shown.length > 0 ? (
-        <dl className="card-fields">
-          {shown.map((field) => (
-            <div key={field.id}>
-              <dt>{field.name}</dt>
-              <dd>
-                {field.kind === 'secret' ? (
-                  <>
-                    <span aria-hidden="true">••••••</span>
-                    <span className="visually-hidden">guardado</span>
-                  </>
-                ) : (
-                  <FieldValueView field={field} value={item.fields[field.id]} nameOf={nameOf} />
-                )}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
-      <p className="card-meta">
-        <span>{assignees.length === 0 ? 'Sem responsável' : assignees.join(', ')}</span>
-        <span>há {formatDuration(Date.now() - Date.parse(item.stageSince))}</span>
-      </p>
-      {canEdit ? (
-        <select
-          className="stage-select card-stage"
-          aria-label={`Etapa de ${item.title}`}
-          value={item.stageId}
-          onChange={(event) => {
-            onMove(event.target.value);
-          }}
-        >
-          {stages.map((stage) => (
-            <option key={stage.id} value={stage.id}>
-              {stage.name}
-            </option>
-          ))}
-        </select>
-      ) : null}
-    </li>
+        <p className="card-meta">
+          <span>{assignees.length === 0 ? 'Sem responsável' : assignees.join(', ')}</span>
+          <span>há {formatDuration(Date.now() - Date.parse(item.stageSince))}</span>
+        </p>
+        {canEdit ? (
+          <select
+            className="stage-select card-stage"
+            aria-label={`Etapa de ${item.title}`}
+            value={item.stageId}
+            onChange={(event) => {
+              onMove(event.target.value);
+            }}
+          >
+            {stages.map((stage) => (
+              <option key={stage.id} value={stage.id}>
+                {stage.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        {shift !== null ? (
+          <div className="card-shift">
+            <Button
+              variant="quiet"
+              disabled={!shift.up}
+              onClick={() => {
+                shift.by(-1);
+              }}
+            >
+              Subir<span className="visually-hidden"> {item.title}</span>
+            </Button>
+            <Button
+              variant="quiet"
+              disabled={!shift.down}
+              onClick={() => {
+                shift.by(1);
+              }}
+            >
+              Descer<span className="visually-hidden"> {item.title}</span>
+            </Button>
+          </div>
+        ) : null}
+      </li>
+    </>
   );
 }
 

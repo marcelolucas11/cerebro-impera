@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type { Item, Stage } from '../src/api.js';
-import { columnsOf, dropTarget, EDGE, edgeScroll, moved, stageUnder } from '../src/board.js';
+import {
+  columnsOf,
+  dropTarget,
+  EDGE,
+  edgeScroll,
+  indexAt,
+  moved,
+  placeAt,
+  placed,
+  stageUnder,
+} from '../src/board.js';
 
 const stage = (id: string, position: number): Stage => ({
   id,
@@ -24,6 +34,7 @@ const item = (id: string, stageId: string, since: string): Item => ({
   stageSince: since,
   fields: {},
   secrets: [],
+  position: null,
   trashedAt: null,
   trashedBy: null,
 });
@@ -72,5 +83,36 @@ describe('dragging near an edge', () => {
     expect(edgeScroll(0, 0, 1000)).toBe(-16);
     expect(edgeScroll(EDGE / 2, 0, 1000)).toBe(-8);
     expect(edgeScroll(1000, 0, 1000)).toBe(16);
+  });
+});
+
+describe('placing a card by hand', () => {
+  it('lands where the pointer is among the other cards', () => {
+    const middles = [100, 200, 300];
+    expect(indexAt(50, middles)).toBe(0);
+    expect(indexAt(150, middles)).toBe(1);
+    expect(indexAt(350, middles)).toBe(3);
+  });
+
+  it('moves one card, or brings one in, keeping the others in order', () => {
+    expect(placeAt(['a', 'b', 'c'], 'c', 0)).toEqual(['c', 'a', 'b']);
+    expect(placeAt(['a', 'b', 'c'], 'a', 2)).toEqual(['b', 'c', 'a']);
+    expect(placeAt(['a', 'b'], 'novo', 1)).toEqual(['a', 'novo', 'b']);
+    expect(placeAt(['a', 'b'], 'novo', 99)).toEqual(['a', 'b', 'novo']);
+    expect(placeAt(['a', 'b'], 'a', -3)).toEqual(['a', 'b']);
+  });
+
+  it('shows the new places at once, and leaves other items alone', () => {
+    const items = [
+      item('a', 'a-fazer', '2026-11-01T00:00:00Z'),
+      item('b', 'a-fazer', '2026-11-02T00:00:00Z'),
+      item('x', 'feito', '2026-11-03T00:00:00Z'),
+    ];
+    const after = placed(items, ['b', 'a']);
+    expect(after.map((one) => [one.id, one.position])).toEqual([
+      ['a', 2048],
+      ['b', 1024],
+      ['x', null],
+    ]);
   });
 });

@@ -55,6 +55,7 @@ function item(partial: Partial<Item>): Item {
     stageSince: '2026-11-01T00:00:00Z',
     fields: {},
     secrets: [],
+    position: null,
     trashedAt: null,
     trashedBy: null,
     ...partial,
@@ -170,9 +171,30 @@ describe('ordering', () => {
     ]);
   });
 
-  it('by default, whoever has waited longest in their stage first', () => {
+  it('by default, cards placed by hand first in their places, then whoever waited longest', () => {
+    const placedByHand = (title: string, position: number) => ({ ...item({ title }), position });
+    const sorted = sortItems(
+      [
+        item({ title: 'Sem lugar, recente', stageSince: '2026-11-10T00:00:00Z' }),
+        placedByHand('Segundo', 2048),
+        item({ title: 'Sem lugar, antigo', stageSince: '2026-10-10T00:00:00Z' }),
+        placedByHand('Primeiro', 1024),
+      ],
+      DEFAULT_SORT,
+      fields,
+    );
+    expect(titles(sorted)).toEqual([
+      'Primeiro',
+      'Segundo',
+      'Sem lugar, antigo',
+      'Sem lugar, recente',
+    ]);
+  });
+
+  it('by time in stage, when asked, whoever has waited longest first', () => {
     const early = item({ title: 'Cedo', stageSince: '2026-10-01T00:00:00Z' });
-    expect(titles(sortItems([...all, early], DEFAULT_SORT, fields))[0]).toBe('Cedo');
+    const byStage = { key: 'stage' as const, descending: false };
+    expect(titles(sortItems([...all, early], byStage, fields))[0]).toBe('Cedo');
   });
 });
 

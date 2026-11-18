@@ -414,8 +414,8 @@ item, em `/listas/:id/quadro`, ao lado da visão em lista.
 - O cartão muda de coluna na hora e volta se o servidor recusar (a mesma regra de quem pode mover
   vale aqui: funcionário só move o que é dele).
 - Teclado e leitor de tela movem pelo menu de etapa de cada cartão; a mudança é anunciada.
-- Dentro de cada coluna, quem está há mais tempo na etapa vem primeiro. Ordenar à mão dentro da
-  coluna fica para depois (precisa de uma posição guardada por item).
+- Dentro de cada coluna, a ordem é a que a equipe deu à mão (D41); cartões nunca posicionados vêm
+  depois, quem está há mais tempo na etapa primeiro.
 - Abrir um cartão mostra o item inteiro numa janela sobre o quadro, com o mesmo painel da lista.
 
 **Por quê.** Bibliotecas de arrastar e soltar trazem dezenas de dependências para algo que o
@@ -477,6 +477,23 @@ Na própria célula muda só a etapa; o resto se edita no item, que abre numa ja
 **Por quê.** Editar qualquer campo direto na célula pede um editor por tipo de campo dentro da
 tabela; o painel do item já faz isso bem e com as mesmas regras. _Rever com o mantenedor:_ editar
 na célula os campos mais usados.
+
+## D41 — Ordem à mão no quadro, a mesma para todos
+
+**Decisão.** Cada item guarda uma posição na coluna da sua etapa, a mesma para todos que veem a
+coluna. Quem pode editar os itens arrasta um cartão para cima ou para baixo (ou usa "Subir" e
+"Descer", que aparecem ao chegar no cartão pelo teclado ou apontar para ele). A tela manda a ordem
+inteira da coluna; o banco aplica tudo ou nada, só para itens que a pessoa pode editar.
+
+- Mudar a ordem não é mudar o item: "última mudança" e histórico ficam como estavam.
+- Um item que muda de etapa ou de lista sem ser posicionado vai para o fim da nova coluna.
+- A ordem à mão vale quando a lista está na "Ordem do quadro" (o padrão); com outra ordem
+  escolhida, arrastar dentro da coluna não muda nada.
+
+**Por quê.** Numa equipe pequena, a ordem da coluna é combinada entre todos (o que vem primeiro);
+uma ordem por pessoa contradiria o quadro dos colegas. _Rever com o mantenedor:_ funcionário que
+vê só os próprios itens reordena só os seus, e a posição deles entre os itens que ele não vê fica
+como cair.
 
 ## Adiado, com motivo
 

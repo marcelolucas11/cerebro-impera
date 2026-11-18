@@ -195,6 +195,8 @@ export interface Item {
   fields: Record<string, FieldValue>;
   /** Secret fields that hold a value. The values come only through revealSecret. */
   secrets: string[];
+  /** Place in its stage's column on the board; null when never placed. */
+  position: number | null;
   /** Set only for an item in the trash. */
   trashedAt: string | null;
   trashedBy: string | null;
@@ -435,6 +437,9 @@ export const api = {
       `/api/items/${itemId}/history${before === undefined ? '' : `?before=${before}`}`,
     ),
 
+  /** Puts the items of one stage in this order, top first. All or nothing. */
+  orderStage: (listId: string, stageId: string, ids: string[]) =>
+    request<{ ok: true }>('PUT', `/api/lists/${listId}/order`, { stageId, ids }),
   views: (listId: string) => request<SavedView[]>('GET', `/api/lists/${listId}/views`),
   createView: (listId: string, input: { name: string; kind: ListView; query: string }) =>
     request<SavedView>('POST', `/api/lists/${listId}/views`, input),
