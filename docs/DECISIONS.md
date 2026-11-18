@@ -793,6 +793,23 @@ comentar. Até 50 regras por lista.
 - Ficam para o próximo passo: prazo chegando ou vencido e regras agendadas (precisam agir sem uma
   pessoa conectada) e mover de lista.
 
+## D56 — Etapas que só recebem itens de um papel para cima
+
+**Decisão.** Cada etapa pode dizer quem põe itens nela: quem edita o item (padrão), gestores ou
+acima, ADMs ou acima, ou só Donos (`0037_stage_entry.sql`). Quem gerencia a lista escolhe, em
+"Editar etapas".
+
+- **Conferido pelo banco em todo caminho:** mover o item (lista, quadro, tabela, em massa), criar
+  já na etapa, mover para outra lista escolhendo a etapa, e regra agindo com o acesso do autor.
+  Recusado, a API responde 403 `stage_restricted` e o item fica onde estava.
+- **Tirar um item da etapa não é restrito**, e **cair na primeira etapa sozinho não é escolher**:
+  item criado sem etapa, item que se repete e item levado para outra lista sem escolher a etapa
+  vão para a primeira etapa mesmo que ela seja restrita.
+- A página não oferece a etapa a quem não pode (a opção aparece desabilitada); o banco decide.
+- Manutenção pelo dono do banco (importação) não é uma pessoa movendo itens.
+- **Rever com o mantenedor:** restringir também quem tira itens de uma etapa (ex.: só gestor
+  reabre o que está em "Feito").
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

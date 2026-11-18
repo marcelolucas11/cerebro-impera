@@ -43,6 +43,8 @@ export function fromDatabaseError(error: unknown): HttpError | undefined {
       return forbidden();
     case 'CB002':
       return stepUpRequired();
+    case 'CB004': // a stage only some roles put items into
+      return forbidden('stage_restricted');
     case 'CB003':
       return conflict('rule_violation');
     case '23505':

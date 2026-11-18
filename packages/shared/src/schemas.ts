@@ -141,16 +141,22 @@ export const createListSchema = z.strictObject({
   /** Omitted: the list starts with the default set. */
   stages: stageSetSchema.optional(),
 });
+/** Who may put items into a stage: from this role up; null for anyone who edits the item. */
+export const STAGE_ENTRY_ROLES = ['manager', 'admin', 'owner'] as const;
+export type StageEntryRole = (typeof STAGE_ENTRY_ROLES)[number];
+const stageEntrySchema = z.enum(STAGE_ENTRY_ROLES).nullable();
 export const createStageSchema = z.strictObject({
   name: stageNameSchema,
   color: stageColorSchema.optional(),
   kind: stageKindSchema.optional(),
+  entryRole: stageEntrySchema.optional(),
 });
 export const updateStageSchema = z
   .strictObject({
     name: stageNameSchema.optional(),
     color: stageColorSchema.optional(),
     kind: stageKindSchema.optional(),
+    entryRole: stageEntrySchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'empty update');
 export const reorderStagesSchema = z.strictObject({

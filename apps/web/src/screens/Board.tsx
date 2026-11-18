@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { api, type CustomField, type Item, type Stage } from '../api.js';
+import { canEnter, useMyRole } from '../entry.js';
 import {
   columnsOf,
   dropTarget,
@@ -345,6 +346,7 @@ function Card({
   onMove: (stageId: string) => void;
   handle: Handle;
 }): ReactNode {
+  const role = useMyRole();
   const shown = fields
     .filter((field) =>
       field.kind === 'secret'
@@ -407,7 +409,11 @@ function Card({
             }}
           >
             {stages.map((stage) => (
-              <option key={stage.id} value={stage.id}>
+              <option
+                key={stage.id}
+                value={stage.id}
+                disabled={stage.id !== item.stageId && !canEnter(stage, role)}
+              >
                 {stage.name}
               </option>
             ))}

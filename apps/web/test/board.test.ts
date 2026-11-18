@@ -15,6 +15,7 @@ import {
 const stage = (id: string, position: number): Stage => ({
   id,
   listId: 'lista',
+  entryRole: null,
   name: id,
   color: '#58b98a',
   kind: 'open',

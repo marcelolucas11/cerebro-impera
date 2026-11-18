@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { api, ApiError, type CustomField, type Item, type Me, type Stage } from '../api.js';
+import { canEnter, useMyRole } from '../entry.js';
 import { hasValue } from '../fieldvalues.js';
 import {
   fromSearch,
@@ -619,6 +620,7 @@ function ItemRow({
   /** People work here can be handed to; null for someone who does not hand out work. */
   workers: { id: string; name: string }[] | null;
 }): ReactNode {
+  const role = useMyRole();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [unfolded, setUnfolded] = useState(false);
@@ -716,7 +718,11 @@ function ItemRow({
             }}
           >
             {stages.map((stage) => (
-              <option key={stage.id} value={stage.id}>
+              <option
+                key={stage.id}
+                value={stage.id}
+                disabled={stage.id !== item.stageId && !canEnter(stage, role)}
+              >
                 {stage.name}
               </option>
             ))}

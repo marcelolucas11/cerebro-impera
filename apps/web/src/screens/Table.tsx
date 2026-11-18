@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState, type ReactNode } from 'react';
 import { api, type CustomField, type Item, type Stage } from '../api.js';
+import { canEnter, useMyRole } from '../entry.js';
 import { Cancelled } from '../cancelled.js';
 import {
   defaultColumns,
@@ -63,6 +64,7 @@ export function Table({
   onSort: (sort: Sort) => void;
   onColumns: (columns: Columns) => void;
 }): ReactNode {
+  const role = useMyRole();
   const { fields, canEdit, nameOf } = panel;
   const queryClient = useQueryClient();
   const guard = useGuard();
@@ -137,7 +139,11 @@ export function Table({
           }}
         >
           {stages.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>
+            <option
+              key={candidate.id}
+              value={candidate.id}
+              disabled={candidate.id !== item.stageId && !canEnter(candidate, role)}
+            >
               {candidate.name}
             </option>
           ))}
