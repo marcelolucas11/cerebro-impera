@@ -945,6 +945,33 @@ test('the table shows the columns each person chooses, sorted by a click', async
   await owner.setViewportSize({ width: 1280, height: 900 });
 });
 
+test('the timeline shows each item as a bar on its days', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  await owner
+    .getByRole('navigation', { name: 'Ver como' })
+    .getByRole('link', { name: 'Linha do tempo' })
+    .click();
+  const timeline = owner.getByRole('table', { name: 'Linha do tempo' });
+  const row = timeline.getByRole('row').filter({ hasText: 'Conferir perfis' });
+  await expect(row.locator('.timeline-bar')).toBeVisible();
+  await shot(owner, 'linha-do-tempo');
+  await row.locator('.timeline-bar').click();
+  const dialog = owner.getByRole('dialog', { name: 'Conferir perfis' });
+  await expect(dialog.getByLabel('Título')).toHaveValue('Conferir perfis');
+  await dialog.getByRole('button', { name: 'Fechar', exact: true }).first().click();
+
+  await owner.getByRole('button', { name: 'Próximas semanas' }).click();
+  await expect(row).toContainText('fora destas semanas');
+  await owner.getByRole('button', { name: 'Voltar para hoje' }).click();
+  await expect(row.locator('.timeline-bar')).toBeVisible();
+
+  await owner.setViewportSize({ width: 390, height: 844 });
+  expect(await owner.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await owner.setViewportSize({ width: 1280, height: 900 });
+});
+
 test('the search finds items in every list the person can open, and leads to them', async () => {
   const box = owner.getByRole('searchbox', { name: 'Buscar em todas as listas' });
   await box.fill('PERFIS');

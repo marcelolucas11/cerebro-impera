@@ -32,26 +32,33 @@ export function useQueryString(): string {
 }
 
 const ID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
-const LIST_PATH = new RegExp(`^/listas/(${ID})(/quadro|/calendario|/tabela)?$`);
+const LIST_PATH = new RegExp(`^/listas/(${ID})(/quadro|/calendario|/tabela|/linha-do-tempo)?$`);
 
 /** The list an address points at, when it is the address of a list. */
 export function listIdFrom(path: string): string | undefined {
   return LIST_PATH.exec(path)?.[1];
 }
 
-export type ListView = 'list' | 'board' | 'calendar' | 'table';
+export type ListView = 'list' | 'board' | 'calendar' | 'table' | 'timeline';
 
 /** How a list is shown: a list, or at /quadro, /calendario or /tabela. */
 export function listViewFrom(path: string): ListView {
   const suffix = LIST_PATH.exec(path)?.[2];
   if (suffix === '/quadro') return 'board';
   if (suffix === '/calendario') return 'calendar';
+  if (suffix === '/linha-do-tempo') return 'timeline';
   return suffix === '/tabela' ? 'table' : 'list';
 }
 
 /** The address of a list shown a given way, with a query part if any. */
 export function listPath(listId: string, view: ListView, query = ''): string {
-  const suffix = { list: '', board: '/quadro', calendar: '/calendario', table: '/tabela' }[view];
+  const suffix = {
+    list: '',
+    board: '/quadro',
+    calendar: '/calendario',
+    table: '/tabela',
+    timeline: '/linha-do-tempo',
+  }[view];
   return `/listas/${listId}${suffix}${query}`;
 }
 

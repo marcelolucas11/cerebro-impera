@@ -22,6 +22,7 @@ import { AddItem } from './AddItem.js';
 import { Board } from './Board.js';
 import { Calendar } from './Calendar.js';
 import { Table } from './Table.js';
+import { Timeline } from './Timeline.js';
 import { FieldValueView } from './FieldInput.js';
 import { ItemPanel } from './ItemPanel.js';
 import { ListTools } from './ListTools.js';
@@ -159,6 +160,9 @@ export function ListScreen({
         </Link>
         <Link to={listPath(listId, 'table', search)} current={view === 'table'}>
           Tabela
+        </Link>
+        <Link to={listPath(listId, 'timeline', search)} current={view === 'timeline'}>
+          Linha do tempo
         </Link>
       </nav>
     </header>
@@ -311,6 +315,17 @@ export function ListScreen({
           onColumns={(next) => {
             reshape(filter, sort, next);
           }}
+        />
+      ) : null}
+      {view === 'timeline' ? (
+        <Timeline
+          stages={stages.data}
+          items={visible}
+          fields={fields.data}
+          canEdit={canEdit}
+          nameOf={nameOf}
+          listNameOf={listNameOf}
+          workers={handsOutWork ? (workers.data ?? []) : null}
         />
       ) : null}
       {view === 'calendar' ? (
