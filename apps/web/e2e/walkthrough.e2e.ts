@@ -636,6 +636,34 @@ test('a secret is kept sealed: filled in by who edits, revealed only by who may,
   await expect(owner.locator('main')).not.toContainText(PANEL_PASSWORD);
 });
 
+test('a files field says which attachment is which', async () => {
+  await owner.getByRole('button', { name: 'Editar campos' }).click();
+  await owner.getByLabel('Nome do novo campo').fill('Roteiro aprovado');
+  await owner.getByLabel('Tipo do novo campo').selectOption({ label: 'Arquivos' });
+  await owner.getByRole('button', { name: 'Adicionar campo' }).click();
+  await expect(
+    owner.getByRole('button', { name: 'Arquivar campo Roteiro aprovado' }),
+  ).toBeVisible();
+  await owner.getByRole('button', { name: 'Fechar edição dos campos' }).click();
+  const item = owner.locator('.item-rows > li').filter({ hasText: 'Subir campanha do cliente' });
+  const chosen = item.getByRole('group', { name: 'Roteiro aprovado' });
+  // Offered: the item's own attachments, and nothing else.
+  await expect(chosen.getByRole('checkbox')).toHaveCount(2);
+  await chosen.getByRole('checkbox', { name: 'roteiro.txt' }).check();
+  await item.getByRole('button', { name: 'Salvar item' }).click();
+  await expect(item.getByRole('button', { name: 'Salvar item' })).toBeDisabled();
+
+  await ana.reload();
+  await heading(ana, 'Tarefas');
+  await ana.getByRole('button', { name: 'Subir campanha do cliente', exact: true }).click();
+  const hers = ana.locator('.item-rows > li').filter({ hasText: 'Subir campanha do cliente' });
+  await expect(
+    hers
+      .getByRole('group', { name: 'Roteiro aprovado' })
+      .getByRole('checkbox', { name: 'roteiro.txt' }),
+  ).toBeChecked();
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');

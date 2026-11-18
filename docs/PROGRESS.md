@@ -7,24 +7,25 @@
 
 **Fase 2 — Estrutura, em andamento.** A Fase 1 (fundação e segurança) está pronta, com o percurso
 em navegador real rodando no CI. Da Fase 2 já existem as etapas por lista, o tempo em cada etapa e
-a tela de lista agrupada por etapa, os campos personalizados, o histórico de cada item, a lixeira, mover itens entre listas, os modelos de etapas, a delegação de itens, o campo de pessoas, a página "Minha conta", os anexos e o campo secreto. Falta o que está em "Próximo passo".
+a tela de lista agrupada por etapa, os campos personalizados, o histórico de cada item, a lixeira, mover itens entre listas, os modelos de etapas, a delegação de itens, o campo de pessoas, a página "Minha conta", os anexos, o campo secreto e o campo de arquivos. A Fase 2 está completa no código; falta o
+mantenedor revisar e decidir o antivírus. Falta o que está em "Próximo passo".
 
-| Fase                                                              | Situação                                                                                                                                   |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| 0. Preparação do repositório (proteções no GitHub)                | depende do mantenedor, ver "Pendências"                                                                                                    |
-| 1. Fundação e segurança                                           | pronta, salvo os restos listados abaixo                                                                                                    |
-| **2. Estrutura (etapas, campos personalizados, anexos, lixeira)** | **em andamento: etapas, tela de lista, campos, histórico, lixeira, mover entre listas, modelos de etapas, anexos e campo secreto prontos** |
-| 3. Visões (lista, quadro, calendário, tabela, linha do tempo)     | a fazer                                                                                                                                    |
-| 4. Tarefas e colaboração                                          | a fazer                                                                                                                                    |
-| 5. Automações                                                     | a fazer                                                                                                                                    |
-| 6. Painéis e relatórios                                           | a fazer                                                                                                                                    |
-| 7. PWA e offline                                                  | a fazer                                                                                                                                    |
-| 8. Atualizador assinado                                           | a fazer                                                                                                                                    |
-| 9. Backup e restauração                                           | a fazer                                                                                                                                    |
-| 10. White label, assistente visual e formulários                  | a fazer                                                                                                                                    |
-| 11. Blindagem (revisão independente)                              | a fazer                                                                                                                                    |
-| 12. Implantação                                                   | só com autorização do mantenedor                                                                                                           |
-| 13. Migração de dados                                             | só com autorização do mantenedor                                                                                                           |
+| Fase                                                              | Situação                                                                                                                                                      |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0. Preparação do repositório (proteções no GitHub)                | depende do mantenedor, ver "Pendências"                                                                                                                       |
+| 1. Fundação e segurança                                           | pronta, salvo os restos listados abaixo                                                                                                                       |
+| **2. Estrutura (etapas, campos personalizados, anexos, lixeira)** | **em andamento: etapas, tela de lista, campos, histórico, lixeira, mover entre listas, modelos de etapas, anexos, campo secreto e campo de arquivos prontos** |
+| 3. Visões (lista, quadro, calendário, tabela, linha do tempo)     | a fazer                                                                                                                                                       |
+| 4. Tarefas e colaboração                                          | a fazer                                                                                                                                                       |
+| 5. Automações                                                     | a fazer                                                                                                                                                       |
+| 6. Painéis e relatórios                                           | a fazer                                                                                                                                                       |
+| 7. PWA e offline                                                  | a fazer                                                                                                                                                       |
+| 8. Atualizador assinado                                           | a fazer                                                                                                                                                       |
+| 9. Backup e restauração                                           | a fazer                                                                                                                                                       |
+| 10. White label, assistente visual e formulários                  | a fazer                                                                                                                                                       |
+| 11. Blindagem (revisão independente)                              | a fazer                                                                                                                                                       |
+| 12. Implantação                                                   | só com autorização do mantenedor                                                                                                                              |
+| 13. Migração de dados                                             | só com autorização do mantenedor                                                                                                                              |
 
 ## Feito na Fase 1
 
@@ -138,7 +139,11 @@ a tela de lista agrupada por etapa, os campos personalizados, o histórico de ca
   depois de 30 segundos e pode ser copiado sem aparecer. Quem edita o item preenche, troca e
   apaga sem ver.
 
-### O que os testes provam (311 testes)
+- Campo de arquivos (`0019_files_field.sql`, D35): diz qual anexo do item é qual; só nomeia anexos
+  do próprio item, prontos e fora da lixeira; o que já estava nomeado pode ficar; ao mudar de
+  lista, leva só o que ainda está anexado.
+
+### O que os testes provam (317 testes)
 
 | Arquivo                                    | O que garante                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -157,11 +162,12 @@ a tela de lista agrupada por etapa, os campos personalizados, o histórico de ca
 | `apps/api/test/people-field.test.ts` (6)   | pela API e direto no banco: o campo só nomeia quem pode editar a lista (nem quem só vê, nem quem não tem acesso); quem perdeu o acesso continua onde estava, mas não volta depois de sair; ao mover, só vai junto se todos puderem trabalhar lá; banco e API concordam sobre o formato                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `apps/api/test/attachments.test.ts` (23)   | pela API e direto no banco: o arquivo volta byte a byte como foi enviado; o envio continua de onde parou; no disco só há ruído sem nome, e conteúdo alterado ou trocado é recusado; nada sai antes do antivírus, nem quando ele está fora do ar, e ele só é chamado depois que o envio foi gravado de vez; infectado fica bloqueado com alerta; anexo segue o item (colega e quem não tem acesso não veem nem o nome); envio é só de quem começou até terminar; lista sensível pede o código e registra cada download; só imagem, áudio e vídeo aparecem na página, e trechos de áudio e vídeo chegam sem baixar tudo; lixeira de 30 dias, depois o conteúdo é apagado; ninguém marca arquivo como verificado, muda o resumo ou forja quem enviou |
 | `apps/api/test/secret-field.test.ts` (14)  | pela API e direto no banco: o valor fica cifrado, fora de toda lista e do histórico; a API não consegue ler a coluna cifrada; revelar exige ver o item, a capacidade de revelar e código recente, e cada revelação fica no registro; quem só vê não troca; nada muda na lixeira; o segredo fica na lista de origem quando o item muda de lista e volta com ele; valor copiado para outra linha não abre; quem trocou por último é escrito pelo banco                                                                                                                                                                                                                                                                                              |
+| `apps/api/test/files-field.test.ts` (4)    | pela API e direto no banco: o campo só nomeia anexos do próprio item, prontos e fora da lixeira, nem pelo dono do banco; o que já estava nomeado pode ficar, mas não volta depois de sair; ao mudar de lista leva só o que ainda está anexado, e sem nada anexado o valor fica para trás em vez de travar a mudança                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `apps/api/test/scale.test.ts` (2)          | uma lista de 500 itens com 8 campos abre em bem menos de um segundo para Dono, gestor e funcionário, e continua mostrando a cada um só o que é seu                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `apps/api/test/web.test.ts` (9)            | a página vem com a política que proíbe código embutido e de outras origens; nenhum arquivo de fora da pasta, oculto ou de tipo desconhecido é servido; endereços da API nunca respondem com a página; a API continua recusando outras origens                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `apps/web/test/*.test.ts` (51)             | a página compilada só carrega arquivos próprios, sem nada embutido; mensagens de erro nunca mostram detalhe técnico; durações e datas escritas por extenso; números, dinheiro e datas lidos e digitados como se escreve em português; um valor guardado só vira link se o endereço for seguro de abrir; um arquivo de etapas exportado é lido de volta igual, e qualquer outro é recusado com uma frase; cada linha do histórico vira uma frase, sem nomear pessoa ou lista que quem lê não pode ver; o envio de arquivo manda só as partes que faltam, tenta de novo quando a conexão cai, desiste quando o servidor recusa e para quando a pessoa cancela                                                                                       |
+| `apps/web/test/*.test.ts` (53)             | a página compilada só carrega arquivos próprios, sem nada embutido; mensagens de erro nunca mostram detalhe técnico; durações e datas escritas por extenso; números, dinheiro e datas lidos e digitados como se escreve em português; um valor guardado só vira link se o endereço for seguro de abrir; um arquivo de etapas exportado é lido de volta igual, e qualquer outro é recusado com uma frase; cada linha do histórico vira uma frase, sem nomear pessoa ou lista que quem lê não pode ver; o envio de arquivo manda só as partes que faltam, tenta de novo quando a conexão cai, desiste quando o servidor recusa e para quando a pessoa cancela                                                                                       |
 
-**Percurso em navegador real** (`apps/web/e2e`, 18 passos, job "Percurso em navegador real" no CI):
+**Percurso em navegador real** (`apps/web/e2e`, 19 passos, job "Percurso em navegador real" no CI):
 um Dono no computador e uma funcionária no celular, contra uma instalação criada do zero pelos
 mesmos comandos de produção. Instalação recusada sem o token do servidor; senha fraca explicada na
 hora; mesma resposta para senha errada e e-mail inexistente; só a senha não abre nada; convite
@@ -173,7 +179,7 @@ inválido barrado antes de enviar e campo arquivado e restaurado sem perder nada
 lido em frases; item mandado para a lixeira e restaurado como estava; item levado para a lista sensível e trazido
 de volta com os valores intactos; etapas exportadas como arquivo, modelo pronto aplicado, arquivo
 errado recusado e arquivo salvo importado; item passado para a funcionária, que o encontra na hora e não
-vê a escolha de responsáveis; campo de pessoas preenchido pela Dona e só lido pela funcionária; imagem e texto anexados pelo celular, imagem mostrada na página, texto só baixado e recebido no computador idêntico ao enviado, anexo removido e restaurado e tudo isso no histórico; senha guardada pela funcionária, que não consegue lê-la de volta, e revelada pela Dona só depois do código; Dona troca a própria senha e continua conectada; lista sensível
+vê a escolha de responsáveis; campo de pessoas preenchido pela Dona e só lido pela funcionária; imagem e texto anexados pelo celular, imagem mostrada na página, texto só baixado e recebido no computador idêntico ao enviado, anexo removido e restaurado e tudo isso no histórico; senha guardada pela funcionária, que não consegue lê-la de volta, e revelada pela Dona só depois do código; campo de arquivos que oferece só os anexos do item; Dona troca a própria senha e continua conectada; lista sensível
 fechada até o código; registro de auditoria íntegro; suspensão que derruba a sessão
 na hora; e nenhuma violação da política de segurança da página do começo ao fim. Esse percurso já pegou
 três defeitos reais, todos corrigidos e cobertos por teste: a tela de pessoas mostrava situação
@@ -195,6 +201,7 @@ o envio de outra pessoa nem aparece para quem tenta.
 No campo secreto foram 16 enfraquecimentos, todos derrubam testes (três só depois de testes
 novos: quem trocou por último, revelar sem ver o item tendo a capacidade, e quem só vê gravando
 onde ainda não há valor).
+No campo de arquivos foram 7 enfraquecimentos, todos derrubam testes.
 
 ### Como rodar
 
@@ -219,11 +226,13 @@ pnpm check
 
 ## Próximo passo exato
 
-1. **Fase 2 — Estrutura, o que falta:** campo de arquivo (aponta para anexos do item). Depois,
-   Fase 3 (quadro kanban com arrastar e soltar, e as demais visões). Sempre nesta ordem: migração e API com testes nas duas camadas, depois a tela e
-   o passo no percurso em navegador.
-2. Pequenos restos da interface da Fase 1, a encaixar durante a Fase 2: criação de pastas e listas por quem gerencia um espaço sem ser Dono.
+1. **Resto da Fase 1:** quem gerencia um espaço, sem ser Dono, cria pastas e listas nele.
+2. **Fase 3 — Visões:** quadro kanban com arrastar e soltar (também no celular), depois tabela,
+   calendário e linha do tempo; visões salvas por pessoa.
 3. Itens adiados que dependem da interface: passkeys e CAPTCHA.
+
+Cada fatia, sempre nesta ordem: migração e API com testes nas duas camadas, depois a tela e o
+passo no percurso em navegador.
 
 ## Pendências do mantenedor (Fase 0)
 

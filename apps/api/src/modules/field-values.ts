@@ -49,11 +49,40 @@ export async function writeFieldValues(
     }
     const problem = fieldValueProblem(field.kind, field.config, value, current.get(fieldId));
     if (problem !== null) throw badRequest('invalid_field_value', { fieldId, problem });
+    if (field.kind === 'files' && Array.isArray(value)) {
+      await checkFiles(tx, itemId, fieldId, value, current.get(fieldId));
+    }
     await run(
       tx,
       sql`INSERT INTO app.item_field_values (item_id, field_id, value)
           VALUES (${itemId}, ${fieldId}, ${JSON.stringify(value)}::jsonb)
           ON CONFLICT (item_id, field_id) DO UPDATE SET value = EXCLUDED.value`,
     );
+  }
+}
+
+/**
+ * A files field names attachments of the same item, finished and not in the
+ * trash. What it already named may stay. The database checks the same; this
+ * only says which problem it is.
+ */
+async function checkFiles(
+  tx: Tx,
+  itemId: string,
+  fieldId: string,
+  value: readonly string[],
+  previous: FieldValue | undefined,
+): Promise<void> {
+  const kept = new Set(Array.isArray(previous) ? previous : []);
+  const added = value.filter((id) => !kept.has(id));
+  if (added.length === 0) return;
+  const found = await rows<{ id: string }>(
+    tx,
+    sql`SELECT id FROM app.attachments
+        WHERE item_id = ${itemId} AND id = ANY (${added}::uuid[])
+          AND status <> 'uploading' AND deleted_at IS NULL`,
+  );
+  if (found.length !== added.length) {
+    throw badRequest('invalid_field_value', { fieldId, problem: 'unknown_file' });
   }
 }

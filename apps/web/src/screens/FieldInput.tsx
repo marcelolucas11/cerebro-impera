@@ -29,6 +29,7 @@ export function FieldInput({
   onChange,
   workers,
   nameOf,
+  files,
 }: {
   field: CustomField;
   draft: FieldDraft;
@@ -39,6 +40,8 @@ export function FieldInput({
   /** Who can be named here; null for someone who does not hand out work in this list. */
   workers: { id: string; name: string }[] | null;
   nameOf: (userId: string | null) => string;
+  /** The item's attachments that a files field can name. */
+  files: { id: string; name: string }[];
 }): ReactNode {
   const id = useId();
   const noteId = `${id}-note`;
@@ -106,6 +109,42 @@ export function FieldInput({
               }}
             />
             {person.name}
+          </label>
+        ))}
+        {note}
+      </fieldset>
+    );
+  }
+
+  if (field.kind === 'files') {
+    const chosen = Array.isArray(draft) ? draft : [];
+    // Something named before and since removed from the item can still be unticked.
+    const offered = [
+      ...files,
+      ...chosen
+        .filter((fileId) => !files.some((file) => file.id === fileId))
+        .map((fileId) => ({ id: fileId, name: 'Arquivo que saiu do item' })),
+    ];
+    return (
+      <fieldset className="field ticks" aria-describedby={error ? noteId : undefined}>
+        <legend>{field.name}</legend>
+        {offered.length === 0 ? (
+          <p className="field-note">Anexe arquivos ao item, em Anexos, para escolher aqui.</p>
+        ) : null}
+        {offered.map((file) => (
+          <label key={file.id} className="tick">
+            <input
+              type="checkbox"
+              checked={chosen.includes(file.id)}
+              onChange={(event) => {
+                onChange(
+                  event.target.checked
+                    ? [...chosen, file.id]
+                    : chosen.filter((other) => other !== file.id),
+                );
+              }}
+            />
+            {file.name}
           </label>
         ))}
         {note}

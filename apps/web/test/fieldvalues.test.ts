@@ -188,6 +188,22 @@ describe('a people field', () => {
   });
 });
 
+describe('a files field', () => {
+  const contract = field('files');
+  it('takes the files chosen, or nothing, and is read as a count', () => {
+    expect(valueOf(contract, [A, B], undefined)).toEqual({ ok: true, value: [A, B] });
+    expect(valueOf(contract, [], [A])).toEqual({ ok: true, value: null });
+    expect(draftOf(contract, [A])).toEqual([A]);
+    expect(showValue(contract, [A])).toBe('1 arquivo');
+    expect(showValue(contract, [A, B])).toBe('2 arquivos');
+  });
+
+  it('explains a file that is no longer attached', () => {
+    const refused = new ApiError(400, 'invalid_field_value', { problem: 'unknown_file' });
+    expect(describeError(refused)).toContain('não está mais entre os anexos');
+  });
+});
+
 describe('a stored value as it is read', () => {
   it('is written the way people here write numbers, money and dates', () => {
     expect(showValue(field('number'), 1250.5)).toBe('1.250,5');

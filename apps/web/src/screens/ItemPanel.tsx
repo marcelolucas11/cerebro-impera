@@ -41,6 +41,19 @@ export function ItemPanel({
   const [title, setTitle] = useState(item.title);
   const [description, setDescription] = useState(item.description);
   const [drafts, setDrafts] = useState<Record<string, FieldDraft>>({});
+  // Attachments a files field can name: finished and not in the trash.
+  const attachments = useQuery({
+    queryKey: ['attachments', item.id],
+    queryFn: () => api.attachments(item.id),
+  });
+  const files = (attachments.data ?? [])
+    .filter((file) => file.status !== 'uploading')
+    .map((file) => ({ id: file.id, name: file.name }));
+  const fileNames = (value: FieldValue | undefined): string =>
+    (Array.isArray(value) ? value : [])
+      .map((fileId) => files.find((file) => file.id === fileId)?.name)
+      .filter((name): name is string => name !== undefined)
+      .join(', ');
   const history = useQuery({
     // Re-read whenever the item changes stage.
     queryKey: ['stage-history', item.id, item.stageSince],
@@ -126,6 +139,7 @@ export function ItemPanel({
                   }}
                   workers={workers}
                   nameOf={nameOf}
+                  files={files}
                 />
               ))}
             </div>
@@ -148,7 +162,11 @@ export function ItemPanel({
                 <div key={field.id}>
                   <dt>{field.name}</dt>
                   <dd>
-                    <FieldValueView field={field} value={item.fields[field.id]} nameOf={nameOf} />
+                    {field.kind === 'files' ? (
+                      fileNames(item.fields[field.id])
+                    ) : (
+                      <FieldValueView field={field} value={item.fields[field.id]} nameOf={nameOf} />
+                    )}
                   </dd>
                 </div>
               ))}
