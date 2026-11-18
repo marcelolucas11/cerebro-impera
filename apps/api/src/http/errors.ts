@@ -25,6 +25,9 @@ export const notFound = (): HttpError => new HttpError(404, 'not_found');
 export const conflict = (code = 'conflict'): HttpError => new HttpError(409, code);
 export const tooManyAttempts = (retryAfterSeconds: number): HttpError =>
   new HttpError(429, 'too_many_attempts', { retryAfterSeconds });
+/** Too many requests of any kind in a short time, from one session or address. */
+export const tooManyRequests = (retryAfterSeconds: number): HttpError =>
+  new HttpError(429, 'too_many_requests', { retryAfterSeconds });
 
 interface PgLikeError {
   code?: unknown;

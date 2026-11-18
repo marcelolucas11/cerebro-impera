@@ -11,6 +11,9 @@ describe('what a person reads when a request fails', () => {
       'Muitas tentativas. Tente de novo em 15 minutos.',
     );
     expect(describeError(new ApiError(429, 'too_many_attempts'))).toContain('60 segundos');
+    expect(describeError(new ApiError(429, 'too_many_requests', { retryAfterSeconds: 20 }))).toBe(
+      'Muitas ações em pouco tempo. Espere 20 segundos e tente de novo.',
+    );
   });
 
   it('explains what is wrong with a refused password', () => {

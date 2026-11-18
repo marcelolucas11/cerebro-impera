@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gather, nothingPending, touches } from '../src/live.js';
+import { gather, nextRetry, nothingPending, touches } from '../src/live.js';
 
 describe('what a live event makes the page read again', () => {
   it('gathers lists and items, and ignores anything else', () => {
@@ -27,5 +27,17 @@ describe('what a live event makes the page read again', () => {
     const access = gather(nothingPending(), { access: true });
     expect(touches(['tree'], access)).toBe(true);
     expect(touches(['items', 'tarefas'], access)).toBe(true);
+  });
+});
+
+describe('opening the stream again after the server refused it', () => {
+  it('waits longer each time, up to five minutes', () => {
+    const waits: number[] = [];
+    let wait = 0;
+    for (let i = 0; i < 7; i += 1) {
+      wait = nextRetry(wait);
+      waits.push(wait);
+    }
+    expect(waits).toEqual([15_000, 30_000, 60_000, 120_000, 240_000, 300_000, 300_000]);
   });
 });

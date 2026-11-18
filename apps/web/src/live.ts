@@ -48,31 +48,65 @@ export function touches(key: QueryKey, pending: Pending): boolean {
 
 const SETTLE_MS = 300;
 
-/** Opens the stream while signed in; the browser reconnects by itself when it drops. */
+/** Waits before opening the stream again after the server refused it, doubling up to 5 minutes. */
+export function nextRetry(previousMs: number): number {
+  return Math.min(Math.max(previousMs * 2, FIRST_RETRY_MS), LAST_RETRY_MS);
+}
+const FIRST_RETRY_MS = 15_000;
+const LAST_RETRY_MS = 5 * 60_000;
+
+/**
+ * Opens the stream while signed in. The browser reconnects by itself when the
+ * connection drops; when the server refuses it (too many streams or requests),
+ * the page tries again later and, once back, reads everything again.
+ */
 export function useLiveUpdates(): void {
   const queryClient = useQueryClient();
   useEffect(() => {
     if (typeof EventSource === 'undefined') return undefined;
-    const source = new EventSource('/api/events');
+    let source: EventSource | undefined;
     let pending = nothingPending();
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let waitMs = 0;
+    let missed = false;
     const flush = (): void => {
       const now = pending;
       pending = nothingPending();
       timer = undefined;
       void queryClient.invalidateQueries({ predicate: (query) => touches(query.queryKey, now) });
     };
-    source.onmessage = (message: MessageEvent<string>) => {
-      try {
-        pending = gather(pending, JSON.parse(message.data));
-      } catch {
-        return;
-      }
-      timer ??= setTimeout(flush, SETTLE_MS);
+    const open = (): void => {
+      retry = undefined;
+      const current = new EventSource('/api/events');
+      source = current;
+      current.onopen = () => {
+        waitMs = 0;
+        if (missed) {
+          missed = false;
+          void queryClient.invalidateQueries();
+        }
+      };
+      current.onmessage = (message: MessageEvent<string>) => {
+        try {
+          pending = gather(pending, JSON.parse(message.data));
+        } catch {
+          return;
+        }
+        timer ??= setTimeout(flush, SETTLE_MS);
+      };
+      current.onerror = () => {
+        if (current.readyState !== EventSource.CLOSED) return;
+        missed = true;
+        waitMs = nextRetry(waitMs);
+        retry = setTimeout(open, waitMs);
+      };
     };
+    open();
     return () => {
-      source.close();
+      source?.close();
       if (timer !== undefined) clearTimeout(timer);
+      if (retry !== undefined) clearTimeout(retry);
     };
   }, [queryClient]);
 }

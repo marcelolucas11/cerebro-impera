@@ -19,6 +19,7 @@ x-api: &api
     CEREBRO_DB_HOST: postgres
     CEREBRO_DB_NAME: cerebro
     CEREBRO_MAX_ATTACHMENT_MB: ${CEREBRO_MAX_ATTACHMENT_MB:-2048}
+    CEREBRO_REQUESTS_PER_MINUTE: ${CEREBRO_REQUESTS_PER_MINUTE:-600}
     # Vazio: anexos desligados até a instalação escolher. "clamd://clamav:3310" usa o
     # serviço clamav abaixo; "off" guarda os arquivos marcados como não verificados.
     CEREBRO_ANTIVIRUS: ${CEREBRO_ANTIVIRUS:-}

@@ -716,6 +716,26 @@ novo pelas rotas de sempre, com as regras de sempre (`0034_live.sql`).
 - Sem dependência nova: Server-Sent Events do próprio navegador e `LISTEN/NOTIFY` do PostgreSQL. O
   proxy reverso precisa repassar o fluxo sem guardar (ver `infra/README.md`).
 
+## D54 — Limite de requisições por sessão, em toda rota
+
+**Decisão.** Toda rota da API passa por um limite de requisições por minuto
+(`@fastify/rate-limit`): 600 por padrão, ajustável por `CEREBRO_REQUESTS_PER_MINUTE` (60 a
+100 000). Acima disso, a API responde 429 `too_many_requests` com quanto esperar, e a página diz
+"Muitas ações em pouco tempo. Espere … e tente de novo."
+
+- **Contado por sessão**, por um resumo do token (nunca o token), e por endereço antes de entrar:
+  um escritório inteiro atrás de um mesmo endereço não divide uma cota só. As tentativas de
+  entrada continuam com o bloqueio progressivo próprio (por conta e por endereço).
+- **O fluxo de tempo real abre no máximo 20 vezes por minuto** por sessão, além do limite de 5
+  abertos ao mesmo tempo. Recusado, a página tenta de novo em 15 s, dobrando até 5 min, e lê tudo
+  de novo quando volta.
+- **Por quê agora:** o CodeQL apontou a rota do tempo real como sem limite (alerta alto, CWE-770).
+  Valia para todas: um script com uma sessão válida conseguia fazer requisições sem parar. O
+  limite fica na memória do processo, o que basta para uma instância só (Fase 12).
+- **Dependência nova:** `@fastify/rate-limit` 11.2.2 (equipe do Fastify, publicada há mais de 3
+  dias), com `toad-cache`, `ip-address`, `@lukeed/ms` e `fastify-plugin` (já usado). Nenhum script
+  de instalação.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |
