@@ -3,7 +3,7 @@ import { one, run, sql, type Tx } from '../db.js';
 import type { Deps } from '../deps.js';
 import { serviceUnavailable } from '../http/errors.js';
 import { UpdaterUnreachable, type Updater } from '../updates/client.js';
-import { UpdaterRefusal, type UpdaterStatus } from '../updates/protocol.js';
+import { UpdaterRefusal, type UpdaterStatus } from '@cerebro/shared/protocol';
 
 /*
  * Updates, as the owners see them: the version in use, a newer one when the
@@ -35,7 +35,12 @@ const record = (tx: Tx, action: string, target: string | null, metadata: object)
 /** An update that ended and is not on the record yet goes there, once. */
 async function recordOutcome(tx: Tx, job: UpdaterStatus['job']): Promise<void> {
   if (job === null || job.state === 'running') return;
-  const action = job.state === 'applied' ? 'update.applied' : 'update.rolled_back';
+  const action =
+    job.state === 'applied'
+      ? 'update.applied'
+      : job.state === 'rolled_back'
+        ? 'update.rolled_back'
+        : 'update.failed';
   const seen = await one<{ found: boolean }>(
     tx,
     sql`SELECT EXISTS (SELECT 1 FROM audit.log WHERE action = ${action} AND target_id = ${job.id})

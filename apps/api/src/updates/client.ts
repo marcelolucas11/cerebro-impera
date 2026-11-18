@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { sign, UpdaterRefusal, type UpdaterStatus } from './protocol.js';
+import { sign, UpdaterRefusal, type UpdaterStatus } from '@cerebro/shared/protocol';
 
 /** The updater, as the API sees it. */
 export interface Updater {

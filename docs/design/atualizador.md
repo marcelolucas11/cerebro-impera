@@ -1,7 +1,8 @@
 # Atualizador pelo GitHub — desenho
 
-Estado: **em construção** (Fase 8). Pronto: a página, as rotas e a conversa assinada com o
-atualizador (seção 5, item 1). Nada aqui é específico de uma empresa: cada instalação aponta
+Estado: **em construção** (Fase 8). Prontos: a página, as rotas, a conversa assinada e o
+próprio atualizador (`apps/updater`), testado com Docker, GitHub e cosign de mentira. Falta o
+fluxo de release e o serviço no `compose.yaml` (seção 5, item 3). Nada aqui é específico de uma empresa: cada instalação aponta
 para o repositório de onde aceita versões.
 
 ## 1. O que precisa valer
@@ -75,7 +76,7 @@ para o repositório de onde aceita versões.
 
 1. ~~Este desenho; versão em uso na API; tela e rotas, com o atualizador do outro lado da rede
    interna (nos testes, um atualizador de mentira que responde como o de verdade)~~ (D65).
-2. O atualizador: procura, conferência da assinatura e passos da atualização, com testes que
-   trocam o Docker, o GitHub e o `cosign` por versões de teste.
+2. ~~O atualizador: procura, conferência da assinatura e passos da atualização, com testes que
+   trocam o Docker, o GitHub e o `cosign` por versões de teste~~ (D66).
 3. O fluxo de release (imagem, assinatura, SBOM, manifesto) e o `compose.yaml` com o serviço
    novo. Publicar a primeira release fica com o mantenedor.

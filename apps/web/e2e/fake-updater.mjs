@@ -8,7 +8,9 @@ import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { resolve } from 'node:path';
 
-const { verify } = await import(resolve(import.meta.dirname, '../../api/dist/updates/protocol.js'));
+const { verify } = await import(
+  resolve(import.meta.dirname, '../../../packages/shared/dist/protocol.js')
+);
 
 const STEPS = ['backup', 'verify', 'download', 'migrate', 'start', 'health'];
 

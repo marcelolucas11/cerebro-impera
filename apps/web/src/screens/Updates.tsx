@@ -76,7 +76,9 @@ export function Updates(): ReactNode {
               ? `Atualizando para ${job.to}`
               : job.state === 'applied'
                 ? `Atualizado para ${job.to}`
-                : `A versão ${job.to} não ficou`}
+                : job.state === 'rolled_back'
+                  ? `A versão ${job.to} não ficou`
+                  : `A atualização para ${job.to} não foi aplicada`}
           </h2>
           {job.state === 'running' ? (
             <ol className="update-steps">
@@ -95,10 +97,12 @@ export function Updates(): ReactNode {
             <p className="muted">
               {`Concluída em ${formatWhen(job.finishedAt ?? job.startedAt)}, a partir da ${job.from}.`}
             </p>
-          ) : (
+          ) : job.state === 'rolled_back' ? (
             <p>
               {`A versão ${job.to} não subiu bem, e a ${job.from} voltou, com o banco de dados como estava.${job.problem === null ? '' : ` ${job.problem}`}`}
             </p>
+          ) : (
+            <Notice tone="error">{job.problem ?? 'A atualização não foi aplicada.'}</Notice>
           )}
         </section>
       ) : null}
