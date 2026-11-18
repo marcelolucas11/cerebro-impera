@@ -495,6 +495,20 @@ uma ordem por pessoa contradiria o quadro dos colegas. _Rever com o mantenedor:_
 vê só os próprios itens reordena só os seus, e a posição deles entre os itens que ele não vê fica
 como cair.
 
+## D42 — Busca global pelas mesmas regras de leitura
+
+**Decisão.** A busca no alto da página procura palavras nos títulos e descrições dos itens de
+todas as listas que a pessoa abre, sem diferença de maiúsculas e acentos, e mostra até 30
+resultados, títulos primeiro. A consulta lê os itens pelas mesmas regras de linha de tudo o mais:
+funcionário acha só os próprios itens, lista sensível só entra com código recente, a lixeira fica
+de fora. O que é digitado vale literalmente (`%` e `_` não viram curingas).
+
+- Campos personalizados, anexos e segredos não entram na busca.
+- Cada resultado abre a lista já filtrada por aquele título.
+
+**Por quê.** Uma busca com caminho de leitura próprio seria o jeito mais fácil de vazar um item
+entre funcionários; usando as regras de linha, ela não consegue achar o que a pessoa não veria.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

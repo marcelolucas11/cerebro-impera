@@ -26,6 +26,11 @@ export function usePath(): string {
   return useSyncExternalStore(subscribe, () => window.location.pathname);
 }
 
+/** The query part of the address, followed as it changes. */
+export function useQueryString(): string {
+  return useSyncExternalStore(subscribe, () => window.location.search);
+}
+
 const ID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const LIST_PATH = new RegExp(`^/listas/(${ID})(/quadro|/calendario|/tabela)?$`);
 

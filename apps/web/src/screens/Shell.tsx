@@ -10,6 +10,7 @@ import { Devices } from './Devices.js';
 import { Account } from './Account.js';
 import { ListScreen } from './ListScreen.js';
 import { People } from './People.js';
+import { Search, SearchBox } from './Search.js';
 import { Security } from './Security.js';
 import { Spaces } from './Spaces.js';
 
@@ -80,6 +81,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
               </Link>
             ))}
           </nav>
+          <SearchBox />
           <div className="shell-person">
             <p>
               <Link to="/conta" current={path === '/conta'}>
@@ -104,6 +106,8 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
             />
           ) : path === '/conta' ? (
             <Account me={user} />
+          ) : path === '/busca' ? (
+            <Search />
           ) : here === undefined ? (
             <>
               <h1>Esta página não existe</h1>

@@ -28,6 +28,7 @@ import {
   setupSchema,
   setupTotpSchema,
   setSecretSchema,
+  searchQuerySchema,
   orderItemsSchema,
   createViewSchema,
   updateViewSchema,
@@ -57,6 +58,7 @@ import * as grants from './modules/grants.js';
 import * as history from './modules/history.js';
 import * as oversight from './modules/oversight.js';
 import * as people from './modules/people.js';
+import * as searching from './modules/search.js';
 import * as secrets from './modules/secrets.js';
 import * as views from './modules/views.js';
 import * as stages from './modules/stages.js';
@@ -305,6 +307,11 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const body = parse(orderItemsSchema, request.body);
     await signedIn(request, (tx, actor) => structure.orderStage(tx, actor, id, body));
     return { ok: true };
+  });
+
+  app.get('/api/search', (request) => {
+    const query = parse(searchQuerySchema, request.query);
+    return signedIn(request, (tx, actor) => searching.search(tx, actor, query.q));
   });
 
   // ---- Saved views -----------------------------------------------------------------

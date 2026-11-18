@@ -274,6 +274,17 @@ export interface SavedView {
   updatedAt: string;
 }
 
+/** An item found by the global search, in a list the person can open. */
+export interface SearchHit {
+  id: string;
+  title: string;
+  listId: string;
+  listName: string;
+  stageName: string;
+  inTitle: boolean;
+  updatedAt: string;
+}
+
 export type AttachmentStatus = 'uploading' | 'scanning' | 'ready' | 'blocked';
 export interface Attachment {
   id: string;
@@ -440,6 +451,7 @@ export const api = {
   /** Puts the items of one stage in this order, top first. All or nothing. */
   orderStage: (listId: string, stageId: string, ids: string[]) =>
     request<{ ok: true }>('PUT', `/api/lists/${listId}/order`, { stageId, ids }),
+  search: (q: string) => request<SearchHit[]>('GET', `/api/search?q=${encodeURIComponent(q)}`),
   views: (listId: string) => request<SavedView[]>('GET', `/api/lists/${listId}/views`),
   createView: (listId: string, input: { name: string; kind: ListView; query: string }) =>
     request<SavedView>('POST', `/api/lists/${listId}/views`, input),
