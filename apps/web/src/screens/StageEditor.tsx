@@ -1,7 +1,10 @@
+import { STAGE_PRESETS } from '@cerebro/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useId, useState, type ChangeEvent, type ReactNode } from 'react';
 import { api, ApiError, type Stage, type StageKind } from '../api.js';
 import { STAGE_KIND_NAMES } from '../labels.js';
+import { download, readStageFile, stageFileName, stageFileOf } from '../stagefile.js';
+import { useGuard } from '../stepup.js';
 import { Button, Field, Form, Notice, Select, useAction } from '../ui/kit.js';
 
 const KIND_OPTIONS = (Object.keys(STAGE_KIND_NAMES) as StageKind[]).map((value) => ({
@@ -10,7 +13,17 @@ const KIND_OPTIONS = (Object.keys(STAGE_KIND_NAMES) as StageKind[]).map((value) 
 }));
 
 /** Where whoever manages a list shapes the stages its items go through. */
-export function StageEditor({ listId, stages }: { listId: string; stages: Stage[] }): ReactNode {
+export function StageEditor({
+  listId,
+  listName,
+  stages,
+  otherLists,
+}: {
+  listId: string;
+  listName: string;
+  stages: Stage[];
+  otherLists: { id: string; label: string }[];
+}): ReactNode {
   const queryClient = useQueryClient();
   const refresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['stages', listId] });
@@ -55,7 +68,138 @@ export function StageEditor({ listId, stages }: { listId: string; stages: Stage[
         ))}
       </ol>
       <AddStage listId={listId} onAdded={refresh} />
+      <StageSets
+        listId={listId}
+        listName={listName}
+        stages={stages}
+        otherLists={otherLists}
+        onApplied={refresh}
+      />
     </section>
+  );
+}
+
+/**
+ * Starting from a ready-made set, another list's stages or a saved file, and
+ * saving this list's stages to use elsewhere. Applying never removes a stage.
+ */
+function StageSets({
+  listId,
+  listName,
+  stages,
+  otherLists,
+  onApplied,
+}: {
+  listId: string;
+  listName: string;
+  stages: Stage[];
+  otherLists: { id: string; label: string }[];
+  onApplied: () => Promise<void>;
+}): ReactNode {
+  const guard = useGuard();
+  const fileId = useId();
+  const [source, setSource] = useState('');
+  const [done, setDone] = useState<string | null>(null);
+  const options = [
+    { value: '', label: 'Escolha um modelo' },
+    ...STAGE_PRESETS.map((preset, index) => ({
+      value: `modelo:${index}`,
+      label: `Modelo pronto: ${preset.name}`,
+    })),
+    ...otherLists.map((list) => ({ value: `lista:${list.id}`, label: `Etapas de ${list.label}` })),
+  ];
+
+  const applyDrafts = useCallback(
+    async (drafts: { name: string; color: string; kind: StageKind }[], what: string) => {
+      setDone(null);
+      await api.applyStages(listId, drafts);
+      await onApplied();
+      setDone(`${what}: etapas aplicadas. Nenhuma etapa foi removida.`);
+    },
+    [listId, onApplied],
+  );
+  const applyImported = useAction(applyDrafts);
+  const applyChosen = useAction(
+    useCallback(async () => {
+      if (source.startsWith('modelo:')) {
+        const preset = STAGE_PRESETS[Number(source.slice('modelo:'.length))];
+        if (preset) await applyDrafts([...preset.stages], `Modelo ${preset.name}`);
+        return;
+      }
+      const otherId = source.slice('lista:'.length);
+      // The stages of a sensitive list are read only after the authenticator code.
+      const theirs = await guard(() => api.stages(otherId));
+      const label = otherLists.find((list) => list.id === otherId)?.label ?? 'Outra lista';
+      await applyDrafts(
+        theirs.map(({ name, color, kind }) => ({ name, color, kind })),
+        label,
+      );
+    }, [source, applyDrafts, guard, otherLists]),
+  );
+  const [fileError, setFileError] = useState<string | null>(null);
+  const importFile = (event: ChangeEvent<HTMLInputElement>): void => {
+    setFileError(null);
+    setDone(null);
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    void file.text().then((text) => {
+      const read = readStageFile(text);
+      if (!read.ok) {
+        setFileError(read.message);
+        return;
+      }
+      applyImported.run(read.file.stages, `Arquivo "${read.file.name}"`);
+    });
+  };
+
+  return (
+    <div className="subsection">
+      <h3>Modelos de etapas</h3>
+      <p className="field-note">
+        Aplicar um modelo cria as etapas que faltam e ajusta a cor e o significado das que têm o
+        mesmo nome. Nenhuma etapa é removida, e nenhum item muda de etapa.
+      </p>
+      <div className="move-to">
+        <Select label="Modelo de etapas" value={source} onChange={setSource} options={options} />
+        <Button
+          variant="quiet"
+          busy={applyChosen.busy}
+          disabled={source === ''}
+          onClick={applyChosen.run}
+        >
+          Aplicar modelo
+        </Button>
+      </div>
+      <div className="actions">
+        <Button
+          variant="quiet"
+          onClick={() => {
+            download(
+              stageFileName(listName),
+              `${JSON.stringify(stageFileOf(listName, stages), null, 2)}\n`,
+            );
+          }}
+        >
+          Exportar estas etapas
+        </Button>
+        <label className="file-button" htmlFor={fileId}>
+          Importar etapas de um arquivo
+        </label>
+        <input
+          id={fileId}
+          className="visually-hidden"
+          type="file"
+          accept=".json,application/json"
+          onChange={importFile}
+        />
+      </div>
+      {fileError ? <Notice tone="error">{fileError}</Notice> : null}
+      {(applyChosen.error ?? applyImported.error) ? (
+        <Notice tone="error">{applyChosen.error ?? applyImported.error}</Notice>
+      ) : null}
+      {done !== null ? <Notice tone="ok">{done}</Notice> : null}
+    </div>
   );
 }
 

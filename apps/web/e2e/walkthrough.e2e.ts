@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { authenticatorCode, heading, PASSWORD, setupToken, shot, sql, watch } from './support.js';
 
@@ -516,6 +517,46 @@ test('suspending her throws her out at once and keeps her out', async () => {
   await signIn(ana, 'ana@exemplo.test', PASSWORD);
   // The answer does not even confirm that the account exists.
   await expect(ana.getByRole('alert')).toHaveText('E-mail ou senha incorretos.');
+});
+
+test('stages come from a ready-made set, another list or a saved file, and leave as a file', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Dinheiro' }).click();
+  await owner.getByRole('button', { name: 'Editar etapas' }).click();
+
+  // Saved as a file: the browser receives it, and it reads as the list's stages.
+  const [saved] = await Promise.all([
+    owner.waitForEvent('download'),
+    owner.getByRole('button', { name: 'Exportar estas etapas' }).click(),
+  ]);
+  expect(saved.suggestedFilename()).toBe('etapas-dinheiro.json');
+  const savedPath = await saved.path();
+  const exported = JSON.parse(await readFile(savedPath, 'utf8')) as {
+    kind: string;
+    stages: { name: string }[];
+  };
+  expect(exported.kind).toBe('cerebro.stages');
+  expect(exported.stages.map((stage) => stage.name)).toEqual(['A fazer', 'Fazendo', 'Feito']);
+
+  // A ready-made set adds what is missing and removes nothing.
+  await owner.getByLabel('Modelo de etapas').selectOption({ label: 'Modelo pronto: Clientes' });
+  await owner.getByRole('button', { name: 'Aplicar modelo' }).click();
+  await expect(owner.getByText('Modelo Clientes: etapas aplicadas.')).toBeVisible();
+  await expect(owner.getByRole('region', { name: 'Etapa Contato' })).toBeVisible();
+  await expect(owner.getByRole('region', { name: 'Etapa A fazer' })).toBeVisible();
+
+  // A file that is not a set of stages is refused before anything is sent.
+  await owner.getByLabel('Importar etapas de um arquivo').setInputFiles({
+    name: 'qualquer.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{"kind":"outra.coisa"}'),
+  });
+  await expect(owner.getByText(/não é um conjunto de etapas exportado/)).toBeVisible();
+  // The saved file goes back in.
+  await owner.getByLabel('Importar etapas de um arquivo').setInputFiles(savedPath);
+  await expect(owner.getByText('Arquivo "Dinheiro": etapas aplicadas.')).toBeVisible();
+  await shot(owner, 'modelos-de-etapas');
+  await owner.getByRole('button', { name: 'Fechar edição das etapas' }).click();
 });
 
 test('the page never broke its own security policy along the way', () => {

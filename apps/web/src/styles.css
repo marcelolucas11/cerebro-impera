@@ -1020,6 +1020,29 @@ tr[aria-selected='true'] > * {
   max-width: 28rem;
 }
 
+/* A file picker that looks like the other quiet buttons, and shows focus like them. */
+.file-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: var(--texto-suave);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--linha);
+  text-underline-offset: 0.25em;
+  cursor: pointer;
+}
+
+.file-button:hover {
+  color: var(--texto);
+  text-decoration-color: currentColor;
+}
+
+.file-button:has(+ input:focus-visible) {
+  outline: 2px solid var(--marca);
+  outline-offset: 2px;
+}
+
 .move-to {
   display: grid;
   grid-template-columns: minmax(12rem, 28rem) auto;

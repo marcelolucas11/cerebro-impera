@@ -1,5 +1,6 @@
 import {
   acceptInviteSchema,
+  applyStagesSchema,
   auditQuerySchema,
   copyFieldsSchema,
   createFieldSchema,
@@ -222,6 +223,11 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     const body = parse(createStageSchema, request.body);
     return signedIn(request, (tx, actor) => stages.createStage(tx, actor, id, body));
+  });
+  app.post('/api/lists/:id/stages/apply', (request) => {
+    const id = paramId(request);
+    const body = parse(applyStagesSchema, request.body);
+    return signedIn(request, (tx, actor) => stages.applyStages(tx, actor, id, body.stages));
   });
   app.put('/api/lists/:id/stages/order', (request) => {
     const id = paramId(request);

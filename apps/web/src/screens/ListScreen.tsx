@@ -160,7 +160,14 @@ export function ListScreen({
           </Button>
         </div>
       ) : null}
-      {editing === 'stages' ? <StageEditor listId={listId} stages={stages.data} /> : null}
+      {editing === 'stages' ? (
+        <StageEditor
+          listId={listId}
+          listName={list.name}
+          stages={stages.data}
+          otherLists={otherLists}
+        />
+      ) : null}
       {editing === 'fields' ? (
         <FieldEditor listId={listId} fields={fields.data} otherLists={otherLists} />
       ) : null}
