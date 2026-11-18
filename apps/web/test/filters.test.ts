@@ -4,6 +4,7 @@ import type { FieldLike } from '../src/fieldvalues.js';
 import {
   DEFAULT_SORT,
   defaultColumns,
+  groupItems,
   fromSearch,
   isFiltering,
   matches,
@@ -207,7 +208,12 @@ describe('in the address', () => {
       field: { id: 'valor', test: { op: 'atLeast', value: 100 } },
     };
     const sort = { key: 'field:valor' as const, descending: true };
-    expect(fromSearch(toSearch(filter, sort))).toEqual({ filter, sort, columns: null });
+    expect(fromSearch(toSearch(filter, sort))).toEqual({
+      filter,
+      sort,
+      columns: null,
+      group: 'stage',
+    });
     const columns = ['etapa', 'valor', 'responsaveis'];
     expect(fromSearch(toSearch(filter, sort, columns)).columns).toEqual(columns);
     expect(fromSearch(toSearch(NO_FILTER, DEFAULT_SORT, [])).columns).toEqual([]);
@@ -243,5 +249,53 @@ describe('a table without a choice of columns', () => {
       'senha',
       'pronto',
     ]);
+  });
+});
+
+describe('grouping the list', () => {
+  const nameOf = (id: string): string => (id === ME ? 'Olívia' : id === ANA ? 'Ana' : 'Bruno');
+  const shape = (groups: ReturnType<typeof groupItems>) =>
+    groups.map((group) => [group.label, group.items.map((one) => one.title)]);
+
+  it('by who, under each person, by name, with nobody’s last', () => {
+    const both = item({ title: 'De duas', assignees: [ME, ANA] });
+    expect(shape(groupItems([...all, both], 'who', { fields, nameOf }))).toEqual([
+      ['Ana', ['Subir campanha de Ação', 'De duas']],
+      ['Olívia', ['Conferir perfis', 'De duas']],
+      ['Sem responsável', ['Ligar para o cliente']],
+    ]);
+  });
+
+  it('by a choice, in the order the list gave its options, with colors', () => {
+    const groups = groupItems(all, 'field:fornecedor', { fields, nameOf });
+    expect(shape(groups)).toEqual([
+      ['Beta', ['Conferir perfis']],
+      ['Alfa', ['Subir campanha de Ação']],
+      ['Sem Fornecedor', ['Ligar para o cliente']],
+    ]);
+    expect(groups[0]?.color).toBe('#dba63f');
+  });
+
+  it('by a box, and by any value as it is read', () => {
+    expect(shape(groupItems(all, 'field:pronto', { fields, nameOf }))).toEqual([
+      ['Sim', ['Conferir perfis']],
+      ['Pronto: não', ['Subir campanha de Ação', 'Ligar para o cliente']],
+    ]);
+    const byValue = shape(groupItems(all, 'field:valor', { fields, nameOf }));
+    expect(byValue.at(-1)).toEqual(['Sem Valor', ['Ligar para o cliente']]);
+    expect(byValue).toHaveLength(3);
+  });
+
+  it('not at all, or as a whole when the field is gone', () => {
+    expect(shape(groupItems(all, 'none', { fields, nameOf }))).toEqual([
+      ['Todos os itens', all.map((one) => one.title)],
+    ]);
+    expect(groupItems(all, 'field:sumiu', { fields, nameOf })).toHaveLength(1);
+  });
+
+  it('goes in the address and comes back', () => {
+    expect(fromSearch(toSearch(NO_FILTER, DEFAULT_SORT, null, 'who')).group).toBe('who');
+    expect(fromSearch('?agrupar=<x>').group).toBe('stage');
+    expect(toSearch(NO_FILTER, DEFAULT_SORT, null, 'stage')).toBe('');
   });
 });

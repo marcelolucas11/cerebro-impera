@@ -8,6 +8,7 @@ import {
   testsFor,
   type FieldTest,
   type Filter,
+  type GroupBy,
   type Sort,
   type SortKey,
 } from '../filters.js';
@@ -48,10 +49,15 @@ export function ListTools({
   people,
   shown,
   total,
+  group,
+  onGroup,
 }: {
   filter: Filter;
   sort: Sort;
   onChange: (filter: Filter, sort: Sort) => void;
+  /** How the list view gathers items; null in views that do not group. */
+  group: GroupBy | null;
+  onGroup: (group: GroupBy) => void;
   stages: Stage[];
   fields: CustomField[];
   /** People that can be picked as "who": those on the items, by name. */
@@ -178,6 +184,29 @@ export function ListTools({
           }}
           options={sortOptions}
         />
+        {group !== null ? (
+          <Select
+            label="Agrupar por"
+            value={group}
+            onChange={onGroup}
+            options={[
+              { value: 'stage', label: 'Etapa' },
+              { value: 'who', label: 'Responsável' },
+              ...fields
+                .filter(
+                  (candidate) =>
+                    candidate.kind !== 'secret' &&
+                    candidate.kind !== 'files' &&
+                    candidate.kind !== 'long_text',
+                )
+                .map((candidate) => ({
+                  value: `field:${candidate.id}` as GroupBy,
+                  label: candidate.name,
+                })),
+              { value: 'none', label: 'Sem grupos' },
+            ]}
+          />
+        ) : null}
         <Button
           variant="quiet"
           aria-pressed={sort.descending}
