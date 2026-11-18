@@ -9,20 +9,32 @@ import {
   type Sort,
   type SortKey,
 } from '../filters.js';
+import { isoDay } from '../calendar.js';
+import { dueState, formatDay, priorityLabel } from '../due.js';
 import { formatWhen } from '../labels.js';
 import { describeError } from '../messages.js';
 import { useGuard } from '../stepup.js';
 import { Notice } from '../ui/kit.js';
 import { ItemDialog, type PanelProps } from './Board.js';
 import { FieldValueView } from './FieldInput.js';
+import { finishedStages } from './ItemMarks.js';
 
 const FIXED_NAMES: Record<(typeof FIXED_COLUMNS)[number], string> = {
   etapa: 'Etapa',
   responsaveis: 'Responsáveis',
+  prioridade: 'Prioridade',
+  inicio: 'Início',
+  prazo: 'Prazo',
   criado: 'Criado em',
   atualizado: 'Atualizado em',
 };
-const FIXED_SORT: Partial<Record<string, SortKey>> = { criado: 'created', atualizado: 'updated' };
+const FIXED_SORT: Partial<Record<string, SortKey>> = {
+  prioridade: 'priority',
+  inicio: 'start',
+  prazo: 'due',
+  criado: 'created',
+  atualizado: 'updated',
+};
 const isFixed = (id: string): id is (typeof FIXED_COLUMNS)[number] =>
   (FIXED_COLUMNS as readonly string[]).includes(id);
 
@@ -110,6 +122,8 @@ export function Table({
     );
   };
 
+  const today = isoDay(new Date());
+  const finished = finishedStages(stages);
   const cell = (item: Item, id: string): ReactNode => {
     if (id === 'etapa') {
       const stage = stages.find((candidate) => candidate.id === item.stageId);
@@ -134,6 +148,18 @@ export function Table({
     }
     if (id === 'responsaveis') {
       return item.assignees.map((userId) => nameOf(userId)).join(', ');
+    }
+    if (id === 'prioridade') return priorityLabel(item.priority);
+    if (id === 'inicio') return item.startDate === null ? null : formatDay(item.startDate, today);
+    if (id === 'prazo') {
+      if (item.dueDate === null) return null;
+      const state = dueState(item.dueDate, today, finished.has(item.stageId));
+      return (
+        <span className={state === 'overdue' ? 'due-overdue' : undefined}>
+          {formatDay(item.dueDate, today)}
+          {state === 'overdue' ? <span className="visually-hidden"> (atrasado)</span> : null}
+        </span>
+      );
     }
     if (id === 'criado') return formatWhen(item.createdAt);
     if (id === 'atualizado') return formatWhen(item.updatedAt);

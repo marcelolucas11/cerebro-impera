@@ -1099,7 +1099,7 @@ tr[aria-selected='true'] > * {
     align-items: baseline;
   }
 
-  .item-row.has-columns .item-title,
+  .item-row.has-columns .item-lead,
   .item-row.has-columns .stage-select {
     flex: 1 1 100%;
   }
@@ -2034,4 +2034,62 @@ audio.file-preview {
 .item-pick {
   flex: none;
   accent-color: var(--marca);
+}
+
+/* ---- Priority and due date ------------------------------------------------- */
+
+.item-plan {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.75rem 1rem;
+  align-items: start;
+}
+
+/* Box and title share a line; the marks go on the next one, under the title. */
+.item-lead {
+  flex-wrap: wrap;
+}
+
+.item-lead > .item-title {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: left;
+}
+
+.item-marks {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.item-lead:has(.item-pick) > .item-marks {
+  padding-left: 1.75rem;
+}
+
+.mark {
+  padding: 0.0625rem 0.4375rem;
+  border: 1px solid var(--linha);
+  border-radius: 999px;
+  color: var(--texto-suave);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* The two most urgent priorities, and what is late or due today, are the only marks in color. */
+.mark.priority-1,
+.mark.due-overdue {
+  border-color: color-mix(in srgb, var(--erro) 60%, transparent);
+  color: var(--erro);
+}
+
+.mark.priority-2,
+.mark.due-today {
+  border-color: color-mix(in srgb, var(--marca) 60%, transparent);
+  color: var(--marca);
+}
+
+.due-overdue {
+  color: var(--erro);
 }

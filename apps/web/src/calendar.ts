@@ -59,6 +59,29 @@ export function dayOfValue(field: FieldLike, value: FieldValue | undefined): str
   return null;
 }
 
+/**
+ * The item's own dates, offered next to the list's date fields. Their ids
+ * cannot be a field's: fields are named by UUIDs.
+ */
+export const DUE_SOURCE: FieldLike = { id: 'prazo', name: 'Prazo', kind: 'date', config: {} };
+export const START_SOURCE: FieldLike = { id: 'inicio', name: 'Início', kind: 'date', config: {} };
+
+/** What a date source holds for an item: its own start or due date, or a field's value. */
+export function dateValue(item: Item, source: FieldLike): FieldValue | undefined {
+  if (source.id === DUE_SOURCE.id) return item.dueDate ?? undefined;
+  if (source.id === START_SOURCE.id) return item.startDate ?? undefined;
+  return item.fields[source.id];
+}
+
+/** Every date an item can be placed by: its due date, its start, then the list's date fields. */
+export function dateSources(fields: readonly FieldLike[]): FieldLike[] {
+  return [
+    DUE_SOURCE,
+    START_SOURCE,
+    ...fields.filter((field) => field.kind === 'date' || field.kind === 'datetime'),
+  ];
+}
+
 /** Items by the day they fall on, keeping their order; and those with no day at all. */
 export function itemsByDay(
   items: readonly Item[],
@@ -67,7 +90,7 @@ export function itemsByDay(
   const byDay = new Map<string, Item[]>();
   const undated: Item[] = [];
   for (const item of items) {
-    const day = dayOfValue(field, item.fields[field.id]);
+    const day = dayOfValue(field, dateValue(item, field));
     if (day === null) {
       undated.push(item);
       continue;

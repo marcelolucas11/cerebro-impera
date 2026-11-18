@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useId, useState, type ReactNode } from 'react';
 import { api, type CustomField, type Item, type ItemChange } from '../api.js';
 import { draftOf, sameValue, valueOf, type FieldDraft } from '../fieldvalues.js';
+import { isoDay } from '../calendar.js';
+import { formatDay, PRIORITY_NAMES, priorityLabel } from '../due.js';
 import { describeChange } from '../history.js';
 import { formatDuration, formatWhen } from '../labels.js';
 import { describeError } from '../messages.js';
@@ -40,6 +42,21 @@ export function ItemPanel({
     );
   const [title, setTitle] = useState(item.title);
   const [description, setDescription] = useState(item.description);
+  const [priority, setPriority] = useState(item.priority === null ? '' : String(item.priority));
+  const [startDate, setStartDate] = useState(item.startDate ?? '');
+  const [dueDate, setDueDate] = useState(item.dueDate ?? '');
+  const startId = useId();
+  const dueId = useId();
+  const datesOutOfOrder = startDate !== '' && dueDate !== '' && startDate > dueDate;
+  const planChanges = {
+    ...(priority !== (item.priority === null ? '' : String(item.priority))
+      ? { priority: priority === '' ? null : Number(priority) }
+      : {}),
+    ...(startDate !== (item.startDate ?? '')
+      ? { startDate: startDate === '' ? null : startDate }
+      : {}),
+    ...(dueDate !== (item.dueDate ?? '') ? { dueDate: dueDate === '' ? null : dueDate } : {}),
+  };
   const [drafts, setDrafts] = useState<Record<string, FieldDraft>>({});
   // Attachments a files field can name: finished and not in the trash.
   const attachments = useQuery({
@@ -77,10 +94,11 @@ export function ItemPanel({
       fieldChanges[field.id] = result.value;
     }
   }
-  const invalid = parsed.some(({ result }) => result !== null && !result.ok);
+  const invalid = parsed.some(({ result }) => result !== null && !result.ok) || datesOutOfOrder;
   const changed =
     title.trim() !== item.title ||
     description !== item.description ||
+    Object.keys(planChanges).length > 0 ||
     Object.keys(fieldChanges).length > 0;
 
   const save = useAction(
@@ -97,6 +115,7 @@ export function ItemPanel({
     save.run({
       ...(title.trim() !== item.title ? { title: title.trim() } : {}),
       ...(description !== item.description ? { description } : {}),
+      ...planChanges,
       ...(Object.keys(fieldChanges).length > 0 ? { fields: fieldChanges } : {}),
     });
   };
@@ -124,6 +143,51 @@ export function ItemPanel({
               }}
               maxLength={50_000}
             />
+          </div>
+          <div className="item-plan">
+            <Select
+              label="Prioridade"
+              value={priority}
+              onChange={setPriority}
+              options={[
+                { value: '', label: 'Sem prioridade' },
+                ...Object.keys(PRIORITY_NAMES).map((key) => ({
+                  value: key,
+                  label: priorityLabel(Number(key)) ?? key,
+                })),
+              ]}
+            />
+            <div className="field">
+              <label htmlFor={startId}>Começa em</label>
+              <input
+                id={startId}
+                type="date"
+                value={startDate}
+                max={dueDate === '' ? undefined : dueDate}
+                onChange={(event) => {
+                  setStartDate(event.target.value);
+                }}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor={dueId}>Prazo</label>
+              <input
+                id={dueId}
+                type="date"
+                value={dueDate}
+                min={startDate === '' ? undefined : startDate}
+                aria-invalid={datesOutOfOrder || undefined}
+                aria-describedby={datesOutOfOrder ? `${dueId}-erro` : undefined}
+                onChange={(event) => {
+                  setDueDate(event.target.value);
+                }}
+              />
+              {datesOutOfOrder ? (
+                <p className="field-note field-note-error" id={`${dueId}-erro`}>
+                  O prazo não pode vir antes do começo.
+                </p>
+              ) : null}
+            </div>
           </div>
           {parsed.length > 0 ? (
             <div className="item-fields">
@@ -156,6 +220,28 @@ export function ItemPanel({
       ) : (
         <>
           <p className="item-description">{item.description || 'Sem descrição.'}</p>
+          {item.priority !== null || item.startDate !== null || item.dueDate !== null ? (
+            <dl className="item-facts">
+              {item.priority !== null ? (
+                <div>
+                  <dt>Prioridade</dt>
+                  <dd>{priorityLabel(item.priority)}</dd>
+                </div>
+              ) : null}
+              {item.startDate !== null ? (
+                <div>
+                  <dt>Começa em</dt>
+                  <dd>{formatDay(item.startDate, isoDay(new Date()))}</dd>
+                </div>
+              ) : null}
+              {item.dueDate !== null ? (
+                <div>
+                  <dt>Prazo</dt>
+                  <dd>{formatDay(item.dueDate, isoDay(new Date()))}</dd>
+                </div>
+              ) : null}
+            </dl>
+          ) : null}
           {ordinary.length > 0 ? (
             <dl className="item-facts">
               {ordinary.map((field) => (

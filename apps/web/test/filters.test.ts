@@ -57,13 +57,16 @@ function item(partial: Partial<Item>): Item {
     fields: {},
     secrets: [],
     position: null,
+    priority: null,
+    startDate: null,
+    dueDate: null,
     trashedAt: null,
     trashedBy: null,
     ...partial,
   };
 }
 
-const context = { me: ME, fields };
+const context = { me: ME, fields, today: '2026-11-18', finished: new Set(['feito']) };
 const only = (items: Item[], filter: Partial<Filter>): string[] =>
   items.filter((one) => matches(one, { ...NO_FILTER, ...filter }, context)).map((one) => one.title);
 
@@ -206,6 +209,8 @@ describe('in the address', () => {
       who: ANA,
       stageId: 'fazendo',
       field: { id: 'valor', test: { op: 'atLeast', value: 100 } },
+      priority: '2',
+      due: 'overdue',
     };
     const sort = { key: 'field:valor' as const, descending: true };
     expect(fromSearch(toSearch(filter, sort))).toEqual({
@@ -229,6 +234,77 @@ describe('in the address', () => {
     const notANumber = fromSearch('?campo=valor&teste=atLeast&valor=muito');
     expect(notANumber.filter.field).toBeNull();
     expect(fromSearch('?colunas=etapa,<b>,etapa,ok-1').columns).toEqual(['etapa', 'ok-1']);
+    const strange = fromSearch('?prioridade=9&prazo=ontem');
+    expect(strange.filter).toMatchObject({ priority: 'any', due: 'any' });
+    expect(fromSearch('?prioridade=none&prazo=week&ordem=due').filter).toMatchObject({
+      priority: 'none',
+      due: 'week',
+    });
+    expect(fromSearch('?ordem=due').sort.key).toBe('due');
+  });
+});
+
+describe('priority and due dates', () => {
+  // Today is 2026-11-18 in these tests; "feito" is a finished stage.
+  const late = item({ title: 'Atrasado', dueDate: '2026-11-17', priority: 1 });
+  const lateButDone = item({ title: 'Feito atrasado', dueDate: '2026-11-10', stageId: 'feito' });
+  const today = item({ title: 'Hoje', dueDate: '2026-11-18', priority: 3 });
+  const soon = item({ title: 'Domingo', dueDate: '2026-11-24', priority: 2 });
+  const later = item({ title: 'Depois', dueDate: '2026-11-25' });
+  const none = item({ title: 'Sem prazo', priority: 4 });
+  const all = [late, lateButDone, today, soon, later, none];
+  const titles = (items: Item[]) => items.map((one) => one.title);
+
+  it('filters by priority, or by having none', () => {
+    expect(only(all, { priority: '1' })).toEqual(['Atrasado']);
+    expect(only(all, { priority: 'none' })).toEqual(['Feito atrasado', 'Depois']);
+  });
+
+  it('filters what is late, due today, due within a week, or has no due date', () => {
+    // Late means past due and still open: a finished item is not late.
+    expect(only(all, { due: 'overdue' })).toEqual(['Atrasado']);
+    expect(only(all, { due: 'today' })).toEqual(['Hoje']);
+    // Today and the next six days.
+    expect(only(all, { due: 'week' })).toEqual(['Hoje', 'Domingo']);
+    expect(only(all, { due: 'none' })).toEqual(['Sem prazo']);
+    expect(isFiltering({ ...NO_FILTER, due: 'today' })).toBe(true);
+  });
+
+  it('sorts by priority, most urgent first, and by due date, empty ones last', () => {
+    const byPriority = { key: 'priority' as const, descending: false };
+    expect(titles(sortItems(all, byPriority, fields))).toEqual([
+      'Atrasado',
+      'Domingo',
+      'Hoje',
+      'Sem prazo',
+      'Feito atrasado',
+      'Depois',
+    ]);
+    const byDue = { key: 'due' as const, descending: false };
+    expect(titles(sortItems(all, byDue, fields))).toEqual([
+      'Feito atrasado',
+      'Atrasado',
+      'Hoje',
+      'Domingo',
+      'Depois',
+      'Sem prazo',
+    ]);
+    expect(titles(sortItems(all, { ...byDue, descending: true }, fields)).at(-1)).toBe('Sem prazo');
+  });
+
+  it('groups by priority, most urgent first, with none last', () => {
+    expect(
+      groupItems(all, 'priority', { fields, nameOf: (id) => id }).map((group) => [
+        group.label,
+        group.items.map((one) => one.title),
+      ]),
+    ).toEqual([
+      ['1 · Urgente', ['Atrasado']],
+      ['2 · Alta', ['Domingo']],
+      ['3 · Normal', ['Hoje']],
+      ['4 · Baixa', ['Sem prazo']],
+      ['Sem prioridade', ['Feito atrasado', 'Depois']],
+    ]);
   });
 });
 

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Item } from '../src/api.js';
 import {
+  dateSources,
   dayOfValue,
+  DUE_SOURCE,
   itemsByDay,
   monthGrid,
   monthName,
@@ -27,6 +29,9 @@ const item = (id: string, fields: Item['fields']): Item => ({
   fields,
   secrets: [],
   position: null,
+  priority: null,
+  startDate: null,
+  dueDate: null,
   trashedAt: null,
   trashedBy: null,
 });
@@ -77,5 +82,19 @@ describe('the day an item falls on', () => {
     expect(byDay.get('2026-11-20')?.map((one) => one.id)).toEqual(['b', 'a']);
     expect(byDay.get('2026-11-21')?.map((one) => one.id)).toEqual(['outro']);
     expect(undated.map((one) => one.id)).toEqual(['sem']);
+  });
+
+  it('can be the item’s own due date, offered before the list’s date fields', () => {
+    const own = { ...item('prazo', { entrega: '2026-11-25' }), dueDate: '2026-11-20' };
+    const { byDay, undated } = itemsByDay([own, item('sem', {})], DUE_SOURCE);
+    expect(byDay.get('2026-11-20')?.map((one) => one.id)).toEqual(['prazo']);
+    expect(undated.map((one) => one.id)).toEqual(['sem']);
+    const text: FieldLike = { id: 'obs', name: 'Obs', kind: 'text', config: {} };
+    expect(dateSources([text, due, when]).map((source) => source.name)).toEqual([
+      'Prazo',
+      'Início',
+      'Entrega',
+      'Reunião',
+    ]);
   });
 });

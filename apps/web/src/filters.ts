@@ -1,5 +1,6 @@
 import type { FieldKind, FieldValue } from '@cerebro/shared';
 import type { Item } from './api.js';
+import { dueState, PRIORITY_NAMES, priorityLabel } from './due.js';
 import { showValue, type FieldLike } from './fieldvalues.js';
 
 /*
@@ -23,21 +24,54 @@ export type FieldTest =
   | { op: 'from'; value: string }
   | { op: 'until'; value: string };
 
+/** "any", "none", or a priority from "1" to "4". */
+export type PriorityFilter = string;
+/** Past due and still open, due today, due in the next seven days, or no due date. */
+export type DueFilter = 'any' | 'overdue' | 'today' | 'week' | 'none';
+const DUE_FILTERS = new Set<string>(['overdue', 'today', 'week', 'none']);
+
 export interface Filter {
   /** Words that must all appear in the title, ignoring case and accents. */
   text: string;
   who: Who;
   stageId: string | null;
   field: { id: string; test: FieldTest } | null;
+  priority: PriorityFilter;
+  due: DueFilter;
 }
 
-export type SortKey = 'manual' | 'stage' | 'title' | 'created' | 'updated' | `field:${string}`;
+export type SortKey =
+  | 'manual'
+  | 'stage'
+  | 'title'
+  | 'created'
+  | 'updated'
+  | 'priority'
+  | 'due'
+  | 'start'
+  | `field:${string}`;
+const SORT_KEYS = new Set<string>([
+  'stage',
+  'title',
+  'created',
+  'updated',
+  'priority',
+  'due',
+  'start',
+]);
 export interface Sort {
   key: SortKey;
   descending: boolean;
 }
 
-export const NO_FILTER: Filter = { text: '', who: 'anyone', stageId: null, field: null };
+export const NO_FILTER: Filter = {
+  text: '',
+  who: 'anyone',
+  stageId: null,
+  field: null,
+  priority: 'any',
+  due: 'any',
+};
 /** The board's own order: where people placed the cards, then whoever waited longest. */
 export const DEFAULT_SORT: Sort = { key: 'manual', descending: false };
 
@@ -46,7 +80,9 @@ export function isFiltering(filter: Filter): boolean {
     filter.text.trim() !== '' ||
     filter.who !== 'anyone' ||
     filter.stageId !== null ||
-    filter.field !== null
+    filter.field !== null ||
+    filter.priority !== 'any' ||
+    filter.due !== 'any'
   );
 }
 
@@ -85,6 +121,10 @@ export function testsFor(kind: FieldKind): FieldTest['op'][] {
 interface Context {
   me: string;
   fields: readonly FieldLike[];
+  /** Today where the person is, as YYYY-MM-DD. */
+  today: string;
+  /** Stages that mean done or closed: what is in them is no longer late. */
+  finished: ReadonlySet<string>;
 }
 
 function hasAny(item: Item, field: FieldLike): boolean {
@@ -141,6 +181,15 @@ export function matches(item: Item, filter: Filter, context: Context): boolean {
     return false;
   }
   if (filter.stageId !== null && item.stageId !== filter.stageId) return false;
+  if (filter.priority === 'none' && item.priority !== null) return false;
+  if (/^[1-4]$/.test(filter.priority) && item.priority !== Number(filter.priority)) return false;
+  if (filter.due === 'none' && item.dueDate !== null) return false;
+  if (filter.due !== 'any' && filter.due !== 'none') {
+    const state = dueState(item.dueDate, context.today, context.finished.has(item.stageId));
+    if (filter.due === 'overdue' && state !== 'overdue') return false;
+    if (filter.due === 'today' && state !== 'today') return false;
+    if (filter.due === 'week' && state !== 'today' && state !== 'soon') return false;
+  }
   if (filter.field !== null) {
     const field = context.fields.find((candidate) => candidate.id === filter.field?.id);
     // A field that is gone (archived, or not this list's) filters nothing out.
@@ -161,6 +210,12 @@ function sortValue(item: Item, key: SortKey, fields: readonly FieldLike[]): stri
       return Date.parse(item.createdAt);
     case 'updated':
       return Date.parse(item.updatedAt);
+    case 'priority':
+      return item.priority;
+    case 'due':
+      return item.dueDate;
+    case 'start':
+      return item.startDate;
     default: {
       const field = fields.find((candidate) => `field:${candidate.id}` === key);
       if (!field) return null;
@@ -232,7 +287,15 @@ const OPS = new Set<FieldTest['op']>([
  * Null means the table's default choice.
  */
 export type Columns = string[] | null;
-export const FIXED_COLUMNS = ['etapa', 'responsaveis', 'criado', 'atualizado'] as const;
+export const FIXED_COLUMNS = [
+  'etapa',
+  'responsaveis',
+  'prioridade',
+  'inicio',
+  'prazo',
+  'criado',
+  'atualizado',
+] as const;
 const COLUMN_ID = /^[a-z0-9-]{1,40}$/;
 
 /** Without a choice: stage, who, and the first fields of the list (long texts left out). */
@@ -247,8 +310,8 @@ export function defaultColumns(fields: readonly FieldLike[]): string[] {
   ];
 }
 
-/** How the list view gathers items: by stage (the default), by who, by a field, or not at all. */
-export type GroupBy = 'stage' | 'who' | 'none' | `field:${string}`;
+/** How the list view gathers items: by stage (the default), by who, by priority, by a field, or not at all. */
+export type GroupBy = 'stage' | 'who' | 'priority' | 'none' | `field:${string}`;
 
 export interface Group {
   key: string;
@@ -277,7 +340,15 @@ export function groupItems(
   };
   let order: string[];
   let emptyLabel: string;
-  if (group === 'who') {
+  if (group === 'priority') {
+    emptyLabel = 'Sem prioridade';
+    for (const item of items) {
+      const label = priorityLabel(item.priority);
+      if (label === null) add('', emptyLabel, null, item);
+      else add(String(item.priority), label, null, item);
+    }
+    order = Object.keys(PRIORITY_NAMES).filter((key) => groups.has(key));
+  } else if (group === 'who') {
     emptyLabel = 'Sem responsável';
     for (const item of items) {
       if (item.assignees.length === 0) add('', emptyLabel, null, item);
@@ -355,13 +426,9 @@ export function fromSearch(search: string): {
   }
   const key = params.get('ordem') ?? 'manual';
   const sortKey: SortKey =
-    key === 'stage' ||
-    key === 'title' ||
-    key === 'created' ||
-    key === 'updated' ||
-    key.startsWith('field:')
-      ? (key as SortKey)
-      : 'manual';
+    SORT_KEYS.has(key) || key.startsWith('field:') ? (key as SortKey) : 'manual';
+  const priority = params.get('prioridade') ?? 'any';
+  const due = params.get('prazo') ?? 'any';
   const listed = params.get('colunas');
   const columns =
     listed === null
@@ -369,11 +436,21 @@ export function fromSearch(search: string): {
       : [...new Set(listed.split(','))].filter((id) => COLUMN_ID.test(id)).slice(0, 80);
   const grouping = params.get('agrupar') ?? 'stage';
   const group: GroupBy =
-    grouping === 'who' || grouping === 'none' || /^field:[a-z0-9-]{1,40}$/.test(grouping)
+    grouping === 'who' ||
+    grouping === 'priority' ||
+    grouping === 'none' ||
+    /^field:[a-z0-9-]{1,40}$/.test(grouping)
       ? (grouping as GroupBy)
       : 'stage';
   return {
-    filter: { text, who, stageId, field },
+    filter: {
+      text,
+      who,
+      stageId,
+      field,
+      priority: priority === 'none' || /^[1-4]$/.test(priority) ? priority : 'any',
+      due: DUE_FILTERS.has(due) ? (due as DueFilter) : 'any',
+    },
     sort: { key: sortKey, descending: params.get('direcao') === 'desc' },
     columns,
     group,
@@ -396,6 +473,8 @@ export function toSearch(
     params.set('teste', filter.field.test.op);
     if ('value' in filter.field.test) params.set('valor', String(filter.field.test.value));
   }
+  if (filter.priority !== 'any') params.set('prioridade', filter.priority);
+  if (filter.due !== 'any') params.set('prazo', filter.due);
   if (sort.key !== 'manual') params.set('ordem', sort.key);
   if (sort.descending) params.set('direcao', 'desc');
   if (columns !== null) params.set('colunas', columns.join(','));

@@ -35,6 +35,9 @@ const item = (id: string, stageId: string, since: string): Item => ({
   fields: {},
   secrets: [],
   position: null,
+  priority: null,
+  startDate: null,
+  dueDate: null,
   trashedAt: null,
   trashedBy: null,
 });

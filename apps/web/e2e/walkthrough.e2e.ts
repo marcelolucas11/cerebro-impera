@@ -744,6 +744,66 @@ test('several items change at once; several to the trash asks for the code again
   await expect(bar).toHaveCount(0);
 });
 
+test('priority and due date show what is urgent and what is late, to whoever sees the item', async () => {
+  const dayFrom = (offset: number): string => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    return [date.getFullYear(), date.getMonth() + 1, date.getDate()]
+      .map((part) => String(part).padStart(2, '0'))
+      .join('-');
+  };
+  const short = (day: string): string => `${day.slice(8, 10)}/${day.slice(5, 7)}`;
+  const full = (day: string): string => `${short(day)}/${day.slice(0, 4)}`;
+  const [yesterday, today, tomorrow] = [dayFrom(-1), dayFrom(0), dayFrom(1)];
+
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  const row = owner.locator('.item-rows > li').filter({ hasText: 'Conferir perfis' });
+  await owner.getByRole('button', { name: 'Conferir perfis', exact: true }).click();
+  const panel = row.locator('.item-panel');
+  const save = panel.getByRole('button', { name: 'Salvar item' });
+  await panel.getByLabel('Prioridade').selectOption({ label: '1 · Urgente' });
+  await panel.getByLabel('Prazo').fill(yesterday);
+  // A start after the due date is explained before anything is sent.
+  await panel.getByLabel('Começa em').fill(tomorrow);
+  await expect(panel).toContainText('O prazo não pode vir antes do começo.');
+  await expect(save).toBeDisabled();
+  await panel.getByLabel('Começa em').fill('');
+  await save.click();
+  await expect(save).toBeDisabled();
+  const marks = row.locator('.item-row .item-marks');
+  await expect(marks).toContainText('1 · Urgente');
+  await expect(marks).toContainText(`Atrasado desde ${short(yesterday)}`);
+
+  // Only what is late.
+  const tools = owner.getByRole('search', { name: 'Filtrar e ordenar' });
+  await tools.getByLabel('Prazo').selectOption({ label: 'Atrasados' });
+  await expect(owner.getByRole('button', { name: 'Conferir perfis', exact: true })).toBeVisible();
+  await expect(
+    owner.getByRole('button', { name: 'Subir campanha do cliente', exact: true }),
+  ).toHaveCount(0);
+  await shot(owner, 'prioridade-prazo');
+  await tools.getByLabel('Prazo').selectOption({ label: 'Qualquer prazo' });
+
+  await panel.getByLabel('Prazo').fill(today);
+  await save.click();
+  await expect(marks).toContainText('Vence hoje');
+  await panel.getByRole('button', { name: 'Ver o que mudou neste item' }).click();
+  await expect(panel).toContainText(`mudou o prazo de ${full(yesterday)} para ${full(today)}`);
+  await expect(panel).toContainText('definiu a prioridade: 1 · Urgente');
+
+  // The employee who created it sees the same marks on her phone.
+  await ana.goto('/');
+  await ana.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(ana, 'Tarefas');
+  const hers = ana.locator('.item-rows > li').filter({ hasText: 'Conferir perfis' });
+  await expect(hers.locator('.item-marks')).toContainText('1 · Urgente');
+  await expect(hers.locator('.item-marks')).toContainText('Vence hoje');
+  expect(await ana.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await shot(ana, 'prioridade-prazo-celular');
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');

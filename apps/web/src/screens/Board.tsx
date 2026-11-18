@@ -25,6 +25,7 @@ import { describeError } from '../messages.js';
 import { useGuard } from '../stepup.js';
 import { Button, Notice } from '../ui/kit.js';
 import { AddItem } from './AddItem.js';
+import { ItemMarks } from './ItemMarks.js';
 import { FieldValueView } from './FieldInput.js';
 import { ItemPanel } from './ItemPanel.js';
 
@@ -369,6 +370,7 @@ function Card({
             {item.title}
           </button>
         </div>
+        <ItemMarks item={item} stages={stages} />
         {shown.length > 0 ? (
           <dl className="card-fields">
             {shown.map((field) => (
