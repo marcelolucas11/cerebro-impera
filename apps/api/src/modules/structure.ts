@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto';
 import {
   DEFAULT_STAGES,
   levelAtLeast,
+  resolveFolderAccess,
   resolveListAccess,
+  resolveSpaceAccess,
   type AccessLevel,
   type FieldValue,
   type ItemScope,
@@ -25,8 +27,9 @@ import { writeFieldValues } from './field-values.js';
  */
 
 export interface TreeView {
-  spaces: { id: string; name: string; position: number }[];
-  folders: { id: string; spaceId: string; name: string; position: number }[];
+  /** `canManage`: may create folders and lists here, and rename it. */
+  spaces: { id: string; name: string; position: number; canManage: boolean }[];
+  folders: { id: string; spaceId: string; name: string; position: number; canManage: boolean }[];
   lists: {
     id: string;
     spaceId: string;
@@ -65,12 +68,18 @@ export async function tree(tx: Tx, actor: Actor): Promise<TreeView> {
   );
 
   return {
-    spaces,
+    spaces: spaces.map((space) => ({
+      ...space,
+      canManage: resolveSpaceAccess(actor.role, grants, space.id).level === 'manage',
+    })),
     folders: folders.map((f) => ({
       id: f.id,
       spaceId: f.space_id,
       name: f.name,
       position: f.position,
+      canManage:
+        resolveFolderAccess(actor.role, grants, { folderId: f.id, spaceId: f.space_id }).level ===
+        'manage',
     })),
     lists: lists
       .map((l) => {

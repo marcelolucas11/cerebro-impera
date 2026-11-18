@@ -664,6 +664,37 @@ test('a files field says which attachment is which', async () => {
   ).toBeChecked();
 });
 
+test('whoever manages a space builds inside it, without being an owner', async () => {
+  // Arranged: the owner's confirmation is recent, as it would be right after the last step.
+  await sql(
+    "UPDATE auth.sessions SET step_up_at = now() WHERE user_id = (SELECT id FROM app.users WHERE email = 'olivia@exemplo.test')",
+  );
+  await owner.getByRole('link', { name: 'Pessoas' }).click();
+  await heading(owner, 'Pessoas');
+  await owner
+    .getByRole('row', { name: /Ana Souza/ })
+    .getByRole('button', { name: 'Gerenciar' })
+    .click();
+  await owner
+    .getByLabel('Área', { exact: true })
+    .selectOption({ label: 'Espaço inteiro: Operação' });
+  await owner.getByLabel('Nível', { exact: true }).selectOption({ label: 'Gerencia' });
+  await owner.getByRole('button', { name: 'Liberar área' }).click();
+  await expect(owner.getByRole('listitem').filter({ hasText: 'Gerencia, ' })).toContainText(
+    'Operação',
+  );
+
+  await ana.goto('/');
+  await heading(ana, 'Seus espaços');
+  await ana.getByRole('button', { name: 'Adicionar lista ou pasta em Operação' }).click();
+  await ana.getByLabel('Nome', { exact: true }).fill('Ideias');
+  await ana.getByRole('button', { name: 'Criar lista' }).click();
+  await expect(ana.locator('.rows').getByRole('link', { name: 'Ideias' })).toBeVisible();
+  // She cannot create a space: that stays with the owners.
+  await expect(ana.getByRole('button', { name: 'Criar espaço' })).toHaveCount(0);
+  await shot(ana, 'gestora-cria-lista');
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');
