@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readSecrets } from './secrets.js';
 
@@ -43,6 +44,10 @@ export interface Config {
    * files marked as not checked.
    */
   antivirus: { kind: 'clamd'; host: string; port: number } | { kind: 'off' } | null;
+  /** The version in use, written into the image when it is built. */
+  version: string;
+  /** Where the updater listens, and the key requests to it are signed with; null without one. */
+  updater: { url: string; key: Buffer } | null;
 }
 
 export function parseAntivirus(raw: string | undefined): Config['antivirus'] {
@@ -136,5 +141,34 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       maxBytes: maxAttachmentBytes(env.CEREBRO_MAX_ATTACHMENT_MB),
     },
     antivirus: parseAntivirus(env.CEREBRO_ANTIVIRUS),
+    version: parseVersion(env.CEREBRO_VERSION),
+    updater: parseUpdater(env.CEREBRO_UPDATER_URL, configDir),
   };
+}
+
+/** "1.2.3" (as released), or "dev" for a build that did not come from a release. */
+export function parseVersion(raw: string | undefined): string {
+  if (raw === undefined || raw === '') return 'dev';
+  if (!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(raw))
+    throw new Error('CEREBRO_VERSION must look like 1.2.3');
+  return raw;
+}
+
+/** The updater is optional; when it is set, its key must be there (made by init-secrets). */
+export function parseUpdater(raw: string | undefined, configDir: string): Config['updater'] {
+  if (raw === undefined || raw === '') return null;
+  const url = new URL(raw);
+  if (url.protocol !== 'http:' || url.pathname !== '/' || url.search !== '') {
+    throw new Error('CEREBRO_UPDATER_URL must be like http://updater:8080 (internal network only)');
+  }
+  let key: Buffer;
+  try {
+    key = Buffer.from(readFileSync(join(configDir, 'updater-key'), 'utf8').trim(), 'base64');
+  } catch {
+    throw new Error(
+      'CEREBRO_UPDATER_URL is set but the updater key is missing; run "init-secrets"',
+    );
+  }
+  if (key.length !== 32) throw new Error('the updater key is malformed');
+  return { url: url.origin, key };
 }

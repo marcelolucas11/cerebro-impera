@@ -393,6 +393,11 @@ export const auditQuerySchema = z.strictObject({
 });
 
 /** The lists a person pins to their start page, in order. */
+/** An update is asked for by its released version, "1.2.3". */
+export const applyUpdateSchema = z.strictObject({
+  version: z.string().regex(/^\d{1,4}\.\d{1,4}\.\d{1,4}$/),
+});
+
 export const MAX_HOME_PINS = 12;
 export const homePinsSchema = z.strictObject({
   listIds: z

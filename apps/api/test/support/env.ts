@@ -14,6 +14,7 @@ import { closePools, createPools } from '../../src/db.js';
 import type { Deps } from '../../src/deps.js';
 import { ensureSetupToken } from '../../src/modules/auth.js';
 import type { Scanner } from '../../src/files/scanner.js';
+import type { Updater } from '../../src/updates/client.js';
 import { FileStore } from '../../src/files/store.js';
 
 export const ORIGIN = 'https://cerebro.exemplo.test';
@@ -52,7 +53,12 @@ export const testScanner: Scanner = {
 };
 
 export async function createTestEnv(
-  options: { webRoot?: string; scanner?: Scanner | null; requestsPerMinute?: number } = {},
+  options: {
+    webRoot?: string;
+    scanner?: Scanner | null;
+    requestsPerMinute?: number;
+    updater?: Updater | null;
+  } = {},
 ): Promise<TestEnv> {
   const shared = inject('testDatabase');
   const adminUrl = new URL(shared.adminUrl);
@@ -90,6 +96,8 @@ export async function createTestEnv(
     webRoot: options.webRoot ?? null,
     files: { dir: join(configDir, 'files'), maxBytes: 20 * 1024 * 1024 },
     antivirus: { kind: 'off' },
+    version: '1.4.0',
+    updater: null,
   };
 
   const clock = {
@@ -108,6 +116,7 @@ export async function createTestEnv(
     now: () => clock.now,
     files: new FileStore(config.files.dir),
     scanner: options.scanner === undefined ? testScanner : options.scanner,
+    updater: options.updater ?? null,
   };
   const app = await buildApp(deps);
   await ensureSetupToken(deps);

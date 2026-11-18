@@ -1,3 +1,4 @@
+import type { Updater } from './updates/client.js';
 import type { Config } from './config.js';
 import type { PasswordHasher } from './crypto/password.js';
 import type { Vault } from './crypto/vault.js';
@@ -17,4 +18,6 @@ export interface Deps {
   files: FileStore;
   /** The antivirus, or null while the installation has not chosen one. */
   scanner: Scanner | null;
+  /** The updater, or null when this installation has none. */
+  updater: Updater | null;
 }

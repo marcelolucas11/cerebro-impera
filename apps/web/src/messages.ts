@@ -98,6 +98,8 @@ const BY_CODE: Record<string, string> = {
   invalid_input: 'Confira os campos e tente de novo.',
   bad_origin: 'Abra o sistema pelo endereço oficial e tente de novo.',
   step_up_required: 'Confirme o código do autenticador para continuar.',
+  updater_missing: 'Esta instalação não tem o atualizador ligado.',
+  updater_unreachable: 'O atualizador não respondeu. Tente de novo em alguns minutos.',
   forbidden: 'Você não tem permissão para isso.',
   not_found: 'Não encontrado, ou você não tem acesso.',
 };

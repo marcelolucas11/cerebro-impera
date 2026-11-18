@@ -1501,6 +1501,34 @@ test('a phone keeps the lists it opened, sealed, to read and change offline', as
   ).toEqual([]);
 });
 
+test('the owner updates from the app: looks for a version, confirms the code, follows each step', async () => {
+  await owner.getByRole('link', { name: 'Atualizações' }).click();
+  await heading(owner, 'Atualizações');
+  await expect(owner.getByText(/Versão em uso: 1\.4\.0\./)).toBeVisible();
+  await owner.getByRole('button', { name: 'Procurar atualização' }).click();
+  await heading(owner, 'Versão 1.5.0 disponível');
+  await expect(owner.getByText('Correções na tela inicial.', { exact: false })).toBeVisible();
+  await shot(owner, 'atualizacao-disponivel');
+
+  // Updating asks for the code again, whatever the state of the session.
+  await sql(
+    "UPDATE auth.sessions SET step_up_at = step_up_at - interval '2 hours' WHERE step_up_at IS NOT NULL",
+  );
+  await owner.getByRole('button', { name: 'Atualizar agora' }).click();
+  const dialog = owner.getByRole('dialog');
+  await dialog.getByLabel('Código de 6 dígitos').fill(await authenticatorCode(ownerKey));
+  await dialog.getByRole('button', { name: 'Confirmar' }).click();
+  const progress = owner.getByRole('region', { name: 'Andamento da atualização' });
+  await expect(progress).toContainText('Atualizando para 1.5.0');
+  await shot(owner, 'atualizacao-andamento');
+  await expect(progress).toContainText('Atualizado para 1.5.0', { timeout: 40_000 });
+  await expect(owner.getByText(/Versão em uso: 1\.5\.0\./)).toBeVisible();
+  await shot(owner, 'atualizacao-concluida');
+
+  // Nobody but owners sees updates.
+  await expect(ana.getByRole('link', { name: 'Atualizações' })).toHaveCount(0);
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');
@@ -1525,6 +1553,8 @@ test('everything is on the record, and the record is intact', async () => {
     'Lista sensível aberta',
     'Valor secreto revelado',
     'Vários itens mandados para a lixeira de uma vez',
+    'Atualização pedida',
+    'Atualização aplicada',
   ]) {
     await expect(record, entry).toContainText(entry);
   }

@@ -34,6 +34,7 @@ import {
   recurrenceSchema,
   automationSchema,
   homePinsSchema,
+  applyUpdateSchema,
   updateAutomationSchema,
   readNotificationsSchema,
   notificationsQuerySchema,
@@ -74,6 +75,7 @@ import * as views from './modules/views.js';
 import * as automations from './modules/automations.js';
 import { installManifest } from './http/manifest.js';
 import * as reports from './modules/reports.js';
+import * as updates from './modules/updates.js';
 import * as summary from './modules/summary.js';
 import * as home from './modules/home.js';
 import * as checklist from './modules/checklist.js';
@@ -494,6 +496,17 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   // ---- Start page -------------------------------------------------------------------
   app.get('/api/home', (request) => signedIn(request, (tx, actor) => home.homeOf(tx, actor)));
+  // ---- Updates (owners only; the updater does the work) ---------------------------
+  app.get('/api/updates', (request) =>
+    signedIn(request, (tx, actor) => updates.updates(tx, deps, actor)),
+  );
+  app.post('/api/updates/check', (request) =>
+    signedIn(request, (tx, actor) => updates.checkUpdates(tx, deps, actor)),
+  );
+  app.post('/api/updates/apply', (request) => {
+    const body = parse(applyUpdateSchema, request.body);
+    return signedIn(request, (tx, actor) => updates.applyUpdate(tx, deps, actor, body.version));
+  });
   app.get('/api/reports', (request) =>
     signedIn(request, (tx, actor) => reports.reports(tx, actor)),
   );

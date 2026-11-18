@@ -24,6 +24,8 @@ export const stepUpRequired = (): HttpError => new HttpError(403, 'step_up_requi
 export const notFound = (): HttpError => new HttpError(404, 'not_found');
 export const conflict = (code = 'conflict', details?: Record<string, unknown>): HttpError =>
   new HttpError(409, code, details);
+/** Something the API depends on is out of reach for now. */
+export const serviceUnavailable = (code: string): HttpError => new HttpError(503, code);
 export const tooManyAttempts = (retryAfterSeconds: number): HttpError =>
   new HttpError(429, 'too_many_attempts', { retryAfterSeconds });
 /** Too many requests of any kind in a short time, from one session or address. */

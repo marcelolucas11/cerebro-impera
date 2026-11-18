@@ -19,6 +19,7 @@ import { Notifications, useUnreadNotifications } from './Notifications.js';
 import { OfflineChanges } from './OfflineChanges.js';
 import { People } from './People.js';
 import { Reports } from './Reports.js';
+import { Updates } from './Updates.js';
 import { Search, SearchBox } from './Search.js';
 import { Security } from './Security.js';
 import { Spaces } from './Spaces.js';
@@ -79,6 +80,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
     { to: '/pessoas', label: 'Pessoas', show: can('users.manage') },
     { to: '/aparelhos', label: 'Aparelhos', show: true },
     { to: '/seguranca', label: 'Segurança', show: can('audit.view') },
+    { to: '/atualizacoes', label: 'Atualizações', show: isOwner },
   ].filter((section) => section.show);
   const listId = listIdFrom(path);
   const here = sections.find((section) => section.to === path);
@@ -164,6 +166,8 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
                 Ir para Espaços
               </Link>
             </>
+          ) : path === '/atualizacoes' ? (
+            <Updates />
           ) : path === '/relatorios' ? (
             <Reports isOwner={isOwner} />
           ) : path === '/pessoas' ? (

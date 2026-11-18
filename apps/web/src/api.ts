@@ -459,6 +459,25 @@ export interface WeeklyReport extends ReportWeek {
     overdue: number;
   }[];
 }
+/** Updates, as owners see them (the updater does the work). */
+export interface UpdatesView {
+  configured: boolean;
+  reachable: boolean;
+  current: string;
+  checkedAt: string | null;
+  available: { version: string; publishedAt: string; notes: string } | null;
+  job: {
+    id: string;
+    from: string;
+    to: string;
+    state: 'running' | 'applied' | 'rolled_back' | 'failed';
+    step: string;
+    startedAt: string;
+    finishedAt: string | null;
+    problem: string | null;
+  } | null;
+  refused: string | null;
+}
 export interface MySession {
   id: string;
   deviceId: string;
@@ -636,6 +655,9 @@ export const api = {
   removeCheck: (checkId: string) => request<{ ok: true }>('DELETE', `/api/checklist/${checkId}`),
   listSummary: (listId: string) => request<ListSummary>('GET', `/api/lists/${listId}/summary`),
   home: () => request<Home>('GET', '/api/home'),
+  updates: () => request<UpdatesView>('GET', '/api/updates'),
+  checkUpdates: () => request<UpdatesView>('POST', '/api/updates/check'),
+  applyUpdate: (version: string) => request<UpdatesView>('POST', '/api/updates/apply', { version }),
   reports: () => request<ReportWeek[]>('GET', '/api/reports'),
   /** With `sensitive`, the server asks for the code first, so the sensitive lists come too. */
   report: (id: string, sensitive = false) =>

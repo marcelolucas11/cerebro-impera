@@ -955,6 +955,30 @@ escolhe entre manter a sua versão ou ficar com a de lá. Desenho em
 - **Ficam para depois:** checklist, comentário e campos personalizados offline. Rever com o
   mantenedor se fazem falta.
 
+## D65 — Atualizações pela página, só para Donos, por um serviço separado
+
+**Decisão.** A seção **Atualizações** (só Donos) mostra:
+
+- a versão em uso;
+- o botão "Procurar atualização";
+- a versão nova encontrada, com as notas em texto puro;
+- o botão "Atualizar agora", que pede o código do autenticador de novo;
+- o andamento, etapa por etapa.
+
+Quem faz o trabalho é o atualizador, um serviço à parte. Ele é o único com acesso ao Docker e
+fica do outro lado de uma rede interna. Desenho em [`docs/design/atualizador.md`](design/atualizador.md).
+
+- **Conversa assinada:** cada requisição da API ao atualizador leva HMAC-SHA256 sobre método,
+  caminho, hora, número único e o resumo do corpo, com uma chave que só os dois têm
+  (`updater-key`). Fora de 60 segundos não vale.
+- **API sem Docker e sem internet para isso:** a API só pergunta e repassa. Procurar, conferir a
+  assinatura e instalar são do atualizador (próximas partes).
+- **Registro:** fica na auditoria cada procura, cada pedido (com de qual versão para qual), cada
+  recusa (com o motivo) e cada resultado, uma vez só.
+- **Sem atualizador**, a página diz isso e mostra a versão em uso (`CEREBRO_VERSION`, escrita na
+  imagem quando ela é construída).
+- Nunca atualiza sozinho.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |
