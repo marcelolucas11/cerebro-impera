@@ -2003,3 +2003,35 @@ audio.file-preview {
   padding-left: 0.75rem;
   color: var(--texto-suave);
 }
+
+/* ---- Changing several items at once ---------------------------------------------- */
+
+/* Stays in sight while rows are chosen further down the list. */
+.bulk-bar {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 2;
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--marca);
+  border-radius: calc(var(--raio) * 2);
+  background: var(--fundo);
+}
+
+.bulk-count {
+  margin: 0;
+  font-weight: 650;
+}
+
+.item-lead {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.item-pick {
+  flex: none;
+  accent-color: var(--marca);
+}

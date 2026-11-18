@@ -70,6 +70,8 @@ const BY_CODE: Record<string, string> = {
   view_name_taken: 'Você já tem uma visão com esse nome nesta lista.',
   too_many_views: 'Você já tem 30 visões nesta lista. Apague uma para salvar outra.',
   invalid_order: 'A ordem mudou enquanto você arrastava. Recarregue e tente de novo.',
+  invalid_selection:
+    'Algum item selecionado não pode ser mudado por você, ou já saiu da lista. Nada foi mudado.',
   setup_closed:
     'Token de instalação incorreto, ou a instalação já foi concluída. O token está no arquivo setup-token do servidor.',
   invalid_invite: 'Este convite não vale mais. Peça um novo a quem administra o sistema.',

@@ -225,6 +225,18 @@ export const updateItemSchema = z
     fields: fieldValuesSchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'empty update');
+const selection = z
+  .array(idSchema)
+  .min(1)
+  .max(200)
+  .refine((ids) => new Set(ids).size === ids.length, 'repeated item');
+/** One change to several items of a list at once. */
+export const bulkSchema = z.discriminatedUnion('action', [
+  z.strictObject({ action: z.literal('stage'), ids: selection, stageId: idSchema }),
+  z.strictObject({ action: z.literal('trash'), ids: selection }),
+  z.strictObject({ action: z.literal('assign'), ids: selection, userId: idSchema }),
+]);
+
 /** The order of items in one stage, as the board shows it, top first. */
 export const orderItemsSchema = z.strictObject({
   stageId: idSchema,

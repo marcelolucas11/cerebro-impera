@@ -448,6 +448,14 @@ export const api = {
       `/api/items/${itemId}/history${before === undefined ? '' : `?before=${before}`}`,
     ),
 
+  /** One change to several items of a list at once, all or nothing. */
+  bulk: (
+    listId: string,
+    input:
+      | { action: 'stage'; ids: string[]; stageId: string }
+      | { action: 'trash'; ids: string[] }
+      | { action: 'assign'; ids: string[]; userId: string },
+  ) => request<{ changed: number }>('POST', `/api/lists/${listId}/bulk`, input),
   /** Puts the items of one stage in this order, top first. All or nothing. */
   orderStage: (listId: string, stageId: string, ids: string[]) =>
     request<{ ok: true }>('PUT', `/api/lists/${listId}/order`, { stageId, ids }),

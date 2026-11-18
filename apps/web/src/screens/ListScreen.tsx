@@ -27,6 +27,7 @@ import { Table } from './Table.js';
 import { Timeline } from './Timeline.js';
 import { FieldValueView } from './FieldInput.js';
 import { ItemPanel } from './ItemPanel.js';
+import { BulkBar } from './BulkBar.js';
 import { ListTools } from './ListTools.js';
 import { SavedViews } from './SavedViews.js';
 import { StageEditor } from './StageEditor.js';
@@ -78,6 +79,8 @@ export function ListScreen({
     enabled: handsOutWork,
   });
   const [editing, setEditing] = useState<'stages' | 'fields' | null>(null);
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set());
+  const myself = useQuery({ queryKey: ['me'], queryFn: api.me, retry: false });
   // What is narrowed and how it is ordered lives in the address, so it survives a reload.
   const [shaping, setShaping] = useState(() => fromSearch(window.location.search));
   const reshape = useCallback(
@@ -212,6 +215,24 @@ export function ListScreen({
     sort,
     fields.data,
   );
+  // Only what is on screen counts as chosen: a filter can hide something chosen before.
+  const picked = visible.filter((item) => chosen.has(item.id)).map((item) => item.id);
+  const selection = canEdit
+    ? {
+        chosen,
+        toggle: (id: string, on: boolean) => {
+          setChosen((current) => {
+            const next = new Set(current);
+            if (on) next.add(id);
+            else next.delete(id);
+            return next;
+          });
+        },
+      }
+    : null;
+  const canBulkDelete =
+    myself.data !== undefined &&
+    (myself.data.user.role === 'owner' || myself.data.capabilities.includes('bulk_delete'));
   const shownStages = stages.data.filter(
     (stage) => filter.stageId === null || stage.id === filter.stageId,
   );
@@ -296,6 +317,18 @@ export function ListScreen({
         shown={visible.length}
         total={items.data.length}
       />
+      {view === 'list' && picked.length > 0 ? (
+        <BulkBar
+          listId={listId}
+          ids={picked}
+          stages={stages.data}
+          workers={handsOutWork ? (workers.data ?? []) : null}
+          canBulkDelete={canBulkDelete}
+          onDone={() => {
+            setChosen(new Set());
+          }}
+        />
+      ) : null}
       {isFiltering(filter) && visible.length === 0 ? (
         <Notice tone="info">Nenhum item corresponde a estes filtros.</Notice>
       ) : null}
@@ -359,6 +392,7 @@ export function ListScreen({
               name={group.label}
               color={group.color}
               stage={null}
+              selection={selection}
               stages={stages.data}
               fields={fields.data}
               columns={columns}
@@ -377,6 +411,7 @@ export function ListScreen({
               name={stage.name}
               color={stage.color}
               stage={stage}
+              selection={selection}
               stages={stages.data}
               fields={fields.data}
               columns={columns}
@@ -398,6 +433,7 @@ function ItemGroup({
   name,
   color,
   stage,
+  selection,
   stages,
   fields,
   columns,
@@ -411,6 +447,8 @@ function ItemGroup({
   color: string | null;
   /** The stage this group is, when grouped by stage: new items go there. */
   stage: Stage | null;
+  /** Items chosen for a change to several at once; null when the person cannot change them. */
+  selection: { chosen: Set<string>; toggle: (id: string, chosen: boolean) => void } | null;
   stages: Stage[];
   fields: CustomField[];
   /** The fields shown as columns of the list. */
@@ -474,6 +512,16 @@ function ItemGroup({
               <ItemRow
                 key={item.id}
                 item={item}
+                pick={
+                  selection === null
+                    ? null
+                    : {
+                        chosen: selection.chosen.has(item.id),
+                        toggle: (chosen) => {
+                          selection.toggle(item.id, chosen);
+                        },
+                      }
+                }
                 stages={stages}
                 fields={fields}
                 columns={columns}
@@ -497,6 +545,7 @@ const columnsOf = (columns: CustomField[]): CSSProperties =>
 
 function ItemRow({
   item,
+  pick,
   stages,
   fields,
   columns,
@@ -506,6 +555,8 @@ function ItemRow({
   workers,
 }: {
   item: Item;
+  /** Whether this row is chosen for a change to several items; null when nothing can be chosen. */
+  pick: { chosen: boolean; toggle: (chosen: boolean) => void } | null;
   stages: Stage[];
   fields: CustomField[];
   columns: CustomField[];
@@ -533,16 +584,29 @@ function ItemRow({
         className={columns.length > 0 ? 'item-row has-columns' : 'item-row'}
         style={columnsOf(columns)}
       >
-        <button
-          type="button"
-          className="item-title"
-          aria-expanded={open}
-          onClick={() => {
-            setOpen(!open);
-          }}
-        >
-          {item.title}
-        </button>
+        <span className="item-lead">
+          {pick !== null ? (
+            <input
+              type="checkbox"
+              className="item-pick"
+              aria-label={`Selecionar ${item.title}`}
+              checked={pick.chosen}
+              onChange={(event) => {
+                pick.toggle(event.target.checked);
+              }}
+            />
+          ) : null}
+          <button
+            type="button"
+            className="item-title"
+            aria-expanded={open}
+            onClick={() => {
+              setOpen(!open);
+            }}
+          >
+            {item.title}
+          </button>
+        </span>
         <span className="muted">
           {assignees.length === 0 ? 'Sem responsável' : `Com ${assignees.join(', ')}`}
         </span>

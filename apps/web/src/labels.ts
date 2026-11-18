@@ -55,6 +55,7 @@ export const ALERT_NAMES: Record<string, string> = {
   owner_added: 'Novo Dono',
   owner_role_changed: 'Papel de um Dono alterado',
   attachment_infected: 'Anexo bloqueado pelo antivírus',
+  bulk_delete: 'Vários itens mandados para a lixeira de uma vez',
 };
 
 const ACTION_NAMES: Record<string, string> = {
@@ -86,6 +87,8 @@ const ACTION_NAMES: Record<string, string> = {
   'items.purged': 'Itens removidos de vez da lixeira, depois de 30 dias',
   'attachment.downloaded': 'Anexo de lista sensível baixado',
   'secret.revealed': 'Valor secreto revelado',
+  'items.bulk_trashed': 'Vários itens mandados para a lixeira de uma vez',
+  'items.bulk_assigned': 'Vários itens passados para uma pessoa de uma vez',
   'attachment.blocked': 'Anexo bloqueado pelo antivírus',
   'attachments.purged': 'Anexos removidos de vez, depois do prazo',
   'access_grants.insert': 'Acesso concedido',

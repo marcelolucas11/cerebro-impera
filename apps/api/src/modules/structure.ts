@@ -11,7 +11,7 @@ import {
   type ResolvedAccess,
   type StageDraft,
 } from '@cerebro/shared';
-import { requireOwner, type Actor } from '../actor.js';
+import { requireCapability, requireOwner, requireStepUp, type Actor } from '../actor.js';
 import { one, rows, run, sql, type Tx } from '../db.js';
 import { badRequest, conflict, forbidden, notFound, stepUpRequired } from '../http/errors.js';
 import { accessToList, accessToScope, loadOwnGrants, type ListInfo } from './access.js';
@@ -518,4 +518,83 @@ export async function orderStage(
     );
     if (changed !== 1) throw badRequest('invalid_order');
   }
+}
+
+/**
+ * One change to several items of a list at once, all or nothing. Sending more
+ * than one to the trash is a critical action: it needs the bulk delete
+ * capability and a recent second factor (the database checks the same).
+ */
+export async function bulkChange(
+  tx: Tx,
+  actor: Actor,
+  listId: string,
+  body:
+    | { action: 'stage'; ids: string[]; stageId: string }
+    | { action: 'trash'; ids: string[] }
+    | { action: 'assign'; ids: string[]; userId: string },
+): Promise<{ changed: number }> {
+  await openList(tx, actor, listId, 'edit');
+  if (body.action === 'assign') return assignMany(tx, actor, listId, body.ids, body.userId);
+  let changed: number;
+  if (body.action === 'trash') {
+    if (body.ids.length > 1) {
+      requireCapability(actor, 'bulk_delete');
+      requireStepUp(actor);
+    }
+    changed = await run(
+      tx,
+      sql`UPDATE app.items SET deleted_at = now()
+          WHERE id = ANY (${body.ids}::uuid[]) AND list_id = ${listId} AND deleted_at IS NULL`,
+    );
+  } else {
+    const stage = await one<{ id: string }>(
+      tx,
+      sql`SELECT id FROM app.list_stages WHERE id = ${body.stageId} AND list_id = ${listId}`,
+    );
+    if (!stage) throw badRequest('invalid_stage');
+    changed = await run(
+      tx,
+      sql`UPDATE app.items SET stage_id = ${body.stageId}
+          WHERE id = ANY (${body.ids}::uuid[]) AND list_id = ${listId} AND deleted_at IS NULL`,
+    );
+  }
+  // Something chosen is not the caller's to change, or no longer here: nothing changes.
+  if (changed !== body.ids.length) throw badRequest('invalid_selection');
+  return { changed };
+}
+
+/**
+ * Adds one person to the people responsible for several items. Same rules as
+ * one item at a time: only who distributes work in the list, and only to
+ * someone who can work in it (the database checks it too).
+ */
+async function assignMany(
+  tx: Tx,
+  actor: Actor,
+  listId: string,
+  ids: string[],
+  userId: string,
+): Promise<{ changed: number }> {
+  const able = await listPeople(tx, actor, listId);
+  if (!able.some((person) => person.id === userId)) throw badRequest('cannot_assign_person');
+  const here = await one<{ count: number }>(
+    tx,
+    sql`SELECT count(*)::int AS count FROM app.items
+        WHERE id = ANY (${ids}::uuid[]) AND list_id = ${listId} AND deleted_at IS NULL`,
+  );
+  if (here?.count !== ids.length) throw badRequest('invalid_selection');
+  const changed = await run(
+    tx,
+    sql`INSERT INTO app.item_assignees (item_id, user_id)
+        SELECT chosen, ${userId}::uuid FROM unnest(${ids}::uuid[]) AS chosen
+        WHERE NOT EXISTS (SELECT 1 FROM app.item_assignees ia
+                          WHERE ia.item_id = chosen AND ia.user_id = ${userId})`,
+  );
+  await run(
+    tx,
+    sql`SELECT audit.record('items.bulk_assigned', 'list', ${listId},
+                            ${JSON.stringify({ user_id: userId, count: changed })}::jsonb)`,
+  );
+  return { changed };
 }
