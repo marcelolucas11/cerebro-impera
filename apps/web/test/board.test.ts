@@ -38,6 +38,7 @@ const item = (id: string, stageId: string, since: string): Item => ({
   priority: null,
   startDate: null,
   dueDate: null,
+  parentId: null,
   trashedAt: null,
   trashedBy: null,
 });

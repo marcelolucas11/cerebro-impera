@@ -13,6 +13,8 @@ export interface HistoryContext {
   nameOf: (userId: string | null) => string;
   fieldOf: (fieldId: string) => FieldLike | undefined;
   listNameOf: (listId: string) => string | undefined;
+  /** The title of an item this person can see, by id; undefined when they cannot. */
+  itemTitleOf?: (itemId: string) => string | undefined;
 }
 
 const capitalized = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
@@ -93,6 +95,18 @@ export function describeChange(change: ItemChange, context: HistoryContext): Cha
       return before === null
         ? { sentence: `${who} marcou ${name} para ${after}` }
         : { sentence: `${who} mudou ${name} de ${before} para ${after}` };
+    }
+    case 'parent': {
+      const named = (value: unknown): string => {
+        const title = typeof value === 'string' ? context.itemTitleOf?.(value) : undefined;
+        return title === undefined ? 'outro item' : `“${title}”`;
+      };
+      if (change.new === null || change.new === undefined) {
+        return { sentence: `${who} tirou o item de dentro de ${named(change.old)}` };
+      }
+      return change.old === null || change.old === undefined
+        ? { sentence: `${who} fez do item uma subtarefa de ${named(change.new)}` }
+        : { sentence: `${who} passou o item para dentro de ${named(change.new)}` };
     }
     case 'field': {
       const field = change.fieldId === null ? undefined : context.fieldOf(change.fieldId);

@@ -6,6 +6,7 @@ import {
   fromSearch,
   isFiltering,
   matches,
+  nestSubtasks,
   sortItems,
   toSearch,
   groupItems,
@@ -224,6 +225,7 @@ export function ListScreen({
     sort,
     fields.data,
   );
+  const { top: topLevel, family } = nestSubtasks(visible);
   // Only what is on screen counts as chosen: a filter can hide something chosen before.
   const picked = visible.filter((item) => chosen.has(item.id)).map((item) => item.id);
   const selection = canEdit
@@ -346,6 +348,7 @@ export function ListScreen({
           listId={listId}
           stages={shownStages}
           items={visible}
+          everyone={items.data}
           manualOrder={sort.key === 'manual' && !sort.descending}
           fields={fields.data}
           canEdit={canEdit}
@@ -358,6 +361,7 @@ export function ListScreen({
         <Table
           stages={stages.data}
           items={visible}
+          everyone={items.data}
           fields={fields.data}
           canEdit={canEdit}
           nameOf={nameOf}
@@ -377,6 +381,7 @@ export function ListScreen({
         <Timeline
           stages={stages.data}
           items={visible}
+          everyone={items.data}
           fields={fields.data}
           canEdit={canEdit}
           nameOf={nameOf}
@@ -387,6 +392,7 @@ export function ListScreen({
       {view === 'calendar' ? (
         <Calendar
           items={visible}
+          everyone={items.data}
           fields={fields.data}
           canEdit={canEdit}
           nameOf={nameOf}
@@ -395,13 +401,15 @@ export function ListScreen({
         />
       ) : null}
       {view === 'list' && shaping.group !== 'stage'
-        ? groupItems(visible, shaping.group, { fields: fields.data, nameOf }).map((group) => (
+        ? groupItems(topLevel, shaping.group, { fields: fields.data, nameOf }).map((group) => (
             <ItemGroup
               key={group.key}
               name={group.label}
               color={group.color}
               stage={null}
               selection={selection}
+              family={family}
+              everyone={items.data}
               stages={stages.data}
               fields={fields.data}
               columns={columns}
@@ -421,10 +429,12 @@ export function ListScreen({
               color={stage.color}
               stage={stage}
               selection={selection}
+              family={family}
+              everyone={items.data}
               stages={stages.data}
               fields={fields.data}
               columns={columns}
-              items={visible.filter((item) => item.stageId === stage.id)}
+              items={topLevel.filter((item) => item.stageId === stage.id)}
               canEdit={canEdit}
               nameOf={nameOf}
               listNameOf={listNameOf}
@@ -443,6 +453,8 @@ function ItemGroup({
   color,
   stage,
   selection,
+  family,
+  everyone,
   stages,
   fields,
   columns,
@@ -457,7 +469,10 @@ function ItemGroup({
   /** The stage this group is, when grouped by stage: new items go there. */
   stage: Stage | null;
   /** Items chosen for a change to several at once; null when the person cannot change them. */
-  selection: { chosen: Set<string>; toggle: (id: string, chosen: boolean) => void } | null;
+  selection: Selection | null;
+  /** Subtasks on screen, by the item they hang from. */
+  family: ReadonlyMap<string, Item[]>;
+  everyone: Item[];
   stages: Stage[];
   fields: CustomField[];
   /** The fields shown as columns of the list. */
@@ -521,16 +536,9 @@ function ItemGroup({
               <ItemRow
                 key={item.id}
                 item={item}
-                pick={
-                  selection === null
-                    ? null
-                    : {
-                        chosen: selection.chosen.has(item.id),
-                        toggle: (chosen) => {
-                          selection.toggle(item.id, chosen);
-                        },
-                      }
-                }
+                selection={selection}
+                subtasks={family.get(item.id) ?? []}
+                everyone={everyone}
                 stages={stages}
                 fields={fields}
                 columns={columns}
@@ -552,9 +560,18 @@ function ItemGroup({
 const columnsOf = (columns: CustomField[]): CSSProperties =>
   ({ '--colunas': String(columns.length) }) as CSSProperties;
 
+/** Items chosen for a change to several at once. */
+interface Selection {
+  chosen: Set<string>;
+  toggle: (id: string, chosen: boolean) => void;
+}
+
 function ItemRow({
   item,
-  pick,
+  selection,
+  subtasks,
+  nested = false,
+  everyone,
   stages,
   fields,
   columns,
@@ -564,8 +581,12 @@ function ItemRow({
   workers,
 }: {
   item: Item;
-  /** Whether this row is chosen for a change to several items; null when nothing can be chosen. */
-  pick: { chosen: boolean; toggle: (chosen: boolean) => void } | null;
+  selection: Selection | null;
+  /** Its subtasks on screen, shown under it; empty for a subtask. */
+  subtasks: Item[];
+  /** Shown under its parent. */
+  nested?: boolean;
+  everyone: Item[];
   stages: Stage[];
   fields: CustomField[];
   columns: CustomField[];
@@ -577,6 +598,16 @@ function ItemRow({
 }): ReactNode {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [unfolded, setUnfolded] = useState(false);
+  const pick =
+    selection === null
+      ? null
+      : {
+          chosen: selection.chosen.has(item.id),
+          toggle: (chosen: boolean) => {
+            selection.toggle(item.id, chosen);
+          },
+        };
   const move = useAction(
     useCallback(
       async (stageId: string) => {
@@ -615,7 +646,7 @@ function ItemRow({
           >
             {item.title}
           </button>
-          <ItemMarks item={item} stages={stages} />
+          <ItemMarks item={item} stages={stages} everyone={everyone} showParent={!nested} />
         </span>
         <span className="muted">
           {assignees.length === 0 ? 'Sem responsável' : `Com ${assignees.join(', ')}`}
@@ -670,6 +701,43 @@ function ItemRow({
         ) : null}
       </div>
       {move.error ? <Notice tone="error">{move.error}</Notice> : null}
+      {subtasks.length > 0 ? (
+        <div className="subtasks">
+          <button
+            type="button"
+            className="subtasks-toggle"
+            aria-expanded={unfolded}
+            onClick={() => {
+              setUnfolded(!unfolded);
+            }}
+          >
+            {unfolded ? 'Esconder' : 'Mostrar'}{' '}
+            {subtasks.length === 1 ? '1 subtarefa' : `${String(subtasks.length)} subtarefas`}
+            <span className="visually-hidden"> de {item.title}</span>
+          </button>
+          {unfolded ? (
+            <ul className="item-rows subtask-rows" aria-label={`Subtarefas de ${item.title}`}>
+              {subtasks.map((subtask) => (
+                <ItemRow
+                  key={subtask.id}
+                  item={subtask}
+                  selection={selection}
+                  subtasks={[]}
+                  nested
+                  everyone={everyone}
+                  stages={stages}
+                  fields={fields}
+                  columns={columns}
+                  canEdit={canEdit}
+                  nameOf={nameOf}
+                  listNameOf={listNameOf}
+                  workers={workers}
+                />
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
       {open ? (
         <ItemPanel
           item={item}
@@ -678,6 +746,7 @@ function ItemRow({
           nameOf={nameOf}
           listNameOf={listNameOf}
           workers={workers}
+          everyone={everyone}
         />
       ) : null}
     </li>

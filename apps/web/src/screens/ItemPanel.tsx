@@ -22,6 +22,7 @@ export function ItemPanel({
   nameOf,
   listNameOf,
   workers,
+  everyone = [],
 }: {
   item: Item;
   fields: CustomField[];
@@ -30,6 +31,8 @@ export function ItemPanel({
   listNameOf: (listId: string) => string | undefined;
   /** People this item can be handed to; null when the viewer does not hand out work. */
   workers: { id: string; name: string }[] | null;
+  /** Every item of the list the person received: its subtasks and its parent are found here. */
+  everyone?: readonly Item[];
 }): ReactNode {
   const queryClient = useQueryClient();
   const descriptionId = useId();
@@ -278,6 +281,7 @@ export function ItemPanel({
           </p>
         </div>
       ) : null}
+      <Subtasks item={item} everyone={everyone} canEdit={canEdit} />
       <Attachments item={item} canEdit={canEdit} nameOf={nameOf} />
       <div className="subsection">
         <h3>Tempo em cada etapa</h3>
@@ -306,7 +310,12 @@ export function ItemPanel({
         <Assignees key={item.assignees.join()} item={item} workers={workers} nameOf={nameOf} />
       ) : null}
       {canEdit ? <MoveToList item={item} /> : null}
-      {canEdit ? <SendToTrash item={item} /> : null}
+      {canEdit ? (
+        <SendToTrash
+          item={item}
+          subtasks={everyone.filter((other) => other.parentId === item.id).length}
+        />
+      ) : null}
       <ItemHistory
         // What the item is now is part of the key: a change made here shows up at once.
         key={item.updatedAt}
@@ -314,7 +323,95 @@ export function ItemPanel({
         fields={fields}
         nameOf={nameOf}
         listNameOf={listNameOf}
+        everyone={everyone}
       />
+    </div>
+  );
+}
+
+/**
+ * The item's subtasks and a way to add one; or, for a subtask, the item it
+ * hangs from and a way to take it out. Only items the person received are
+ * named: a parent they cannot see is "another item".
+ */
+function Subtasks({
+  item,
+  everyone,
+  canEdit,
+}: {
+  item: Item;
+  everyone: readonly Item[];
+  canEdit: boolean;
+}): ReactNode {
+  const queryClient = useQueryClient();
+  const [title, setTitle] = useState('');
+  const refresh = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ['items', item.listId] }),
+    [item.listId, queryClient],
+  );
+  const add = useAction(
+    useCallback(async () => {
+      await api.createItem(item.listId, { title: title.trim(), parentId: item.id });
+      setTitle('');
+      await refresh();
+    }, [item.listId, item.id, title, refresh]),
+  );
+  const detach = useAction(
+    useCallback(async () => {
+      await api.updateItem(item.id, { parentId: null });
+      await refresh();
+    }, [item.id, refresh]),
+  );
+
+  if (item.parentId !== null) {
+    const parent = everyone.find((other) => other.id === item.parentId);
+    const name = parent ? `“${parent.title}”` : 'outro item';
+    return (
+      <div className="subsection">
+        <h3>Subtarefa</h3>
+        <p className="field-note">Este item é uma subtarefa de {name}.</p>
+        {canEdit ? (
+          <Button variant="quiet" busy={detach.busy} onClick={detach.run}>
+            Tirar de dentro de {name}
+          </Button>
+        ) : null}
+        {detach.error ? <Notice tone="error">{detach.error}</Notice> : null}
+      </div>
+    );
+  }
+
+  const children = everyone.filter((other) => other.parentId === item.id);
+  if (children.length === 0 && !canEdit) return null;
+  return (
+    <div className="subsection">
+      <h3>Subtarefas</h3>
+      {children.length > 0 ? (
+        <ul className="subtask-names">
+          {children.map((child) => (
+            <li key={child.id}>{child.title}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="field-note">Nenhuma subtarefa.</p>
+      )}
+      {canEdit ? (
+        <Form onSubmit={add.run}>
+          <div className="add-item">
+            <Field
+              label={`Nova subtarefa de ${item.title}`}
+              value={title}
+              onChange={(event) => {
+                setTitle(event.target.value);
+              }}
+              maxLength={500}
+            />
+            <Button type="submit" busy={add.busy} disabled={title.trim() === ''}>
+              Adicionar subtarefa
+            </Button>
+          </div>
+        </Form>
+      ) : null}
+      {add.error ? <Notice tone="error">{add.error}</Notice> : null}
     </div>
   );
 }
@@ -327,11 +424,13 @@ function ItemHistory({
   fields,
   nameOf,
   listNameOf,
+  everyone,
 }: {
   item: Item;
   fields: CustomField[];
   nameOf: (userId: string | null) => string;
   listNameOf: (listId: string) => string | undefined;
+  everyone: readonly Item[];
 }): ReactNode {
   const [open, setOpen] = useState(false);
   const [older, setOlder] = useState<ItemChange[]>([]);
@@ -355,6 +454,7 @@ function ItemHistory({
     nameOf,
     listNameOf,
     fieldOf: (fieldId: string) => fields.find((field) => field.id === fieldId),
+    itemTitleOf: (itemId: string) => everyone.find((other) => other.id === itemId)?.title,
   };
   const mayHaveMore = (latest.data?.length ?? 0) === PAGE && !exhausted;
 
@@ -404,22 +504,31 @@ function ItemHistory({
   );
 }
 
-/** Sends the item to the trash of its list, where it can be brought back for 30 days. */
-function SendToTrash({ item }: { item: Item }): ReactNode {
+/**
+ * Sends the item to the trash of its list, where it can be brought back for
+ * 30 days. Its subtasks go along, which makes several items: that asks for
+ * the code again and is only for who may remove several at once.
+ */
+function SendToTrash({ item, subtasks }: { item: Item; subtasks: number }): ReactNode {
   const queryClient = useQueryClient();
+  const guard = useGuard();
   const send = useAction(
     useCallback(async () => {
-      await api.trashItem(item.id);
+      await guard(() => api.trashItem(item.id));
       await queryClient.invalidateQueries({ queryKey: ['items', item.listId] });
       await queryClient.invalidateQueries({ queryKey: ['trash', item.listId] });
-    }, [item.id, item.listId, queryClient]),
+    }, [guard, item.id, item.listId, queryClient]),
   );
   return (
     <div className="subsection">
       <Button variant="quiet" busy={send.busy} onClick={send.run}>
         Mandar para a lixeira<span className="visually-hidden"> {item.title}</span>
       </Button>
-      <p className="field-note">Fica 30 dias na lixeira da lista, de onde pode voltar como está.</p>
+      <p className="field-note">
+        {subtasks > 0
+          ? `Leva junto ${subtasks === 1 ? 'a subtarefa' : `as ${String(subtasks)} subtarefas`}: são vários itens de uma vez, então pede o código do autenticador e a capacidade “Apagar em massa”. Ficam 30 dias na lixeira e voltam juntos.`
+          : 'Fica 30 dias na lixeira da lista, de onde pode voltar como está.'}
+      </p>
       {send.error ? <Notice tone="error">{send.error}</Notice> : null}
     </div>
   );

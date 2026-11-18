@@ -573,6 +573,32 @@ personalizados (`0027_priority_dates.sql`).
 marcadores), que já filtram, ordenam e agrupam. _Rever com o mantenedor_ se algum deles precisar
 de regra própria (por exemplo, cliente ligado a outro cadastro).
 
+## D46 — Subtarefas como itens comuns, com a família sempre inteira
+
+**Decisão.** Subtarefa é um item como qualquer outro, com um pai: um item da mesma lista que não é
+subtarefa (um nível só) (`0028_subtasks.sql`).
+
+- **Quem vê e edita segue as regras de qualquer item, não as do pai.** Herdar do pai mostraria a
+  um funcionário o trabalho de outro, se as duas pessoas trabalham no mesmo item. Uma subtarefa
+  criada pela funcionária é dela; uma criada por outra pessoa só aparece para ela se for passada
+  para ela.
+- Pendurar trabalho num item é mudar esse item: só quem pode editá-lo (API e banco).
+- **A família fica inteira:** subtarefa viva fica na lista do pai e com o pai vivo. O banco
+  confere no fim de cada transação, por qualquer caminho.
+- Mover o pai leva as subtarefas vivas (para a primeira etapa de lá); mover uma subtarefa sozinha
+  a solta do pai. Se o pai tem uma subtarefa que quem move não pode mover, nada se move.
+- Mandar o pai para a lixeira leva as subtarefas e conta como **vários itens**: pede a capacidade
+  "Apagar em massa" e o código, como a lixeira em massa (D44). Restaurar o pai traz as que foram
+  com ele; uma subtarefa restaurada sem o pai volta solta. _Rever com o mantenedor:_ hoje um ADM
+  sem a capacidade apaga um item com subtarefas mandando as subtarefas primeiro, uma por vez.
+- O histórico registra de qual item a subtarefa é, só pelo número: quem lê a subtarefa pode não
+  ver o pai, e na tela ele aparece como "outro item".
+- Na lista, as subtarefas ficam dobradas debaixo do pai, com "1/2 subtarefas concluídas"; nas
+  outras visões aparecem como itens, com "Subtarefa de …".
+
+**Junto:** item na lixeira também não muda de prioridade, datas ou pai direto no banco (a regra
+antiga só olhava título, descrição e lista).
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

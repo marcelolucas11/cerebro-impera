@@ -21,6 +21,7 @@ const context: HistoryContext = {
     id === null ? 'sistema' : id === ME ? 'você' : id === ANA ? 'Ana' : 'outra pessoa',
   fieldOf: (id) => fields[id],
   listNameOf: (id) => (id === 'tarefas' ? 'Tarefas' : undefined),
+  itemTitleOf: (id) => (id === 'pai' ? 'Campanha' : undefined),
 };
 const change = (partial: Partial<ItemChange>): ItemChange => ({
   id: 1,
@@ -127,6 +128,18 @@ describe('a line of an item’s history', () => {
     );
     expect(say({ what: 'start_date', old: '2026-11-18' })).toBe(
       'Você tirou o começo (era 18/11/2026)',
+    );
+  });
+
+  it('names the parent only when the reader can see it', () => {
+    expect(say({ what: 'parent', new: 'pai' })).toBe(
+      'Você fez do item uma subtarefa de “Campanha”',
+    );
+    expect(say({ what: 'parent', new: 'escondido' })).toBe(
+      'Você fez do item uma subtarefa de outro item',
+    );
+    expect(say({ what: 'parent', actor: ANA, old: 'pai' })).toBe(
+      'Ana tirou o item de dentro de “Campanha”',
     );
   });
 
