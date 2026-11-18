@@ -731,3 +731,23 @@ export async function clearRecurrence(tx: Tx, actor: Actor, itemId: string): Pro
   if (!item) throw notFound();
   return item;
 }
+
+/**
+ * The lists whose changes this person hears of while a page is open: every
+ * list they can open (a sensitive one only with a recent code), each with
+ * whether they see every item or only their own.
+ */
+export async function liveAccess(
+  tx: Tx,
+  actor: Actor,
+): Promise<{ userId: string; lists: Map<string, 'all' | 'assigned'> }> {
+  const found = await tree(tx, actor);
+  return {
+    userId: actor.userId,
+    lists: new Map(
+      found.lists
+        .filter((list) => !list.isSensitive || actor.stepUp)
+        .map((list) => [list.id, list.itemScope]),
+    ),
+  };
+}

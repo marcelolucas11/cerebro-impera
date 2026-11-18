@@ -56,7 +56,7 @@ import type { Deps } from './deps.js';
 import { PREVIEWABLE } from './files/sniff.js';
 import { PART_SIZE } from './files/store.js';
 import { clearCookie, SESSION_COOKIE } from './http/cookies.js';
-import { badRequest } from './http/errors.js';
+import { badRequest, conflict } from './http/errors.js';
 import { parse } from './http/request.js';
 import * as attachments from './modules/attachments.js';
 import * as auth from './modules/auth.js';
@@ -71,6 +71,7 @@ import * as views from './modules/views.js';
 import * as checklist from './modules/checklist.js';
 import * as comments from './modules/comments.js';
 import * as notifications from './modules/notifications.js';
+import { LIVE_HEARTBEAT_MS, LiveHub, MAX_LISTENERS_PER_PERSON, type Listener } from './live.js';
 import * as stages from './modules/stages.js';
 import * as structure from './modules/structure.js';
 
@@ -328,6 +329,63 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     const body = parse(bulkSchema, request.body);
     return signedIn(request, (tx, actor) => structure.bulkChange(tx, actor, id, body));
+  });
+
+  // ---- Live updates ----------------------------------------------------------------
+  // A stream of "this changed" for the open page. It never carries data: the page
+  // asks again through the routes above. The session is checked again on every
+  // heartbeat, and the stream ends when it is no longer valid.
+  const hub = new LiveHub(deps.pools.app);
+  app.addHook('onClose', () => hub.close());
+  app.get('/api/events', async (request, reply) => {
+    const first = await signedIn(request, (tx, actor) => structure.liveAccess(tx, actor));
+    if (hub.countFor(first.userId) >= MAX_LISTENERS_PER_PERSON) throw conflict('too_many_streams');
+    reply.hijack();
+    const stream = reply.raw;
+    stream.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      // Proxies must pass each event on as it comes.
+      'X-Accel-Buffering': 'no',
+    });
+    let lists = first.lists;
+    let open = true;
+    const stop = (): void => {
+      if (!open) return;
+      open = false;
+      clearInterval(heartbeat);
+      hub.remove(listener);
+      stream.end();
+    };
+    const check = async (): Promise<void> => {
+      try {
+        lists = (await signedIn(request, (tx, actor) => structure.liveAccess(tx, actor))).lists;
+      } catch {
+        stop();
+      }
+    };
+    const listener: Listener = {
+      userId: first.userId,
+      get lists() {
+        return lists;
+      },
+      send(event) {
+        if (open) stream.write(`data: ${JSON.stringify(event)}\n\n`);
+      },
+      refresh() {
+        void check();
+      },
+    };
+    const heartbeat = setInterval(() => {
+      if (open) stream.write(': ping\n\n');
+      void check();
+    }, LIVE_HEARTBEAT_MS);
+    heartbeat.unref();
+    request.raw.on('close', stop);
+    stream.write('retry: 5000\n\n');
+    await hub.add(listener);
+    stream.write('event: ready\ndata: {}\n\n');
   });
 
   // ---- Notifications ---------------------------------------------------------------
