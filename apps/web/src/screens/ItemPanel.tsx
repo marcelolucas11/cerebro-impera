@@ -9,6 +9,7 @@ import {
   type ItemComment,
   type Recurrence,
 } from '../api.js';
+import { changeItem } from '../offline/sync.js';
 import { draftOf, sameValue, valueOf, type FieldDraft } from '../fieldvalues.js';
 import { isoDay } from '../calendar.js';
 import {
@@ -121,7 +122,7 @@ export function ItemPanel({
   const save = useAction(
     useCallback(
       async (input: Parameters<typeof api.updateItem>[1]) => {
-        await api.updateItem(item.id, input);
+        await changeItem(item.id, input);
         setDrafts({});
         await queryClient.invalidateQueries({ queryKey: ['items', item.listId] });
       },

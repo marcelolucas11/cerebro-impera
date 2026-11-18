@@ -282,8 +282,20 @@ export const updateItemSchema = z
     dueDate: daySchema.nullable().optional(),
     /** Only to take a subtask out from under its parent. */
     parentId: z.null().optional(),
+    /**
+     * What the person saw before changing it, for a change made without a connection:
+     * if someone else changed one of these meanwhile, nothing is written and both are shown.
+     */
+    expected: z
+      .strictObject({
+        title: z.string().max(500).optional(),
+        stageId: idSchema.optional(),
+        priority: z.number().int().min(1).max(4).nullable().optional(),
+        dueDate: daySchema.nullable().optional(),
+      })
+      .optional(),
   })
-  .refine((value) => Object.keys(value).length > 0, 'empty update')
+  .refine((value) => Object.keys(value).some((key) => key !== 'expected'), 'empty update')
   .refine(
     (value) =>
       typeof value.startDate !== 'string' ||

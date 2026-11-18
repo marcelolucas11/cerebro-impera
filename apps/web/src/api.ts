@@ -666,6 +666,8 @@ export const api = {
       dueDate?: string | null;
       /** Takes a subtask out from under its parent. */
       parentId?: null;
+      /** What was seen before a change made offline: refused if someone changed it since. */
+      expected?: Partial<Pick<Item, 'title' | 'stageId' | 'priority' | 'dueDate'>>;
     },
   ) => request<Item>('PATCH', `/api/items/${id}`, input),
   fields: (listId: string, options: { archived?: boolean } = {}) =>

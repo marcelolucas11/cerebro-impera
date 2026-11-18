@@ -936,6 +936,25 @@ deve continuar entrando.
 - Aparelho que nunca mais se conecta não recebe a ordem. Para esse caso valem a expiração de 7
   dias (D62) e a criptografia de disco do sistema.
 
+## D64 — Mudanças offline conferidas pelo servidor, com conflito por campo
+
+**Decisão.** Sem conexão, a pessoa pode mudar a etapa, o título, o prazo e a prioridade de um item
+que o aparelho guardou. A mudança espera numa fila no aparelho, cifrada e apagada junto com o
+resto, e leva o que a pessoa via antes de fazê-la (`expected` na mudança do item). Quando a
+conexão volta, a fila é enviada em ordem. Se outra pessoa mudou o mesmo campo nesse meio-tempo, o
+servidor não escreve nada e responde `409 changed_meanwhile` com o valor de agora. A pessoa
+escolhe entre manter a sua versão ou ficar com a de lá. Desenho em
+[`docs/design/pwa.md`](design/pwa.md), seção 5.
+
+- **Conferência:** o servidor trava a linha antes de comparar, então duas mudanças ao mesmo tempo
+  não passam pela conferência juntas. O conflito só informa os campos que a própria pessoa mandou
+  e que ela já podia ver.
+- **Regras de sempre:** acesso, etapas restritas e lixeira. O que for recusado aparece com o
+  motivo até a pessoa dar ciência; nada some em silêncio.
+- **Exceção:** sair ou ter a sessão encerrada apaga também o que não foi enviado.
+- **Ficam para depois:** checklist, comentário e campos personalizados offline. Rever com o
+  mantenedor se fazem falta.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

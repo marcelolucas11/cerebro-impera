@@ -22,7 +22,8 @@ export const stepUpRequired = (): HttpError => new HttpError(403, 'step_up_requi
  * see, so that responses never confirm whether a hidden record exists.
  */
 export const notFound = (): HttpError => new HttpError(404, 'not_found');
-export const conflict = (code = 'conflict'): HttpError => new HttpError(409, code);
+export const conflict = (code = 'conflict', details?: Record<string, unknown>): HttpError =>
+  new HttpError(409, code, details);
 export const tooManyAttempts = (retryAfterSeconds: number): HttpError =>
   new HttpError(429, 'too_many_attempts', { retryAfterSeconds });
 /** Too many requests of any kind in a short time, from one session or address. */

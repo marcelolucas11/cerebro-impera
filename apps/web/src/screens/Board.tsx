@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { api, type CustomField, type Item, type Stage } from '../api.js';
+import { changeItem } from '../offline/sync.js';
 import { canEnter, useMyRole } from '../entry.js';
 import {
   columnsOf,
@@ -100,7 +101,7 @@ export function Board({
       );
       setError(null);
       try {
-        await guard(() => api.updateItem(item.id, { stageId }));
+        await guard(() => changeItem(item.id, { stageId }));
         const name = stages.find((stage) => stage.id === stageId)?.name ?? '';
         setSaid(`${item.title} foi para ${name}.`);
       } catch (failure) {
@@ -133,7 +134,7 @@ export function Board({
       setError(null);
       try {
         if (item.stageId !== stageId) {
-          await guard(() => api.updateItem(item.id, { stageId }));
+          await guard(() => changeItem(item.id, { stageId }));
         }
         await guard(() => api.orderStage(listId, stageId, ids));
         const name = stages.find((stage) => stage.id === stageId)?.name ?? '';
