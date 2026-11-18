@@ -750,6 +750,80 @@ export async function stepUp(
   await audit(db, actor.userId, ip, 'session.step_up', { type: 'session', id: actor.sessionId });
 }
 
+/**
+ * Changes the signed-in person's own password. Takes the current password and
+ * a fresh code from the authenticator; failures count towards locking this
+ * device out. Every other session of the person ends: whoever might have had
+ * the old password is out.
+ */
+export async function changePassword(
+  deps: Deps,
+  request: FastifyRequest,
+  actor: Actor,
+  body: { currentPassword: string; newPassword: string; code: string },
+): Promise<{ endedSessions: number }> {
+  const db = deps.pools.auth;
+  const ip = clientIp(request);
+  const key = `device:${actor.deviceId}`;
+  await assertNotLocked(db, key);
+
+  const stored = await one<{ password_hash: string }>(
+    db,
+    sql`SELECT password_hash FROM auth.credentials WHERE user_id = ${actor.userId}`,
+  );
+  let passwordOk = false;
+  if (stored) {
+    passwordOk = await deps.hasher.verify(stored.password_hash, body.currentPassword);
+  } else {
+    await deps.hasher.burn(body.currentPassword);
+  }
+  // The code is only spent once the password is right, so a wrong guess costs no code.
+  if (
+    !passwordOk ||
+    !stored ||
+    !(await checkSecondFactor(deps, actor.userId, ip, { code: body.code }))
+  ) {
+    await failedAttempt(deps, {
+      ip,
+      userId: actor.userId,
+      accountKey: key,
+      reason: 'password_change',
+    });
+    throw unauthorized('invalid_credentials');
+  }
+
+  const problems = checkPassword(body.newPassword, { email: actor.email, name: actor.name });
+  if (problems.length > 0) throw badRequest('weak_password', { problems });
+  if (await deps.hasher.verify(stored.password_hash, body.newPassword)) {
+    throw badRequest('same_password');
+  }
+  const passwordHash = await deps.hasher.hash(body.newPassword);
+
+  const endedSessions = await inTransaction(db, async (tx) => {
+    await run(
+      tx,
+      sql`UPDATE auth.credentials SET password_hash = ${passwordHash}, password_changed_at = now()
+          WHERE user_id = ${actor.userId}`,
+    );
+    const ended = await run(
+      tx,
+      sql`UPDATE auth.sessions SET revoked_at = now(), revoked_reason = 'password changed'
+          WHERE user_id = ${actor.userId} AND id <> ${actor.sessionId} AND revoked_at IS NULL`,
+    );
+    await audit(
+      tx,
+      actor.userId,
+      ip,
+      'password.changed',
+      { type: 'user', id: actor.userId },
+      { endedSessions: ended },
+    );
+    return ended;
+  });
+  await clearFailures(db, key);
+  return { endedSessions };
+}
+
 /** What the "waiting for approval" screen polls. Reveals nothing but a status. */
 export async function deviceStatus(
   deps: Deps,

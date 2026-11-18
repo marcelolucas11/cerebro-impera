@@ -52,6 +52,13 @@ export const secondFactorSchema = z.union([
 
 export const totpConfirmSchema = z.strictObject({ code: totpCodeSchema });
 
+/** Changing one's own password takes the current one and a fresh code from the authenticator. */
+export const changePasswordSchema = z.strictObject({
+  currentPassword: passwordSchema,
+  newPassword: passwordSchema,
+  code: totpCodeSchema,
+});
+
 export const acceptInviteSchema = z.strictObject({
   token: opaqueTokenSchema,
   password: passwordSchema,

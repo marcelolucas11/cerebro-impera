@@ -7,7 +7,7 @@
 
 **Fase 2 — Estrutura, em andamento.** A Fase 1 (fundação e segurança) está pronta, com o percurso
 em navegador real rodando no CI. Da Fase 2 já existem as etapas por lista, o tempo em cada etapa e
-a tela de lista agrupada por etapa, os campos personalizados, o histórico de cada item, a lixeira, mover itens entre listas e os modelos de etapas. Falta o que está em "Próximo passo".
+a tela de lista agrupada por etapa, os campos personalizados, o histórico de cada item, a lixeira, mover itens entre listas, os modelos de etapas, a delegação de itens e a página "Minha conta". Falta o que está em "Próximo passo".
 
 | Fase                                                              | Situação                                                                                                            |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -110,7 +110,15 @@ a tela de lista agrupada por etapa, os campos personalizados, o histórico de ca
   O arquivo é lido como texto não confiável e recusado com uma frase se não for exatamente um
   conjunto de etapas.
 
-### O que os testes provam (240 testes)
+- Delegar (`0015_delegation.sql`): um item só é passado para quem pode trabalhar na lista dele
+  (editar ou mais, conta ativa); o banco recusa o resto. Quem distribui trabalho na lista (edita
+  todos os itens dela) vê essa lista de pessoas sem precisar gerenciar usuários; quem só vê os
+  próprios itens não vê. No painel do item, "Responsáveis".
+- "Minha conta" (clicando no próprio nome): trocar a senha com a senha atual e um código do
+  autenticador, o que encerra as outras sessões; e ver e encerrar as próprias sessões. Erros contam
+  para o bloqueio do aparelho e ficam no registro.
+
+### O que os testes provam (249 testes)
 
 | Arquivo                                    | O que garante                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -125,11 +133,12 @@ a tela de lista agrupada por etapa, os campos personalizados, o histórico de ca
 | `apps/api/test/trash.test.ts` (11)         | pela API e direto no banco: item na lixeira some da lista de todos e aparece só na lixeira de quem o via; só quem edita manda e traz de volta; nada nele nem no que pende dele muda; a data e quem mandou são escritas pelo banco; ninguém remove item, só a limpeza depois de 30 dias, que leva tudo junto e fica na auditoria                                                                                                                                                                      |
 | `apps/api/test/move.test.ts` (9)           | pela API e direto no banco: só quem edita o item e a lista de destino move; o item cai na etapa certa e o histórico registra; vão junto só os valores de campos de mesma origem que significam o mesmo lá (não opção que não existe, não dinheiro em outra moeda, não campo arquivado); o que fica volta com o item; nada é escrito numa lista para onde a pessoa não poderia mover                                                                                                                  |
 | `apps/api/test/stage-sets.test.ts` (4)     | aplicar um conjunto cria o que falta, ajusta o que tem o mesmo nome, põe o conjunto primeiro e não tira nem move nada; todos os modelos prontos são aceitos; só quem gerencia a lista aplica; conjunto malformado ou acima do limite é recusado                                                                                                                                                                                                                                                      |
+| `apps/api/test/account.test.ts` (9)        | trocar a senha exige a senha atual e um código, encerra as outras sessões na hora e fica no registro; senha ou código errado é recusado do mesmo jeito e contado; nova senha segue as regras e não repete a atual; cada um vê e encerra só as próprias sessões; só quem distribui trabalho na lista vê quem pode recebê-lo; banco recusa passar item para quem não pode editar a lista, para quem só vê, ou para conta suspensa                                                                      |
 | `apps/api/test/scale.test.ts` (2)          | uma lista de 500 itens com 8 campos abre em bem menos de um segundo para Dono, gestor e funcionário, e continua mostrando a cada um só o que é seu                                                                                                                                                                                                                                                                                                                                                   |
 | `apps/api/test/web.test.ts` (9)            | a página vem com a política que proíbe código embutido e de outras origens; nenhum arquivo de fora da pasta, oculto ou de tipo desconhecido é servido; endereços da API nunca respondem com a página; a API continua recusando outras origens                                                                                                                                                                                                                                                        |
 | `apps/web/test/*.test.ts` (37)             | a página compilada só carrega arquivos próprios, sem nada embutido; mensagens de erro nunca mostram detalhe técnico; durações e datas escritas por extenso; números, dinheiro e datas lidos e digitados como se escreve em português; um valor guardado só vira link se o endereço for seguro de abrir; um arquivo de etapas exportado é lido de volta igual, e qualquer outro é recusado com uma frase; cada linha do histórico vira uma frase, sem nomear pessoa ou lista que quem lê não pode ver |
 
-**Percurso em navegador real** (`apps/web/e2e`, 14 passos, job "Percurso em navegador real" no CI):
+**Percurso em navegador real** (`apps/web/e2e`, 16 passos, job "Percurso em navegador real" no CI):
 um Dono no computador e uma funcionária no celular, contra uma instalação criada do zero pelos
 mesmos comandos de produção. Instalação recusada sem o token do servidor; senha fraca explicada na
 hora; mesma resposta para senha errada e e-mail inexistente; só a senha não abre nada; convite
@@ -140,7 +149,8 @@ uma vendo só o que pode; campos criados pelo Dono, preenchidos pelas duas pesso
 inválido barrado antes de enviar e campo arquivado e restaurado sem perder nada; histórico do item
 lido em frases; item mandado para a lixeira e restaurado como estava; item levado para a lista sensível e trazido
 de volta com os valores intactos; etapas exportadas como arquivo, modelo pronto aplicado, arquivo
-errado recusado e arquivo salvo importado; lista sensível
+errado recusado e arquivo salvo importado; item passado para a funcionária, que o encontra na hora e não
+vê a escolha de responsáveis; Dona troca a própria senha e continua conectada; lista sensível
 fechada até o código; registro de auditoria íntegro; suspensão que derruba a sessão
 na hora; e nenhuma violação da política de segurança da página do começo ao fim. Esse percurso já pegou
 três defeitos reais, todos corrigidos e cobertos por teste: a tela de pessoas mostrava situação
@@ -179,10 +189,7 @@ pnpm check
    registrada), campo de arquivo (junto com anexos), campo de pessoa (junto com a lista de pessoas
    para delegar). Sempre nesta ordem: migração e API com testes nas duas camadas, depois a tela e
    o passo no percurso em navegador.
-2. Pequenos restos da interface da Fase 1, a encaixar durante a Fase 2: lista das próprias sessões
-   (a API já tem), criação de pastas e listas por quem gerencia um espaço sem ser Dono, troca da
-   própria senha (falta na API), e uma lista de pessoas para delegar itens sem precisar da
-   capacidade de gerenciar usuários.
+2. Pequenos restos da interface da Fase 1, a encaixar durante a Fase 2: criação de pastas e listas por quem gerencia um espaço sem ser Dono.
 3. Itens adiados que dependem da interface: passkeys e CAPTCHA.
 
 ## Pendências do mantenedor (Fase 0)

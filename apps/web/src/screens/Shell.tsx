@@ -7,6 +7,7 @@ import { onSignedOut as listenForSignOut } from '../session.js';
 import { StepUpProvider } from '../stepup.js';
 import { Button, Notice, useAction } from '../ui/kit.js';
 import { Devices } from './Devices.js';
+import { Account } from './Account.js';
 import { ListScreen } from './ListScreen.js';
 import { People } from './People.js';
 import { Security } from './Security.js';
@@ -81,7 +82,9 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
           </nav>
           <div className="shell-person">
             <p>
-              {user.name}
+              <Link to="/conta" current={path === '/conta'}>
+                {user.name}
+              </Link>
               <span className="shell-role">{ROLE_NAMES[user.role]}</span>
             </p>
             <Button variant="quiet" onClick={signOut.run} busy={signOut.busy}>
@@ -93,6 +96,8 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
           {signOut.error ? <Notice tone="error">{signOut.error}</Notice> : null}
           {listId !== undefined ? (
             <ListScreen key={listId} listId={listId} me={user} canSeePeople={can('users.manage')} />
+          ) : path === '/conta' ? (
+            <Account me={user} />
           ) : here === undefined ? (
             <>
               <h1>Esta página não existe</h1>

@@ -46,6 +46,16 @@ export function ListScreen({
     enabled: list !== undefined,
   });
   const people = useQuery({ queryKey: ['users'], queryFn: api.users, enabled: canSeePeople });
+  // Whoever hands out work here sees who can take it, without managing users.
+  const handsOutWork =
+    list !== undefined &&
+    list.itemScope === 'all' &&
+    (list.level === 'edit' || list.level === 'manage');
+  const workers = useQuery({
+    queryKey: ['list-people', listId],
+    queryFn: () => api.listPeople(listId),
+    enabled: handsOutWork,
+  });
   const [editing, setEditing] = useState<'stages' | 'fields' | null>(null);
 
   const unlock = useAction(
@@ -73,7 +83,9 @@ export function ListScreen({
 
   const space = tree.data.spaces.find((candidate) => candidate.id === list.spaceId);
   const folder = tree.data.folders.find((candidate) => candidate.id === list.folderId);
-  const names = new Map((people.data ?? []).map((user) => [user.id, user.name]));
+  const names = new Map(
+    [...(workers.data ?? []), ...(people.data ?? [])].map((user) => [user.id, user.name]),
+  );
   const nameOf = (userId: string | null): string =>
     userId === null ? 'sistema' : userId === me.id ? 'você' : (names.get(userId) ?? 'outra pessoa');
   const canEdit = list.level === 'edit' || list.level === 'manage';
@@ -182,6 +194,7 @@ export function ListScreen({
           canEdit={canEdit}
           nameOf={nameOf}
           listNameOf={listNameOf}
+          workers={handsOutWork ? (workers.data ?? []) : null}
         />
       ))}
       <Trash listId={listId} canEdit={canEdit} nameOf={nameOf} />
@@ -198,6 +211,7 @@ function StageGroup({
   canEdit,
   nameOf,
   listNameOf,
+  workers,
 }: {
   stage: Stage;
   stages: Stage[];
@@ -208,6 +222,8 @@ function StageGroup({
   canEdit: boolean;
   nameOf: (userId: string | null) => string;
   listNameOf: (listId: string) => string | undefined;
+  /** People work here can be handed to; null for someone who does not hand out work. */
+  workers: { id: string; name: string }[] | null;
 }): ReactNode {
   const [open, setOpen] = useState(true);
   return (
@@ -258,6 +274,7 @@ function StageGroup({
                 canEdit={canEdit}
                 nameOf={nameOf}
                 listNameOf={listNameOf}
+                workers={workers}
               />
             ))}
           </ul>
@@ -280,6 +297,7 @@ function ItemRow({
   canEdit,
   nameOf,
   listNameOf,
+  workers,
 }: {
   item: Item;
   stages: Stage[];
@@ -288,6 +306,8 @@ function ItemRow({
   canEdit: boolean;
   nameOf: (userId: string | null) => string;
   listNameOf: (listId: string) => string | undefined;
+  /** People work here can be handed to; null for someone who does not hand out work. */
+  workers: { id: string; name: string }[] | null;
 }): ReactNode {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -359,6 +379,7 @@ function ItemRow({
           canEdit={canEdit}
           nameOf={nameOf}
           listNameOf={listNameOf}
+          workers={workers}
         />
       ) : null}
     </li>

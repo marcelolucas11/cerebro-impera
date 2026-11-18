@@ -439,6 +439,19 @@ code {
   align-items: center;
 }
 
+/* The person's own name leads to their account: quiet until pointed at. */
+.shell-person a {
+  color: var(--texto);
+  text-decoration: underline;
+  text-decoration-color: var(--linha);
+  text-underline-offset: 0.25em;
+}
+
+.shell-person a:hover,
+.shell-person a[aria-current='page'] {
+  text-decoration-color: var(--marca);
+}
+
 .shell-role {
   margin-left: 0.625rem;
   color: var(--texto-suave);

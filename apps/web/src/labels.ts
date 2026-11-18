@@ -81,6 +81,7 @@ const ACTION_NAMES: Record<string, string> = {
   'list_stages.delete': 'Etapa removida de uma lista',
   'list_fields.insert': 'Campo criado em uma lista',
   'list_fields.update': 'Campo de uma lista alterado',
+  'password.changed': 'Senha trocada pela própria pessoa',
   'items.purged': 'Itens removidos de vez da lixeira, depois de 30 dias',
   'access_grants.insert': 'Acesso concedido',
   'access_grants.update': 'Acesso alterado',

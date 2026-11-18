@@ -8,15 +8,17 @@ export function PasswordField({
   value,
   onChange,
   identity,
+  label = 'Crie uma senha',
 }: {
   value: string;
   onChange: (value: string) => void;
   identity: { email?: string; name?: string };
+  label?: string;
 }): ReactNode {
   const problem = value === '' ? undefined : checkPassword(value, identity)[0];
   return (
     <Field
-      label="Crie uma senha"
+      label={label}
       type="password"
       autoComplete="new-password"
       value={value}
