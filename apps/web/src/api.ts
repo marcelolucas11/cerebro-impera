@@ -208,6 +208,8 @@ export interface Item {
   checks: { done: number; total: number };
   /** Comments on it that were not removed. */
   comments: number;
+  /** How often it comes back once finished; null when it does not. */
+  recurrence: Recurrence | null;
   /** Set only for an item in the trash. */
   trashedAt: string | null;
   trashedBy: string | null;
@@ -261,10 +263,17 @@ export interface ItemChange {
     | 'check_done'
     | 'check_undone'
     | 'check_renamed'
-    | 'check_removed';
+    | 'check_removed'
+    | 'recurrence'
+    | 'repeated';
   fieldId: string | null;
   old: unknown;
   new: unknown;
+}
+/** Every so many days, weeks, months or years. */
+export interface Recurrence {
+  unit: 'day' | 'week' | 'month' | 'year';
+  every: number;
 }
 /** A comment on an item, with what the person may do with it. */
 export interface ItemComment {
@@ -457,6 +466,9 @@ export const api = {
     request<ItemComment>('DELETE', `/api/comments/${commentId}`),
   commentVersions: (commentId: string) =>
     request<{ body: string; replacedAt: string }[]>('GET', `/api/comments/${commentId}/versions`),
+  setRecurrence: (itemId: string, rule: Recurrence) =>
+    request<Item>('PUT', `/api/items/${itemId}/recurrence`, rule),
+  clearRecurrence: (itemId: string) => request<Item>('DELETE', `/api/items/${itemId}/recurrence`),
   checklist: (itemId: string) => request<CheckLine[]>('GET', `/api/items/${itemId}/checklist`),
   addCheck: (itemId: string, text: string) =>
     request<CheckLine>('POST', `/api/items/${itemId}/checklist`, { text }),

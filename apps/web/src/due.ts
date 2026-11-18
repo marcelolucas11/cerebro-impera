@@ -1,4 +1,4 @@
-import type { Item } from './api.js';
+import type { Item, Recurrence } from './api.js';
 import { addDays } from './timeline.js';
 
 /*
@@ -65,3 +65,27 @@ export function dueText(dueDate: string, today: string, state: DueState): string
 export function isFinished(item: Item, finishedStages: ReadonlySet<string>): boolean {
   return finishedStages.has(item.stageId);
 }
+
+const UNIT_WORDS: Record<Recurrence['unit'], { one: string; many: string; gender: 'm' | 'f' }> = {
+  day: { one: 'dia', many: 'dias', gender: 'm' },
+  week: { one: 'semana', many: 'semanas', gender: 'f' },
+  month: { one: 'mês', many: 'meses', gender: 'm' },
+  year: { one: 'ano', many: 'anos', gender: 'm' },
+};
+
+/** "toda semana", "a cada 2 meses": how often an item comes back. */
+export function recurrenceText(rule: Recurrence): string {
+  const words = UNIT_WORDS[rule.unit];
+  if (rule.every === 1) return `${words.gender === 'f' ? 'toda' : 'todo'} ${words.one}`;
+  return `a cada ${String(rule.every)} ${words.many}`;
+}
+
+/** The choices offered for repeating, most common first. */
+export const RECURRENCE_CHOICES: readonly Recurrence[] = [
+  { unit: 'day', every: 1 },
+  { unit: 'week', every: 1 },
+  { unit: 'week', every: 2 },
+  { unit: 'month', every: 1 },
+  { unit: 'month', every: 3 },
+  { unit: 'year', every: 1 },
+];

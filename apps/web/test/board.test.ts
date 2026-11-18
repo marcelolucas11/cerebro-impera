@@ -41,6 +41,7 @@ const item = (id: string, stageId: string, since: string): Item => ({
   parentId: null,
   checks: { done: 0, total: 0 },
   comments: 0,
+  recurrence: null,
   trashedAt: null,
   trashedBy: null,
 });

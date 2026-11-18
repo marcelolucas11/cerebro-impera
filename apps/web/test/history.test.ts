@@ -157,6 +157,28 @@ describe('a line of an item’s history', () => {
     );
   });
 
+  it('says how an item repeats, and where a repeated one came from', () => {
+    expect(say({ what: 'recurrence', new: { unit: 'week', every: 1 } })).toBe(
+      'Você fez o item repetir toda semana',
+    );
+    expect(
+      say({
+        what: 'recurrence',
+        old: { unit: 'week', every: 1 },
+        new: { unit: 'month', every: 2 },
+      }),
+    ).toBe('Você mudou a repetição de toda semana para a cada 2 meses');
+    expect(say({ what: 'recurrence', old: { unit: 'day', every: 1 } })).toBe(
+      'Você fez o item parar de repetir',
+    );
+    expect(say({ what: 'repeated', actor: ANA, new: 'pai' })).toBe(
+      'Ana terminou “Campanha”, e este item veio em seguida',
+    );
+    expect(say({ what: 'repeated', new: 'escondido' })).toBe(
+      'Você terminou o item anterior, e este item veio em seguida',
+    );
+  });
+
   it('says a secret changed, and never what it is', () => {
     const marker = { secret: true };
     expect(say({ what: 'field', fieldId: 'senha', new: marker })).toBe(

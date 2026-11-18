@@ -31,6 +31,7 @@ import {
   bulkSchema,
   addCheckSchema,
   commentSchema,
+  recurrenceSchema,
   updateCheckSchema,
   searchQuerySchema,
   orderItemsSchema,
@@ -324,6 +325,17 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     const body = parse(bulkSchema, request.body);
     return signedIn(request, (tx, actor) => structure.bulkChange(tx, actor, id, body));
+  });
+
+  // ---- Recurrence ------------------------------------------------------------------
+  app.put('/api/items/:id/recurrence', (request) => {
+    const id = paramId(request);
+    const body = parse(recurrenceSchema, request.body);
+    return signedIn(request, (tx, actor) => structure.setRecurrence(tx, actor, id, body));
+  });
+  app.delete('/api/items/:id/recurrence', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => structure.clearRecurrence(tx, actor, id));
   });
 
   // ---- Comments --------------------------------------------------------------------

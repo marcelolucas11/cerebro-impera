@@ -1,6 +1,6 @@
 import type { FieldValue } from '@cerebro/shared';
 import type { ItemChange } from './api.js';
-import { fullDay, priorityLabel } from './due.js';
+import { fullDay, priorityLabel, recurrenceText } from './due.js';
 import { showValue, type FieldLike } from './fieldvalues.js';
 
 /*
@@ -120,6 +120,27 @@ export function describeChange(change: ItemChange, context: HistoryContext): Cha
       };
     case 'check_removed':
       return { sentence: `${who} tirou da checklist: “${text(change.old)}”` };
+    case 'recurrence': {
+      const rule = (value: unknown): string | null => {
+        if (typeof value !== 'object' || value === null) return null;
+        const { unit, every } = value as { unit?: unknown; every?: unknown };
+        return (unit === 'day' || unit === 'week' || unit === 'month' || unit === 'year') &&
+          typeof every === 'number'
+          ? recurrenceText({ unit, every })
+          : null;
+      };
+      const [before, after] = [rule(change.old), rule(change.new)];
+      if (after === null) return { sentence: `${who} fez o item parar de repetir` };
+      return before === null
+        ? { sentence: `${who} fez o item repetir ${after}` }
+        : { sentence: `${who} mudou a repetição de ${before} para ${after}` };
+    }
+    case 'repeated': {
+      const title = typeof change.new === 'string' ? context.itemTitleOf?.(change.new) : undefined;
+      return {
+        sentence: `${who} terminou ${title === undefined ? 'o item anterior' : `“${title}”`}, e este item veio em seguida`,
+      };
+    }
     case 'field': {
       const field = change.fieldId === null ? undefined : context.fieldOf(change.fieldId);
       if (!field) return { sentence: `${who} alterou um campo` };

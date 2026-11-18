@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dueState, dueText, formatDay, priorityLabel } from '../src/due.js';
+import { dueState, dueText, formatDay, priorityLabel, recurrenceText } from '../src/due.js';
 
 describe('due dates as people read them', () => {
   const today = '2026-11-18';
@@ -28,5 +28,16 @@ describe('due dates as people read them', () => {
     expect(priorityLabel(4)).toBe('4 · Baixa');
     expect(priorityLabel(null)).toBeNull();
     expect(priorityLabel(7)).toBeNull();
+  });
+});
+
+describe('how often an item comes back', () => {
+  it('reads the way it is said here', () => {
+    expect(recurrenceText({ unit: 'day', every: 1 })).toBe('todo dia');
+    expect(recurrenceText({ unit: 'week', every: 1 })).toBe('toda semana');
+    expect(recurrenceText({ unit: 'week', every: 2 })).toBe('a cada 2 semanas');
+    expect(recurrenceText({ unit: 'month', every: 1 })).toBe('todo mês');
+    expect(recurrenceText({ unit: 'month', every: 3 })).toBe('a cada 3 meses');
+    expect(recurrenceText({ unit: 'year', every: 1 })).toBe('todo ano');
   });
 });

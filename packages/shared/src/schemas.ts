@@ -244,6 +244,14 @@ export const updateCheckSchema = z
   .strictObject({ text: checkText.optional(), done: z.boolean().optional() })
   .refine((value) => Object.keys(value).length > 0, 'empty update');
 
+/** How often an item comes back once finished. */
+export const RECURRENCE_UNITS = ['day', 'week', 'month', 'year'] as const;
+export type RecurrenceUnit = (typeof RECURRENCE_UNITS)[number];
+export const recurrenceSchema = z.strictObject({
+  unit: z.enum(RECURRENCE_UNITS),
+  every: z.number().int().min(1).max(99),
+});
+
 /** Priority of an item: 1 is the most urgent, 4 the least. */
 export const PRIORITIES = [1, 2, 3, 4] as const;
 export type Priority = (typeof PRIORITIES)[number];
