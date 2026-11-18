@@ -187,6 +187,8 @@ export interface ItemView {
   fields: Record<string, FieldValue>;
   /** Secret fields that hold a value. The values themselves are never part of an item. */
   secrets: string[];
+  /** Place in its stage's column on the board; null when never placed (after the placed ones). */
+  position: number | null;
   /** When the item was sent to the trash, and by whom; null for an item in use. */
   trashedAt: Date | null;
   trashedBy: string | null;
@@ -205,6 +207,7 @@ interface ItemRow {
   stage_since: Date;
   fields: Record<string, FieldValue>;
   secrets: string[];
+  position: number | null;
   deleted_at: Date | null;
   deleted_by: string | null;
 }
@@ -223,13 +226,14 @@ function toItem(row: ItemRow): ItemView {
     stageSince: row.stage_since,
     fields: row.fields,
     secrets: row.secrets,
+    position: row.position,
     trashedAt: row.deleted_at,
     trashedBy: row.deleted_by,
   };
 }
 
 const ITEM_COLUMNS = `i.id, i.list_id, i.title, i.description, i.created_by, i.created_at, i.updated_at,
-  i.stage_id, i.stage_since, i.deleted_at, i.deleted_by,
+  i.stage_id, i.stage_since, i.deleted_at, i.deleted_by, i.position,
   coalesce((SELECT array_agg(ia.user_id ORDER BY ia.assigned_at)
             FROM app.item_assignees ia WHERE ia.item_id = i.id), '{}'::uuid[]) AS assignees,
   coalesce((SELECT jsonb_object_agg(v.field_id, v.value)
@@ -492,4 +496,26 @@ export async function listTrash(tx: Tx, actor: Actor, listId: string): Promise<I
 export async function purgeTrash(db: Tx): Promise<number> {
   const result = await one<{ purged: number }>(db, sql`SELECT app.purge_trash() AS purged`);
   return result?.purged ?? 0;
+}
+
+/**
+ * Puts items of one stage in the order given, top first. Every item must be
+ * one the caller may edit, in that list and stage; otherwise nothing changes.
+ */
+export async function orderStage(
+  tx: Tx,
+  actor: Actor,
+  listId: string,
+  body: { stageId: string; ids: readonly string[] },
+): Promise<void> {
+  await openList(tx, actor, listId, 'edit');
+  for (const [index, itemId] of body.ids.entries()) {
+    const changed = await run(
+      tx,
+      sql`UPDATE app.items SET position = ${(index + 1) * 1024}
+          WHERE id = ${itemId} AND list_id = ${listId} AND stage_id = ${body.stageId}
+            AND deleted_at IS NULL`,
+    );
+    if (changed !== 1) throw badRequest('invalid_order');
+  }
 }

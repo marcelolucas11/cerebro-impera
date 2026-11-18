@@ -59,3 +59,23 @@ export function edgeScroll(x: number, left: number, right: number): number {
 export function moved(item: Item, stageId: string, now: number): Item {
   return { ...item, stageId, stageSince: new Date(now).toISOString() };
 }
+
+/** Where a card would go among the others: how many of their middles are above the pointer. */
+export function indexAt(y: number, middles: readonly number[]): number {
+  return middles.filter((middle) => middle < y).length;
+}
+
+/** The column's ids with one moved (or brought in) to a place, the others keeping their order. */
+export function placeAt(ids: readonly string[], movedId: string, index: number): string[] {
+  const others = ids.filter((id) => id !== movedId);
+  const at = Math.max(0, Math.min(index, others.length));
+  return [...others.slice(0, at), movedId, ...others.slice(at)];
+}
+
+/** The items with the places an order gives them, shown before the server confirms. */
+export function placed(items: readonly Item[], ids: readonly string[]): Item[] {
+  const places = new Map(ids.map((id, index) => [id, (index + 1) * 1024]));
+  return items.map((item) =>
+    places.has(item.id) ? { ...item, position: places.get(item.id) ?? null } : item,
+  );
+}

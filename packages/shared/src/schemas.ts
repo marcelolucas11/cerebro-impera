@@ -225,6 +225,16 @@ export const updateItemSchema = z
     fields: fieldValuesSchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'empty update');
+/** The order of items in one stage, as the board shows it, top first. */
+export const orderItemsSchema = z.strictObject({
+  stageId: idSchema,
+  ids: z
+    .array(idSchema)
+    .min(1)
+    .max(500)
+    .refine((ids) => new Set(ids).size === ids.length, 'repeated item'),
+});
+
 /** The query part of an address as the page writes it ("?busca=…"), or nothing. */
 export const VIEW_QUERY_PATTERN = /^(\?[A-Za-z0-9%._~:=&+-]*)?$/;
 export const MAX_VIEWS_PER_LIST = 30;

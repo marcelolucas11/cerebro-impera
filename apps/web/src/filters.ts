@@ -31,14 +31,15 @@ export interface Filter {
   field: { id: string; test: FieldTest } | null;
 }
 
-export type SortKey = 'stage' | 'title' | 'created' | 'updated' | `field:${string}`;
+export type SortKey = 'manual' | 'stage' | 'title' | 'created' | 'updated' | `field:${string}`;
 export interface Sort {
   key: SortKey;
   descending: boolean;
 }
 
 export const NO_FILTER: Filter = { text: '', who: 'anyone', stageId: null, field: null };
-export const DEFAULT_SORT: Sort = { key: 'stage', descending: false };
+/** The board's own order: where people placed the cards, then whoever waited longest. */
+export const DEFAULT_SORT: Sort = { key: 'manual', descending: false };
 
 export function isFiltering(filter: Filter): boolean {
   return (
@@ -151,6 +152,7 @@ export function matches(item: Item, filter: Filter, context: Context): boolean {
 /** What an item is sorted by; null sorts last, whichever the direction. */
 function sortValue(item: Item, key: SortKey, fields: readonly FieldLike[]): string | number | null {
   switch (key) {
+    case 'manual':
     case 'stage':
       return Date.parse(item.stageSince);
     case 'title':
@@ -183,6 +185,20 @@ export function sortItems(
   fields: readonly FieldLike[],
 ): Item[] {
   const direction = sort.descending ? -1 : 1;
+  if (sort.key === 'manual') {
+    // Placed cards first, in their places; the rest after, longest waiting first.
+    return [...items].sort((a, b) => {
+      const placed =
+        a.position !== null && b.position !== null
+          ? a.position - b.position
+          : a.position !== null
+            ? -1
+            : b.position !== null
+              ? 1
+              : Date.parse(a.stageSince) - Date.parse(b.stageSince);
+      return (placed === 0 ? a.id.localeCompare(b.id) : placed) * direction;
+    });
+  }
   return [...items].sort((a, b) => {
     const left = sortValue(a, sort.key, fields);
     const right = sortValue(b, sort.key, fields);
@@ -249,11 +265,15 @@ export function fromSearch(search: string): { filter: Filter; sort: Sort; column
         field = { id: fieldId, test: { op, value: number } };
     } else if (raw !== '') field = { id: fieldId, test: { op, value: raw.slice(0, 200) } };
   }
-  const key = params.get('ordem') ?? 'stage';
+  const key = params.get('ordem') ?? 'manual';
   const sortKey: SortKey =
-    key === 'title' || key === 'created' || key === 'updated' || key.startsWith('field:')
+    key === 'stage' ||
+    key === 'title' ||
+    key === 'created' ||
+    key === 'updated' ||
+    key.startsWith('field:')
       ? (key as SortKey)
-      : 'stage';
+      : 'manual';
   const listed = params.get('colunas');
   const columns =
     listed === null
@@ -277,7 +297,7 @@ export function toSearch(filter: Filter, sort: Sort, columns: Columns = null): s
     params.set('teste', filter.field.test.op);
     if ('value' in filter.field.test) params.set('valor', String(filter.field.test.value));
   }
-  if (sort.key !== 'stage') params.set('ordem', sort.key);
+  if (sort.key !== 'manual') params.set('ordem', sort.key);
   if (sort.descending) params.set('direcao', 'desc');
   if (columns !== null) params.set('colunas', columns.join(','));
   const text = params.toString();

@@ -28,6 +28,7 @@ import {
   setupSchema,
   setupTotpSchema,
   setSecretSchema,
+  orderItemsSchema,
   createViewSchema,
   updateViewSchema,
   startUploadSchema,
@@ -297,6 +298,13 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     const query = parse(itemHistoryQuerySchema, request.query);
     return signedIn(request, (tx, actor) => history.itemHistory(tx, actor, id, query));
+  });
+
+  app.put('/api/lists/:id/order', async (request) => {
+    const id = paramId(request);
+    const body = parse(orderItemsSchema, request.body);
+    await signedIn(request, (tx, actor) => structure.orderStage(tx, actor, id, body));
+    return { ok: true };
   });
 
   // ---- Saved views -----------------------------------------------------------------

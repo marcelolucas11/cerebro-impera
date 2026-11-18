@@ -286,6 +286,7 @@ export function ListScreen({
           listId={listId}
           stages={shownStages}
           items={visible}
+          manualOrder={sort.key === 'manual' && !sort.descending}
           fields={fields.data}
           canEdit={canEdit}
           nameOf={nameOf}
