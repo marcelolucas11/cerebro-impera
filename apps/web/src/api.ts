@@ -275,6 +275,20 @@ export interface Recurrence {
   unit: 'day' | 'week' | 'month' | 'year';
   every: number;
 }
+/** Something that happened that this person should know of. */
+export interface AppNotification {
+  id: number;
+  kind: 'mentioned' | 'assigned' | 'commented' | 'due_today' | 'overdue';
+  itemId: string;
+  itemTitle: string;
+  listId: string;
+  commentId: string | null;
+  actorId: string | null;
+  actorName: string | null;
+  dueOn: string | null;
+  createdAt: string;
+  readAt: string | null;
+}
 /** A comment on an item, with what the person may do with it. */
 export interface ItemComment {
   id: string;
@@ -466,6 +480,14 @@ export const api = {
     request<ItemComment>('DELETE', `/api/comments/${commentId}`),
   commentVersions: (commentId: string) =>
     request<{ body: string; replacedAt: string }[]>('GET', `/api/comments/${commentId}/versions`),
+  notifications: (before?: number) =>
+    request<AppNotification[]>(
+      'GET',
+      `/api/notifications${before === undefined ? '' : `?antes=${String(before)}`}`,
+    ),
+  unreadNotifications: () => request<{ unread: number }>('GET', '/api/notifications/unread'),
+  readNotifications: (ids?: number[]) =>
+    request<{ read: number }>('POST', '/api/notifications/read', ids === undefined ? {} : { ids }),
   setRecurrence: (itemId: string, rule: Recurrence) =>
     request<Item>('PUT', `/api/items/${itemId}/recurrence`, rule),
   clearRecurrence: (itemId: string) => request<Item>('DELETE', `/api/items/${itemId}/recurrence`),
