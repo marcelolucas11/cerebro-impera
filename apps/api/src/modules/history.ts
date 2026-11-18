@@ -9,7 +9,19 @@ import { openItem } from './structure.js';
  */
 
 export type ItemChangeKind =
-  'created' | 'title' | 'description' | 'list' | 'stage' | 'assigned' | 'unassigned' | 'field';
+  | 'created'
+  | 'title'
+  | 'description'
+  | 'list'
+  | 'stage'
+  | 'assigned'
+  | 'unassigned'
+  | 'field'
+  | 'trashed'
+  | 'restored'
+  | 'attachment_added'
+  | 'attachment_removed'
+  | 'attachment_restored';
 
 export interface ItemChangeView {
   id: number;

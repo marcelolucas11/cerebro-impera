@@ -25,11 +25,27 @@ No primeiro start:
    docker compose --file infra/compose.yaml exec api cat /opt/cerebro/config/setup-token
    ```
 
+## Anexos e antivírus
+
+Os anexos ficam no volume `files`, cifrados arquivo a arquivo; só a API o monta. Enquanto
+`CEREBRO_ANTIVIRUS` estiver vazio, enviar anexos fica desligado. Para ligar com o ClamAV:
+
+```sh
+CEREBRO_ANTIVIRUS=clamd://clamav:3310 CEREBRO_PUBLIC_ORIGIN=https://cerebro.exemplo.test \
+  docker compose --file infra/compose.yaml --profile antivirus up --detach
+```
+
+O ClamAV precisa de 1,2 a 1,5 GB de memória e leva alguns minutos no primeiro start para baixar
+as assinaturas; até lá, os arquivos esperam "em verificação". `CEREBRO_ANTIVIRUS=off` liga os
+anexos sem antivírus, e cada arquivo aparece como "não verificado pelo antivírus".
+
 ## O que protege o quê
 
 | Medida                                                              | Efeito                                                                |
 | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | Rede `db` interna, banco sem `ports`                                | o PostgreSQL não é alcançável de fora nem alcança a internet          |
+| Rede `scan` interna, antivírus sem `ports`                          | só a API fala com o antivírus; ele só sai para buscar assinaturas     |
+| Volume `files` montado só na API, arquivos cifrados                 | uma cópia do disco não revela o conteúdo dos anexos                   |
 | API publicada só em `127.0.0.1`                                     | só o proxy reverso do próprio servidor fala com ela                   |
 | `read_only`, `cap_drop: ALL`, `no-new-privileges`, usuário sem root | uma falha na API não altera o código nem ganha privilégio no servidor |
 | Segredos só no volume `config`                                      | nada sensível no repositório, na imagem ou em variáveis de ambiente   |
@@ -37,6 +53,7 @@ No primeiro start:
 
 ## Guardar com cuidado
 
-O volume `config` contém a chave da instância. **Sem ela, os segundos fatores e os campos secretos
-guardados no banco não podem ser lidos**, e um backup do banco sozinho não basta para restaurar.
+O volume `config` contém a chave da instância. **Sem ela, os segundos fatores, os campos secretos
+e os anexos não podem ser lidos**, e um backup do banco sozinho não basta para restaurar: o volume
+`files` precisa ir junto.
 Ela precisa de cópia própria, em lugar separado do backup do banco.

@@ -8,6 +8,7 @@ import { formatDuration, formatWhen } from '../labels.js';
 import { describeError } from '../messages.js';
 import { useGuard } from '../stepup.js';
 import { Button, Field, Form, Notice, Select, useAction } from '../ui/kit.js';
+import { Attachments } from './Attachments.js';
 import { FieldInput, FieldValueView } from './FieldInput.js';
 
 /** One item opened in place: what it says, what its list records about it, and every stage it has been through. */
@@ -143,6 +144,7 @@ export function ItemPanel({
           ) : null}
         </>
       )}
+      <Attachments item={item} canEdit={canEdit} nameOf={nameOf} />
       <div className="subsection">
         <h3>Tempo em cada etapa</h3>
         {history.isError ? <Notice tone="error">{describeError(history.error)}</Notice> : null}

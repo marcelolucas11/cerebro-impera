@@ -46,7 +46,11 @@ const env = {
   CEREBRO_HOST: '127.0.0.1',
   CEREBRO_PORT: port,
   CEREBRO_WEB_ROOT: resolve(import.meta.dirname, '../dist'),
+  CEREBRO_FILES_DIR: join(work, 'files'),
+  // No antivirus in the browser tests: files are kept, marked as not checked.
+  CEREBRO_ANTIVIRUS: 'off',
 };
+mkdirSync(env.CEREBRO_FILES_DIR, { recursive: true, mode: 0o700 });
 
 function run(command) {
   const result = spawnSync(process.execPath, [cli, command], { env, stdio: 'inherit' });

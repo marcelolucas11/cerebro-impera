@@ -37,6 +37,8 @@ export const APP_CONTENT_SECURITY_POLICY = [
   "style-src 'self'",
   "font-src 'self'",
   "img-src 'self'",
+  // Audio and video attachments play from this origin only.
+  "media-src 'self'",
   "connect-src 'self'",
   "manifest-src 'self'",
   "worker-src 'self'",

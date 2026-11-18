@@ -30,10 +30,35 @@ export interface Config {
   setupTokenFile: string;
   /** Folder with the built web app, served by the API itself. Null runs the API alone. */
   webRoot: string | null;
+  /** Where attachment content is kept, and the largest file accepted. */
+  files: { dir: string; maxBytes: number };
+  /**
+   * The antivirus attachments go through. Null until the installation chooses:
+   * attachments are refused meanwhile. "off" is a deliberate choice to keep
+   * files marked as not checked.
+   */
+  antivirus: { kind: 'clamd'; host: string; port: number } | { kind: 'off' } | null;
+}
+
+export function parseAntivirus(raw: string | undefined): Config['antivirus'] {
+  if (raw === undefined || raw === '') return null;
+  if (raw === 'off') return { kind: 'off' };
+  const match = /^clamd:\/\/([A-Za-z0-9.-]+):(\d{1,5})$/.exec(raw);
+  if (!match) throw new Error('CEREBRO_ANTIVIRUS must be "off" or clamd://host:port');
+  return { kind: 'clamd', host: match[1] ?? '', port: Number(match[2]) };
 }
 
 /** OWASP-recommended range for argon2id; raise it if the server can afford it. */
 export const DEFAULT_ARGON2: Argon2Params = { memoryCost: 65_536, timeCost: 3, parallelism: 1 };
+
+/** 2 GB unless the installation says otherwise; never above 1 TB. */
+function maxAttachmentBytes(raw: string | undefined): number {
+  const megabytes = raw === undefined || raw === '' ? 2048 : Number(raw);
+  if (!Number.isInteger(megabytes) || megabytes < 1 || megabytes > 1_048_576) {
+    throw new Error('CEREBRO_MAX_ATTACHMENT_MB must be a whole number of megabytes');
+  }
+  return megabytes * 1024 * 1024;
+}
 
 function required(env: NodeJS.ProcessEnv, key: string): string {
   const value = env[key];
@@ -89,5 +114,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       env.CEREBRO_WEB_ROOT === undefined || env.CEREBRO_WEB_ROOT === ''
         ? null
         : env.CEREBRO_WEB_ROOT,
+    files: {
+      dir: env.CEREBRO_FILES_DIR ?? '/opt/cerebro/files',
+      maxBytes: maxAttachmentBytes(env.CEREBRO_MAX_ATTACHMENT_MB),
+    },
+    antivirus: parseAntivirus(env.CEREBRO_ANTIVIRUS),
   };
 }

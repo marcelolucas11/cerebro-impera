@@ -527,6 +527,66 @@ test('work is handed to someone who can do it, and she finds it at once', async 
   await expect(hers.locator('.item-panel')).toContainText('Conferido por');
 });
 
+/** A one-pixel PNG: the smallest picture a browser will draw. */
+const PIXEL = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64',
+);
+const SCRIPT = 'Abertura, oferta, chamada.\n';
+
+test('files go with the item: sent from the phone, shown in place, downloaded as they were', async () => {
+  const hers = ana.locator('.item-rows > li').filter({ hasText: 'Subir campanha do cliente' });
+  const files = hers.locator('.subsection > .files > .file');
+  await hers.getByLabel('Anexar arquivos a Subir campanha do cliente').setInputFiles([
+    { name: 'briefing.png', mimeType: 'image/png', buffer: PIXEL },
+    { name: 'roteiro.txt', mimeType: 'text/plain', buffer: Buffer.from(SCRIPT) },
+  ]);
+  const picture = files.filter({ hasText: 'briefing.png' });
+  const script = files.filter({ hasText: 'roteiro.txt' });
+  await expect(script.getByRole('button', { name: 'Baixar roteiro.txt' })).toBeVisible();
+  // This installation runs without an antivirus, and every file says so.
+  await expect(picture).toContainText('não verificado pelo antivírus');
+  await picture.getByRole('button', { name: 'Ver briefing.png' }).click();
+  const shown = picture.getByRole('img', { name: 'briefing.png' });
+  await expect(shown).toBeVisible();
+  await expect
+    .poll(() => shown.evaluate((element) => (element as HTMLImageElement).naturalWidth))
+    .toBe(1);
+  // Text is never shown inside the page, only downloaded.
+  await expect(script.getByRole('button', { name: /^(Ver|Tocar)/ })).toHaveCount(0);
+  await shot(ana, 'anexos');
+
+  // On the computer, the owner downloads it exactly as it was sent.
+  await owner.reload();
+  await heading(owner, 'Tarefas');
+  const item = owner.locator('.item-rows > li').filter({ hasText: 'Subir campanha do cliente' });
+  await owner.getByRole('button', { name: 'Subir campanha do cliente', exact: true }).click();
+  const [download] = await Promise.all([
+    owner.waitForEvent('download'),
+    item.getByRole('button', { name: 'Baixar roteiro.txt' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('roteiro.txt');
+  expect(await readFile(await download.path(), 'utf8')).toBe(SCRIPT);
+
+  // Ana removes one, finds it in the trash and brings it back.
+  await script.getByRole('button', { name: 'Mandar para a lixeira o anexo roteiro.txt' }).click();
+  await expect(script).toHaveCount(0);
+  await hers.getByRole('button', { name: 'Ver anexos na lixeira' }).click();
+  await hers.getByRole('button', { name: 'Restaurar o anexo roteiro.txt' }).click();
+  await expect(script).toHaveCount(1);
+  await expect(hers.getByText('Nenhum anexo na lixeira.')).toBeVisible();
+
+  // The item's history tells all of it.
+  await owner.reload();
+  await heading(owner, 'Tarefas');
+  await owner.getByRole('button', { name: 'Subir campanha do cliente', exact: true }).click();
+  await item.getByRole('button', { name: 'Ver o que mudou neste item' }).click();
+  const changes = item.locator('.changes');
+  await expect(changes).toContainText('Ana Souza anexou “briefing.png”');
+  await expect(changes).toContainText('Ana Souza mandou o anexo “roteiro.txt” para a lixeira');
+  await expect(changes).toContainText('Ana Souza tirou o anexo “roteiro.txt” da lixeira');
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');

@@ -25,6 +25,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 async function request<T>(method: Method, path: string, body?: unknown): Promise<T> {
+  return call<T>(
+    method,
+    path,
+    method === 'GET' ? null : { type: 'application/json', content: JSON.stringify(body ?? {}) },
+  );
+}
+
+/** A request whose body is raw bytes: a part of a file being sent. */
+async function sendBytes<T>(method: Method, path: string, content: Blob): Promise<T> {
+  return call<T>(method, path, { type: 'application/octet-stream', content });
+}
+
+async function call<T>(
+  method: Method,
+  path: string,
+  body: { type: string; content: string | Blob } | null,
+): Promise<T> {
   let response: Response;
   try {
     response = await fetch(path, {
@@ -33,10 +50,10 @@ async function request<T>(method: Method, path: string, body?: unknown): Promise
       cache: 'no-store',
       redirect: 'error',
       headers:
-        method === 'GET'
+        body === null
           ? { accept: 'application/json' }
-          : { accept: 'application/json', 'content-type': 'application/json' },
-      ...(method === 'GET' ? {} : { body: JSON.stringify(body ?? {}) }),
+          : { accept: 'application/json', 'content-type': body.type },
+      ...(body === null ? {} : { body: body.content }),
     });
   } catch {
     throw new ApiError(0, 'network');
@@ -215,7 +232,10 @@ export interface ItemChange {
     | 'unassigned'
     | 'field'
     | 'trashed'
-    | 'restored';
+    | 'restored'
+    | 'attachment_added'
+    | 'attachment_removed'
+    | 'attachment_restored';
   fieldId: string | null;
   old: unknown;
   new: unknown;
@@ -236,6 +256,28 @@ export interface StageStay {
   enteredAt: string;
   leftAt: string | null;
   movedBy: string | null;
+}
+
+export type AttachmentStatus = 'uploading' | 'scanning' | 'ready' | 'blocked';
+export interface Attachment {
+  id: string;
+  itemId: string;
+  name: string;
+  size: number;
+  /** What the content is, read from it by the server; null when it is none of the known types. */
+  type: string | null;
+  status: AttachmentStatus;
+  /** False when the installation runs without an antivirus. */
+  scanned: boolean;
+  createdBy: string;
+  createdAt: string;
+  trashedAt: string | null;
+}
+/** Where an upload stands; `received` are the parts already on the server. */
+export interface UploadState {
+  partSize: number;
+  parts: number;
+  received: number[];
 }
 
 export interface GrantInput {
@@ -378,6 +420,31 @@ export const api = {
       'GET',
       `/api/items/${itemId}/history${before === undefined ? '' : `?before=${before}`}`,
     ),
+
+  attachments: (itemId: string, options: { trash?: boolean } = {}) =>
+    request<Attachment[]>(
+      'GET',
+      `/api/items/${itemId}/attachments${options.trash === true ? '?trash=1' : ''}`,
+    ),
+  /** Asked through the list, so a sensitive list asks for the code instead of saying "not found". */
+  attachmentInList: (listId: string, id: string) =>
+    request<Attachment>('GET', `/api/lists/${listId}/attachments/${id}`),
+  startUpload: (itemId: string, input: { name: string; size: number; type: string }) =>
+    request<{ id: string; partSize: number; parts: number }>(
+      'POST',
+      `/api/items/${itemId}/attachments`,
+      input,
+    ),
+  uploadState: (id: string) => request<UploadState>('GET', `/api/uploads/${id}`),
+  sendPart: (id: string, n: number, part: Blob) =>
+    sendBytes<UploadState>('PUT', `/api/uploads/${id}/parts/${n}`, part),
+  finishUpload: (id: string) => request<Attachment>('POST', `/api/uploads/${id}/finish`),
+  cancelUpload: (id: string) => request<{ ok: true }>('DELETE', `/api/uploads/${id}`),
+  trashAttachment: (id: string) => request<{ ok: true }>('POST', `/api/attachments/${id}/trash`),
+  restoreAttachment: (id: string) => request<Attachment>('POST', `/api/attachments/${id}/restore`),
+  /** Where the content is read from. Same origin, with the session cookie; never a public link. */
+  attachmentUrl: (id: string, options: { inline?: boolean } = {}) =>
+    `/api/attachments/${id}/content${options.inline === true ? '?inline=1' : ''}`,
 
   createSpace: (name: string) => request<{ id: string }>('POST', '/api/spaces', { name }),
   createFolder: (input: { spaceId: string; name: string }) =>

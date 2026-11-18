@@ -4,8 +4,11 @@ import { PasswordHasher } from './crypto/password.js';
 import { Vault } from './crypto/vault.js';
 import { closePools, createPools, inTransaction } from './db.js';
 import type { Deps } from './deps.js';
+import { clamdScanner, noScanner } from './files/scanner.js';
+import { FileStore } from './files/store.js';
 import { migrate } from './migrate.js';
 import { ensureSetupToken } from './modules/auth.js';
+import { purgeAttachments, resumeScans } from './modules/attachments.js';
 import { purgeTrash } from './modules/structure.js';
 import { initSecrets, readSecrets } from './secrets.js';
 
@@ -51,6 +54,13 @@ async function commandServe(): Promise<void> {
     vault: new Vault(config.masterKey),
     hasher: new PasswordHasher(config.argon2),
     now: () => Date.now(),
+    files: new FileStore(config.files.dir),
+    scanner:
+      config.antivirus === null
+        ? null
+        : config.antivirus.kind === 'off'
+          ? noScanner
+          : clamdScanner(config.antivirus.host, config.antivirus.port),
   };
   const app = await buildApp(deps);
 
@@ -64,12 +74,20 @@ async function commandServe(): Promise<void> {
   // at start and then every hour. The database decides what is old enough.
   const purge = (): void => {
     inTransaction(pools.app, purgeTrash)
-      .then((purged) => {
+      .then(async (purged) => {
         if (purged > 0) app.log.info({ purged }, 'items removed from the trash for good');
+        const files = await purgeAttachments(deps);
+        if (files > 0) app.log.info({ files }, 'attachments removed for good');
       })
       .catch((error: unknown) => {
         app.log.error({ err: error }, 'emptying the trash failed; it will be tried again');
       });
+    // Whatever is still waiting for the antivirus: after a restart, or after it was down.
+    resumeScans(deps, (error) => {
+      app.log.error({ err: error }, 'an attachment could not be checked; it will be tried again');
+    }).catch((error: unknown) => {
+      app.log.error({ err: error }, 'could not resume antivirus checks');
+    });
   };
   purge();
   const purgeTimer = setInterval(purge, 60 * 60 * 1000);

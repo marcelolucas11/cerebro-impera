@@ -27,6 +27,7 @@ RUN pnpm -r build \
 FROM node:22-bookworm-slim AS runtime
 ENV NODE_ENV=production \
     CEREBRO_CONFIG_DIR=/opt/cerebro/config \
+    CEREBRO_FILES_DIR=/opt/cerebro/files \
     CEREBRO_HOST=0.0.0.0 \
     CEREBRO_PORT=3000 \
     CEREBRO_WEB_ROOT=/app/web
@@ -34,8 +35,9 @@ WORKDIR /app
 # O código pertence ao root e o processo roda como usuário sem privilégio: mesmo
 # explorando uma falha na API, ninguém consegue alterar o código em execução.
 COPY --from=build /out/ ./
-# Único lugar gravável: os segredos da instância, criados no primeiro start.
-RUN install --directory --owner node --group node --mode 0700 /opt/cerebro/config
+# Únicos lugares graváveis: os segredos da instância, criados no primeiro start, e os
+# anexos, guardados cifrados.
+RUN install --directory --owner node --group node --mode 0700 /opt/cerebro/config /opt/cerebro/files
 USER node
 EXPOSE 3000
 ENTRYPOINT ["node", "dist/cli.js"]

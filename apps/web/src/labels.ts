@@ -54,6 +54,7 @@ export const ALERT_NAMES: Record<string, string> = {
   user_created: 'Pessoa convidada',
   owner_added: 'Novo Dono',
   owner_role_changed: 'Papel de um Dono alterado',
+  attachment_infected: 'Anexo bloqueado pelo antivírus',
 };
 
 const ACTION_NAMES: Record<string, string> = {
@@ -83,6 +84,9 @@ const ACTION_NAMES: Record<string, string> = {
   'list_fields.update': 'Campo de uma lista alterado',
   'password.changed': 'Senha trocada pela própria pessoa',
   'items.purged': 'Itens removidos de vez da lixeira, depois de 30 dias',
+  'attachment.downloaded': 'Anexo de lista sensível baixado',
+  'attachment.blocked': 'Anexo bloqueado pelo antivírus',
+  'attachments.purged': 'Anexos removidos de vez, depois do prazo',
   'access_grants.insert': 'Acesso concedido',
   'access_grants.update': 'Acesso alterado',
   'access_grants.delete': 'Acesso retirado',
@@ -100,6 +104,21 @@ const when = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: '
 export function formatWhen(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? '' : when.format(date);
+}
+
+const bytes = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
+
+/** A file size the way people read it: 820 KB, 3,4 MB, 1,2 GB. */
+export function formatBytes(size: number): string {
+  if (size < 1024) return `${size} bytes`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let value = size / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${bytes.format(value)} ${units[unit] ?? 'TB'}`;
 }
 
 /** How long something has lasted, in the largest unit that fits: people compare days, not seconds. */

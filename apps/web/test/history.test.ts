@@ -95,4 +95,18 @@ describe('a line of an item’s history', () => {
       'Você alterou um campo',
     );
   });
+
+  it('names the file that was attached, removed or brought back', () => {
+    const file = { id: 'f1', name: 'contrato.pdf' };
+    expect(say({ what: 'attachment_added', actor: ANA, new: file })).toBe(
+      'Ana anexou “contrato.pdf”',
+    );
+    expect(say({ what: 'attachment_removed', new: file })).toBe(
+      'Você mandou o anexo “contrato.pdf” para a lixeira',
+    );
+    expect(say({ what: 'attachment_restored', new: file })).toBe(
+      'Você tirou o anexo “contrato.pdf” da lixeira',
+    );
+    expect(say({ what: 'attachment_added', new: null })).toBe('Você anexou um arquivo');
+  });
 });
