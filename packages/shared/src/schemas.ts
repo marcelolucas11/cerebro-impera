@@ -9,7 +9,7 @@ import {
 } from './fields.js';
 import { PASSWORD_MAX_LENGTH } from './password.js';
 import { ROLES } from './roles.js';
-import { MAX_STAGES_PER_LIST, STAGE_KINDS } from './stages.js';
+import { MAX_STAGES_PER_LIST, STAGE_FILE_KIND, STAGE_FILE_VERSION, STAGE_KINDS } from './stages.js';
 
 /*
  * Every request body is parsed with a *strict* object: unknown keys are
@@ -112,6 +112,16 @@ const stageSetSchema = z
     (stages) => new Set(stages.map((stage) => stage.name.toLowerCase())).size === stages.length,
     'duplicate stage names',
   );
+
+/** Stages to bring into a list: missing ones are created, same-named ones take these settings. */
+export const applyStagesSchema = z.strictObject({ stages: stageSetSchema });
+/** A set of stages saved as a file, to be imported into another list or installation. */
+export const stageFileSchema = z.strictObject({
+  kind: z.literal(STAGE_FILE_KIND),
+  version: z.literal(STAGE_FILE_VERSION),
+  name: z.string().trim().min(1).max(120),
+  stages: stageSetSchema,
+});
 
 export const createListSchema = z.strictObject({
   spaceId: idSchema,

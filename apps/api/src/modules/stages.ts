@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { MAX_STAGES_PER_LIST, type StageKind } from '@cerebro/shared';
+import { MAX_STAGES_PER_LIST, type StageDraft, type StageKind } from '@cerebro/shared';
 import type { Actor } from '../actor.js';
 import { one, rows, run, sql, type Tx } from '../db.js';
 import { badRequest, conflict, notFound } from '../http/errors.js';
@@ -105,6 +105,53 @@ export async function updateStage(
   const updated = (await stagesOf(tx, stage.listId)).find((candidate) => candidate.id === stageId);
   if (!updated) throw notFound();
   return updated;
+}
+
+/**
+ * Brings a set of stages into a list, from a preset, another list or a file.
+ * Stages the list lacks are created; one with the same name (whatever the
+ * capitalisation) takes the set's color and meaning. Nothing is removed: the
+ * set comes first, in its order, and the list's other stages follow.
+ */
+export async function applyStages(
+  tx: Tx,
+  actor: Actor,
+  listId: string,
+  drafts: readonly StageDraft[],
+): Promise<StageView[]> {
+  await openList(tx, actor, listId, 'manage');
+  const current = await stagesOf(tx, listId);
+  const byName = new Map(current.map((stage) => [stage.name.toLowerCase(), stage]));
+  const missing = drafts.filter((draft) => !byName.has(draft.name.toLowerCase()));
+  if (current.length + missing.length > MAX_STAGES_PER_LIST) throw conflict('too_many_stages');
+
+  const order: string[] = [];
+  for (const draft of drafts) {
+    const existing = byName.get(draft.name.toLowerCase());
+    if (existing) {
+      await run(
+        tx,
+        sql`UPDATE app.list_stages SET color = ${draft.color}, kind = ${draft.kind}
+            WHERE id = ${existing.id}`,
+      );
+      order.push(existing.id);
+    } else {
+      const id = randomUUID();
+      await run(
+        tx,
+        sql`INSERT INTO app.list_stages (id, list_id, name, color, kind, position)
+            VALUES (${id}, ${listId}, ${draft.name}, ${draft.color}, ${draft.kind},
+                    ${current.length + order.length})`,
+      );
+      order.push(id);
+    }
+  }
+  const placed = new Set(order);
+  order.push(...current.filter((stage) => !placed.has(stage.id)).map((stage) => stage.id));
+  for (const [position, id] of order.entries()) {
+    await run(tx, sql`UPDATE app.list_stages SET position = ${position} WHERE id = ${id}`);
+  }
+  return stagesOf(tx, listId);
 }
 
 /** Sets the order of all stages of a list at once: the ids must be exactly the list's stages. */

@@ -301,6 +301,8 @@ export const api = {
     request<Stage>('POST', `/api/lists/${listId}/stages`, input),
   updateStage: (id: string, input: { name?: string; color?: string; kind?: StageKind }) =>
     request<Stage>('PATCH', `/api/stages/${id}`, input),
+  applyStages: (listId: string, stages: { name: string; color: string; kind: StageKind }[]) =>
+    request<Stage[]>('POST', `/api/lists/${listId}/stages/apply`, { stages }),
   reorderStages: (listId: string, ids: string[]) =>
     request<Stage[]>('PUT', `/api/lists/${listId}/stages/order`, { ids }),
   deleteStage: (id: string, moveTo?: string) =>

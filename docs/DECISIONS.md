@@ -294,6 +294,19 @@ tem acesso à lista de destino deixa de ver o item.
 **Por quê.** Converter moeda ou adivinhar a opção equivalente seria inventar dado. Guardar o que
 não cabe, em vez de apagar, deixa a mudança de lista sem perda.
 
+## D29 — Modelos de etapas: genéricos no código, os da empresa em arquivo
+
+**Decisão.** O código traz só modelos genéricos (tarefas, tarefas com revisão, clientes,
+aprovação). Os conjuntos de cada empresa são exportados como arquivo e importados onde for
+preciso, ou copiados de outra lista. Aplicar um conjunto cria as etapas que faltam e ajusta cor e
+significado das que têm o mesmo nome; nunca remove etapa e nunca muda item de etapa. Não há tabela
+de modelos no banco.
+
+**Por quê.** Repositório público não pode carregar a forma de trabalhar de uma empresa. Arquivo e
+cópia entre listas resolvem o reuso sem mais uma coisa com regra de acesso própria; e aplicar sem
+remover nada torna o botão seguro de apertar. Remover continua sendo no editor, escolhendo para
+onde vão os itens.
+
 ## Adiado, com motivo
 
 | Item                           | Situação                                                                                          |
