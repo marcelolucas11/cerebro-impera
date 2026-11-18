@@ -970,6 +970,31 @@ test('a comment mentions only people who see the item, and they see their name s
   await shot(ana, 'mencao-celular');
 });
 
+test('notices tell her what concerns her, and lead to the item', async () => {
+  await ana.goto('/');
+  const notices = ana.getByRole('link', { name: /^Avisos/ });
+  // Unread ones are counted in the header, on every page.
+  await expect(notices).toHaveAccessibleName(/Avisos \d+ não lidos?/);
+  await notices.click();
+  await heading(ana, 'Avisos');
+  const list = ana.locator('.notices');
+  await expect(list).toContainText('Olívia Dona mencionou você em “Conferir perfis”');
+  await expect(list).toContainText('Olívia Dona passou “Subir campanha do cliente” para você');
+  expect(await ana.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await shot(ana, 'avisos-celular');
+  // Opening one marks it read and leads to the item.
+  await list
+    .getByRole('button', { name: /^Olívia Dona mencionou você em “Conferir perfis”/ })
+    .first()
+    .click();
+  await heading(ana, 'Tarefas');
+  await expect(ana.getByRole('button', { name: 'Conferir perfis', exact: true })).toBeVisible();
+  await ana.getByRole('link', { name: /^Avisos/ }).click();
+  await ana.getByRole('button', { name: 'Marcar todos como lidos' }).click();
+  await expect(ana.getByRole('link', { name: /^Avisos/ })).toHaveAccessibleName('Avisos');
+  await expect(ana.locator('.notice-item.is-unread')).toHaveCount(0);
+});
+
 test('a recurring item comes back, a step later, when it is finished', async () => {
   const dayFrom = (offset: number): string => {
     const date = new Date();

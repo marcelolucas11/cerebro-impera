@@ -56,6 +56,7 @@ export const ALERT_NAMES: Record<string, string> = {
   owner_role_changed: 'Papel de um Dono alterado',
   attachment_infected: 'Anexo bloqueado pelo antivírus',
   bulk_delete: 'Vários itens mandados para a lixeira de uma vez',
+  trash_volume: 'Muitos itens mandados para a lixeira em pouco tempo',
 };
 
 const ACTION_NAMES: Record<string, string> = {

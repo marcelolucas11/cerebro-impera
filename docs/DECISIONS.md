@@ -672,6 +672,31 @@ As menções com @ entram na próxima fatia, junto do que decide quem pode ser m
 **Fica para depois:** repetir por agenda, sem depender de terminar (o ClickUp oferece as duas);
 repetir também as subtarefas de um pai recorrente.
 
+## D51 — Avisos dentro do aplicativo, escritos pelo banco; push com o PWA
+
+**Decisão.** O banco escreve um aviso, por qualquer caminho (`0033_notifications.sql`), quando:
+
+- a pessoa é **mencionada** (no lugar do aviso de comentário, para o mesmo comentário);
+- um item é **passado** para ela;
+- alguém **comenta** num item dela (com ela), ou num item que ela criou e que não está com ninguém;
+- um item dela **vence hoje** ou está **atrasado**, conferido de hora em hora na mesma rotina da
+  lixeira, uma vez por prazo e por tipo. "Hoje" é o dia do servidor.
+
+**Nunca para quem causou, nunca para quem não vê o item.** Cada pessoa lê só os próprios avisos, e
+só enquanto ainda vê o item; perdeu o acesso, o aviso some da lista e da contagem. Marcar como lido
+é a única mudança, com o horário escrito pelo banco.
+
+Na tela, "Avisos" no alto de toda página com a contagem de não lidos (conferida a cada minuto) e
+uma página com os avisos em frases; abrir um marca como lido e leva à lista filtrada pelo item.
+
+**Junto (D44):** uma pessoa que manda dez itens ou mais para a lixeira em dez minutos, mesmo um por
+vez em requisições separadas, gera o alerta "Muitos itens mandados para a lixeira em pouco tempo"
+para os Donos.
+
+**Push no celular fica para a Fase 7**, com o service worker do PWA: precisa de chaves próprias da
+instalação, da inscrição de cada aparelho e de envio para fora do servidor. Preferências por pessoa
+(o que avisar) entram junto.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |
@@ -679,7 +704,7 @@ repetir também as subtarefas de um pai recorrente.
 | Passkeys / WebAuthn                                   | Opcional no plano; entra junto com a interface (precisa do navegador).                                       |
 | CAPTCHA após falhas                                   | O bloqueio progressivo por conta e por endereço já existe; o CAPTCHA entra com a interface.                  |
 | Restrição de login por país                           | Opcional; depende de base de geolocalização, a decidir na fase de implantação.                               |
-| Alertas por e-mail e push                             | Os alertas já existem e são listados para os Donos; o envio entra com notificações (Fase 4).                 |
+| Alertas por e-mail e push                             | Os alertas já existem e são listados para os Donos; o push entra com o PWA (Fase 7, D51).                    |
 | Checagem de senha vazada                              | Opcional; a política atual recusa senhas curtas, comuns ou com dados da pessoa.                              |
 | Pré-visualização de PDF                               | O leitor de PDF do navegador não roda sob `sandbox`; por ora PDF só baixa (ver `docs/design/anexos.md`).     |
 | Campos por espaço ou pasta                            | Ver D23: campos por lista com cópia que preserva a origem cobrem o uso; herança fica para depois.            |

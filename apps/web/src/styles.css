@@ -2231,3 +2231,84 @@ audio.file-preview {
   color: var(--marca);
   font-weight: 600;
 }
+
+/* ---- Notifications ---------------------------------------------------------- */
+
+.shell-notices {
+  display: inline-flex;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+/* The only filled shape in the header: there is something to read. */
+.notice-count {
+  min-width: 1.375rem;
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  background: var(--marca);
+  color: var(--sobre-marca);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.375rem;
+  text-align: center;
+}
+
+.notices {
+  display: grid;
+  gap: 0;
+  margin: 1rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notice-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.75rem 0 0.75rem 0.875rem;
+  border-bottom: 1px solid var(--linha);
+  border-left: 2px solid transparent;
+}
+
+.notice-item.is-unread {
+  border-left-color: var(--marca);
+}
+
+.notice-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--texto-suave);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notice-item.is-unread .notice-open {
+  color: var(--texto);
+  font-weight: 600;
+}
+
+.notice-open:hover {
+  text-decoration: underline;
+}
+
+/* "Avisos" sits beside the search, and reads like the other sections. */
+.shell-bar > a {
+  padding: 0.375rem 0;
+  border-bottom: 2px solid transparent;
+  color: var(--texto-suave);
+  text-decoration: none;
+}
+
+.shell-bar > a:hover {
+  color: var(--texto);
+}
+
+.shell-bar > a[aria-current='page'] {
+  border-color: var(--marca);
+  color: var(--texto);
+  font-weight: 600;
+}

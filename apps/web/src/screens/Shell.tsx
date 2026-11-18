@@ -9,6 +9,7 @@ import { Button, Notice, useAction } from '../ui/kit.js';
 import { Devices } from './Devices.js';
 import { Account } from './Account.js';
 import { ListScreen } from './ListScreen.js';
+import { Notifications, useUnreadNotifications } from './Notifications.js';
 import { People } from './People.js';
 import { Search, SearchBox } from './Search.js';
 import { Security } from './Security.js';
@@ -19,6 +20,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
   const queryClient = useQueryClient();
   const path = usePath();
   const me = useQuery({ queryKey: ['me'], queryFn: api.me, retry: false });
+  const unread = useUnreadNotifications();
 
   useEffect(
     () =>
@@ -82,6 +84,19 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
             ))}
           </nav>
           <SearchBox />
+          <Link to="/avisos" current={path === '/avisos'}>
+            <span className="shell-notices">
+              Avisos
+              {unread > 0 ? (
+                <span className="notice-count">
+                  {unread > 99 ? '99+' : unread}
+                  <span className="visually-hidden">
+                    {unread === 1 ? ' não lido' : ' não lidos'}
+                  </span>
+                </span>
+              ) : null}
+            </span>
+          </Link>
           <div className="shell-person">
             <p>
               <Link to="/conta" current={path === '/conta'}>
@@ -108,6 +123,8 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
             <Account me={user} />
           ) : path === '/busca' ? (
             <Search />
+          ) : path === '/avisos' ? (
+            <Notifications />
           ) : here === undefined ? (
             <>
               <h1>Esta página não existe</h1>

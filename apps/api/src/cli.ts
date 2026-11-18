@@ -10,6 +10,7 @@ import { migrate } from './migrate.js';
 import { ensureSetupToken } from './modules/auth.js';
 import { purgeAttachments, resumeScans } from './modules/attachments.js';
 import { purgeTrash } from './modules/structure.js';
+import { notifyDue } from './modules/notifications.js';
 import { initSecrets, readSecrets } from './secrets.js';
 
 function say(message: string): void {
@@ -76,6 +77,9 @@ async function commandServe(): Promise<void> {
     inTransaction(pools.app, purgeTrash)
       .then(async (purged) => {
         if (purged > 0) app.log.info({ purged }, 'items removed from the trash for good');
+        // What is due today or late reminds whoever it is with.
+        const reminded = await inTransaction(pools.app, notifyDue);
+        if (reminded > 0) app.log.info({ reminded }, 'due date reminders made');
         const files = await purgeAttachments(deps);
         if (files > 0) app.log.info({ files }, 'attachments removed for good');
       })

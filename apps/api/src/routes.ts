@@ -32,6 +32,8 @@ import {
   addCheckSchema,
   commentSchema,
   recurrenceSchema,
+  readNotificationsSchema,
+  notificationsQuerySchema,
   updateCheckSchema,
   searchQuerySchema,
   orderItemsSchema,
@@ -68,6 +70,7 @@ import * as secrets from './modules/secrets.js';
 import * as views from './modules/views.js';
 import * as checklist from './modules/checklist.js';
 import * as comments from './modules/comments.js';
+import * as notifications from './modules/notifications.js';
 import * as stages from './modules/stages.js';
 import * as structure from './modules/structure.js';
 
@@ -325,6 +328,19 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     const body = parse(bulkSchema, request.body);
     return signedIn(request, (tx, actor) => structure.bulkChange(tx, actor, id, body));
+  });
+
+  // ---- Notifications ---------------------------------------------------------------
+  app.get('/api/notifications', (request) => {
+    const query = parse(notificationsQuerySchema, request.query);
+    return signedIn(request, (tx) => notifications.listNotifications(tx, query.antes));
+  });
+  app.get('/api/notifications/unread', (request) =>
+    signedIn(request, (tx) => notifications.unreadNotifications(tx)),
+  );
+  app.post('/api/notifications/read', (request) => {
+    const body = parse(readNotificationsSchema, request.body ?? {});
+    return signedIn(request, (tx, actor) => notifications.readNotifications(tx, actor, body));
   });
 
   // ---- Recurrence ------------------------------------------------------------------

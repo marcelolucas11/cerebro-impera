@@ -244,6 +244,14 @@ export const updateCheckSchema = z
   .strictObject({ text: checkText.optional(), done: z.boolean().optional() })
   .refine((value) => Object.keys(value).length > 0, 'empty update');
 
+/** Marks notifications as read: the ones given, or all of them. */
+export const readNotificationsSchema = z.strictObject({
+  ids: z.array(z.number().int().positive()).min(1).max(200).optional(),
+});
+export const notificationsQuerySchema = z.strictObject({
+  antes: z.coerce.number().int().positive().optional(),
+});
+
 /** How often an item comes back once finished. */
 export const RECURRENCE_UNITS = ['day', 'week', 'month', 'year'] as const;
 export type RecurrenceUnit = (typeof RECURRENCE_UNITS)[number];
