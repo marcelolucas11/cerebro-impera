@@ -189,6 +189,11 @@ export interface ItemView {
   secrets: string[];
   /** Place in its stage's column on the board; null when never placed (after the placed ones). */
   position: number | null;
+  /** 1 (most urgent) to 4; null when not set. */
+  priority: number | null;
+  /** Days, as YYYY-MM-DD; null when not set. */
+  startDate: string | null;
+  dueDate: string | null;
   /** When the item was sent to the trash, and by whom; null for an item in use. */
   trashedAt: Date | null;
   trashedBy: string | null;
@@ -208,6 +213,9 @@ interface ItemRow {
   fields: Record<string, FieldValue>;
   secrets: string[];
   position: number | null;
+  priority: number | null;
+  start_date: string | null;
+  due_date: string | null;
   deleted_at: Date | null;
   deleted_by: string | null;
 }
@@ -227,13 +235,17 @@ function toItem(row: ItemRow): ItemView {
     fields: row.fields,
     secrets: row.secrets,
     position: row.position,
+    priority: row.priority,
+    startDate: row.start_date,
+    dueDate: row.due_date,
     trashedAt: row.deleted_at,
     trashedBy: row.deleted_by,
   };
 }
 
 const ITEM_COLUMNS = `i.id, i.list_id, i.title, i.description, i.created_by, i.created_at, i.updated_at,
-  i.stage_id, i.stage_since, i.deleted_at, i.deleted_by, i.position,
+  i.stage_id, i.stage_since, i.deleted_at, i.deleted_by, i.position, i.priority,
+  i.start_date::text AS start_date, i.due_date::text AS due_date,
   coalesce((SELECT array_agg(ia.user_id ORDER BY ia.assigned_at)
             FROM app.item_assignees ia WHERE ia.item_id = i.id), '{}'::uuid[]) AS assignees,
   coalesce((SELECT jsonb_object_agg(v.field_id, v.value)
@@ -346,16 +358,29 @@ export async function updateItem(
     description?: string | undefined;
     stageId?: string | undefined;
     fields?: Readonly<Record<string, FieldValue | null>> | undefined;
+    priority?: number | null | undefined;
+    startDate?: string | null | undefined;
+    dueDate?: string | null | undefined;
   },
 ): Promise<ItemView> {
   const { item: current } = await openItem(tx, actor, itemId, 'edit');
   if (body.stageId !== undefined) await requireStageOf(tx, current.listId, body.stageId);
+  // The start never comes after the due date, counting what is kept (the database checks it too).
+  const start = body.startDate === undefined ? current.startDate : body.startDate;
+  const due = body.dueDate === undefined ? current.dueDate : body.dueDate;
+  if (start !== null && due !== null && start > due) throw badRequest('dates_out_of_order');
   const changed = await run(
     tx,
     sql`UPDATE app.items SET
           title = coalesce(${body.title ?? null}, title),
           description = coalesce(${body.description ?? null}, description),
-          stage_id = coalesce(${body.stageId ?? null}::uuid, stage_id)
+          stage_id = coalesce(${body.stageId ?? null}::uuid, stage_id),
+          priority = CASE WHEN ${body.priority !== undefined} THEN ${body.priority ?? null}::smallint
+                          ELSE priority END,
+          start_date = CASE WHEN ${body.startDate !== undefined} THEN ${body.startDate ?? null}::date
+                            ELSE start_date END,
+          due_date = CASE WHEN ${body.dueDate !== undefined} THEN ${body.dueDate ?? null}::date
+                          ELSE due_date END
         WHERE id = ${itemId}`,
   );
   if (changed !== 1) throw forbidden();
