@@ -70,16 +70,22 @@ export function stayNote(averageSeconds: number | null, stays: number): string {
   return `fica em média ${formatDuration(averageSeconds * 1000)} (${times} em 90 dias)`;
 }
 
+/**
+ * The panel of a list. `compact` keeps the counts and the stages, for a list
+ * pinned on the start page beside others.
+ */
 export function Summary({
   listId,
   stages,
   fields,
   seesAll,
+  compact = false,
 }: {
   listId: string;
   stages: Stage[];
   fields: CustomField[];
   seesAll: boolean;
+  compact?: boolean;
 }): ReactNode {
   const summary = useQuery({
     queryKey: ['summary', listId],
@@ -103,7 +109,7 @@ export function Summary({
   }));
 
   return (
-    <div className="summary">
+    <div className={compact ? 'summary summary-compact' : 'summary'}>
       {seesAll ? null : <p className="muted">Os números contam só os itens que são seus.</p>}
       <dl className="summary-tiles">
         <div>
@@ -128,8 +134,8 @@ export function Summary({
         </div>
       </dl>
       <Bars title="Por etapa" rows={byStage} total={data.total} />
-      <Bars title="Com quem" rows={byAssignee} total={data.total} />
-      {data.byField.map((one) => {
+      {compact ? null : <Bars title="Com quem" rows={byAssignee} total={data.total} />}
+      {(compact ? [] : data.byField).map((one) => {
         const field = fields.find((candidate) => candidate.id === one.fieldId);
         if (field === undefined) return null;
         const rows: Row[] = one.options.map((option) => ({

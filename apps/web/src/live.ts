@@ -43,6 +43,8 @@ export function touches(key: QueryKey, pending: Pending): boolean {
   if (pending.notifications && (key[0] === 'notifications' || key[0] === 'notifications-unread')) {
     return true;
   }
+  // The start page gathers items from every list: any change may move it.
+  if (key[0] === 'home') return pending.ids.size > 0;
   return key.some((part) => typeof part === 'string' && pending.ids.has(part));
 }
 

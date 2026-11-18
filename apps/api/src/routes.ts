@@ -33,6 +33,7 @@ import {
   commentSchema,
   recurrenceSchema,
   automationSchema,
+  homePinsSchema,
   updateAutomationSchema,
   readNotificationsSchema,
   notificationsQuerySchema,
@@ -72,6 +73,7 @@ import * as secrets from './modules/secrets.js';
 import * as views from './modules/views.js';
 import * as automations from './modules/automations.js';
 import * as summary from './modules/summary.js';
+import * as home from './modules/home.js';
 import * as checklist from './modules/checklist.js';
 import * as comments from './modules/comments.js';
 import * as notifications from './modules/notifications.js';
@@ -474,6 +476,13 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     await signedIn(request, (tx, actor) => checklist.removeCheck(tx, actor, id));
     return { ok: true };
+  });
+
+  // ---- Start page -------------------------------------------------------------------
+  app.get('/api/home', (request) => signedIn(request, (tx, actor) => home.homeOf(tx, actor)));
+  app.put('/api/home/pins', (request) => {
+    const body = parse(homePinsSchema, request.body);
+    return signedIn(request, (tx, actor) => home.setPins(tx, actor, body));
   });
 
   // ---- Numbers of a list -------------------------------------------------------------

@@ -2584,3 +2584,111 @@ audio.file-preview {
     width: auto;
   }
 }
+
+/* ---- Start page ----------------------------------------------------------------- */
+
+.home-section {
+  margin-top: 2.5rem;
+}
+
+.home-section > h2 {
+  margin: 0 0 0.75rem;
+  font-size: var(--maior);
+}
+
+.home-group h3 {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin: 1.25rem 0 0.25rem;
+  font-size: var(--corpo);
+  font-weight: 600;
+}
+
+/* Late is said in the heading; the mark beside it only draws the eye. */
+.home-group-overdue h3::before {
+  content: '';
+  align-self: center;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--erro);
+}
+
+.home-count {
+  color: var(--texto-suave);
+  font-size: var(--menor);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-when {
+  color: var(--texto-suave);
+  font-size: var(--menor);
+  white-space: nowrap;
+}
+
+.home-group-overdue .home-when {
+  color: var(--erro);
+}
+
+.home-panels {
+  display: grid;
+  gap: 1rem;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.home-panel {
+  padding: 1rem 1.25rem 1.25rem;
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  background: var(--superficie);
+}
+
+.home-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.home-panel-head h3 {
+  margin: 0;
+  font-size: var(--maior);
+}
+
+.home-panel-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.home-panel .summary {
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.home-locked {
+  margin-top: 0.75rem;
+}
+
+.home-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin-top: 1rem;
+}
+
+.home-pick .field {
+  flex: 1 1 18rem;
+  max-width: 32rem;
+  margin: 0;
+}
+
+.home-pick select {
+  width: 100%;
+}

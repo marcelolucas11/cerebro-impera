@@ -380,6 +380,15 @@ export const auditQuerySchema = z.strictObject({
   actor: idSchema.optional(),
 });
 
+/** The lists a person pins to their start page, in order. */
+export const MAX_HOME_PINS = 12;
+export const homePinsSchema = z.strictObject({
+  listIds: z
+    .array(idSchema)
+    .max(MAX_HOME_PINS)
+    .refine((ids) => new Set(ids).size === ids.length, 'repeated list'),
+});
+
 /*
  * Automations: when (item created, item enters a stage), if (conditions, all
  * of which must hold), then (actions, in order). The database checks every id
