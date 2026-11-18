@@ -378,6 +378,37 @@ export async function openItem(
   return { item, access };
 }
 
+/** What a person saw of an item before changing it without a connection. */
+export interface ItemExpectation {
+  title?: string | undefined;
+  stageId?: string | undefined;
+  priority?: number | null | undefined;
+  dueDate?: string | null | undefined;
+}
+
+/**
+ * Refuses a change made from an outdated view: when someone else changed one of
+ * these since, nothing is written and the current values go back, so the person
+ * decides. The row stays locked until the change is written.
+ */
+async function requireUnchanged(tx: Tx, itemId: string, expected: ItemExpectation): Promise<void> {
+  const now = await one<Required<ItemExpectation>>(
+    tx,
+    sql`SELECT title, stage_id AS "stageId", priority, due_date::text AS "dueDate"
+        FROM app.items WHERE id = ${itemId} FOR UPDATE`,
+  );
+  if (!now) throw notFound();
+  const keys = (Object.keys(expected) as (keyof ItemExpectation)[]).filter(
+    (key) => expected[key] !== undefined,
+  );
+  const moved = keys.filter((key) => expected[key] !== now[key]);
+  if (moved.length > 0) {
+    throw conflict('changed_meanwhile', {
+      current: Object.fromEntries(moved.map((key) => [key, now[key]])),
+    });
+  }
+}
+
 export async function updateItem(
   tx: Tx,
   actor: Actor,
@@ -391,9 +422,11 @@ export async function updateItem(
     startDate?: string | null | undefined;
     dueDate?: string | null | undefined;
     parentId?: null | undefined;
+    expected?: ItemExpectation | undefined;
   },
 ): Promise<ItemView> {
   const { item: current } = await openItem(tx, actor, itemId, 'edit');
+  if (body.expected !== undefined) await requireUnchanged(tx, itemId, body.expected);
   if (body.stageId !== undefined) await requireStageOf(tx, current.listId, body.stageId);
   // The start never comes after the due date, counting what is kept (the database checks it too).
   const start = body.startDate === undefined ? current.startDate : body.startDate;

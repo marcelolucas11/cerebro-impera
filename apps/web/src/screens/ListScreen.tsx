@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { api, ApiError, type CustomField, type Item, type Me, type Stage } from '../api.js';
+import { changeItem } from '../offline/sync.js';
 import { canEnter, useMyRole } from '../entry.js';
 import { hasValue } from '../fieldvalues.js';
 import {
@@ -652,7 +653,7 @@ function ItemRow({
   const move = useAction(
     useCallback(
       async (stageId: string) => {
-        await api.updateItem(item.id, { stageId });
+        await changeItem(item.id, { stageId });
         await queryClient.invalidateQueries({ queryKey: ['items', item.listId] });
       },
       [item.id, item.listId, queryClient],

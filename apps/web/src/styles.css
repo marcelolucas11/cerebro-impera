@@ -2796,3 +2796,33 @@ audio.file-preview {
     white-space: normal;
   }
 }
+
+/* ---- Changes made without a connection ------------------------------------------ */
+
+.offline-changes {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--linha);
+  border-left: 3px solid var(--marca);
+  border-radius: var(--raio);
+  background: var(--superficie);
+}
+
+.offline-decisions {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.offline-decisions li {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.offline-decisions li + li {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--linha);
+}

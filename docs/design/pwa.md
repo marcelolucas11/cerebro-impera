@@ -1,7 +1,8 @@
 # Aplicativo instalável e modo offline — desenho
 
-Estado: **em construção** (Fase 7). Prontos: instalar e abrir sem conexão, ler offline o que o
-aparelho guardou (cifrado) e apagar à distância. A fila de mudanças segue a ordem da seção 5. Nada aqui
+Estado: **pronto no código, menos o push** (Fase 7). Instalar e abrir sem conexão, ler offline o
+que o aparelho guardou (cifrado), mudar itens offline com conferência no servidor e apagar à
+distância. O push espera a decisão D51. Nada aqui
 é específico de uma empresa.
 
 ## 1. O que precisa valer
@@ -87,13 +88,30 @@ aparelho guardou (cifrado) e apagar à distância. A fila de mudanças segue a o
   esse caso valem a expiração de 7 dias e a criptografia de disco do sistema. O servidor não
   recebe confirmação do apagamento: o aparelho não tem mais sessão para mandá-la.
 
-## 5. Ordem de construção
+## 5. Mudanças feitas sem conexão (pronto)
+
+- **O que pode:** etapa, título, prazo e prioridade de um item que o aparelho guardou. O resto
+  (campos, responsáveis, checklist, comentários, anexos) continua pedindo conexão e diz isso.
+- **Como espera:** a mudança vai para uma fila no próprio aparelho, cifrada como o resto e apagada
+  junto com ele. Cada mudança leva o que a pessoa via antes de fazê-la. A lista guardada já mostra
+  a mudança, e uma faixa diz quantas esperam.
+- **Quando a conexão volta:** a fila é enviada em ordem, com as regras de sempre do servidor:
+  - se ninguém mudou aquilo nesse meio-tempo, entra como qualquer mudança, com histórico;
+  - se outra pessoa mudou o mesmo campo, o servidor não escreve nada e responde com o valor de
+    agora (`changed_meanwhile`). A pessoa vê as duas versões e escolhe: "Manter a minha" (entra
+    por cima, e as duas ficam no histórico) ou "Ficar com a de lá";
+  - se o servidor recusar (acesso perdido, etapa restrita, item na lixeira), a mudança aparece
+    como não aceita, com o motivo, até a pessoa dar ciência.
+- **Nada some em silêncio**, com uma exceção escrita: sair ou ter a sessão encerrada apaga também
+  o que não foi enviado, porque nada de uma sessão encerrada pode ficar no aparelho.
+
+## 6. Ordem de construção
 
 1. ~~Instalar e abrir sem conexão~~ (D61).
 2. ~~Dados offline cifrados, só leitura, com expiração e apagamento ao sair ou perder a sessão~~ (D62).
 3. ~~Apagamento remoto por aparelho~~ (D63).
-4. Fila de mudanças offline (etapa, título, prazo, prioridade, checklist e comentário), conferida
-   no servidor, com conflito por campo.
+4. ~~Fila de mudanças offline (etapa, título, prazo e prioridade), conferida no servidor, com
+   conflito por campo~~ (D64). Checklist e comentário offline ficam para depois.
 5. Avisos no celular (push), quando o mantenedor decidir quais avisos cada pessoa recebe (D51).
    O conteúdo não sai pelo serviço de push: a notificação diz só que há avisos novos, e o
    aplicativo busca o resto direto no servidor.

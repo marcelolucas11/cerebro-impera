@@ -5,6 +5,7 @@ import { describeError, ROLE_NAMES } from '../messages.js';
 import { useLiveUpdates } from '../live.js';
 import { formatWhen } from '../labels.js';
 import { forget, useServedFromDevice } from '../offline/store.js';
+import { useOfflineSync } from '../offline/sync.js';
 import { useOnline } from '../online.js';
 import { Link, listIdFrom, listViewFrom, usePath } from '../router.js';
 import { onSignedOut as listenForSignOut } from '../session.js';
@@ -15,6 +16,7 @@ import { Home } from './Home.js';
 import { Account } from './Account.js';
 import { ListScreen } from './ListScreen.js';
 import { Notifications, useUnreadNotifications } from './Notifications.js';
+import { OfflineChanges } from './OfflineChanges.js';
 import { People } from './People.js';
 import { Reports } from './Reports.js';
 import { Search, SearchBox } from './Search.js';
@@ -30,6 +32,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
   const online = useOnline();
   const kept = useServedFromDevice();
   useLiveUpdates();
+  useOfflineSync();
 
   useEffect(
     () =>
@@ -133,6 +136,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
               voltar.
             </Notice>
           )}
+          <OfflineChanges />
           {signOut.error ? <Notice tone="error">{signOut.error}</Notice> : null}
           {listId !== undefined ? (
             <ListScreen

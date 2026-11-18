@@ -1389,7 +1389,7 @@ test('the app can be installed, and its worker keeps the page and never anything
   ).toEqual([]);
 });
 
-test('a phone keeps the lists it opened, sealed, to read offline', async () => {
+test('a phone keeps the lists it opened, sealed, to read and change offline', async () => {
   await ana.getByRole('link', { name: 'Espaços' }).click();
   await ana.getByRole('link', { name: 'Tarefas' }).click();
   await heading(ana, 'Tarefas');
@@ -1446,10 +1446,56 @@ test('a phone keeps the lists it opened, sealed, to read offline', async () => {
   await expect(ana.getByText('Conferir perfis').first()).toBeVisible();
   await expect(ana.getByText(/Você está vendo o que este aparelho guardou em/)).toBeVisible();
   await shot(ana, 'offline-lista-celular');
+
+  // Changes made offline wait on the phone, and the list already reads with them.
+  await ana.getByLabel('Etapa de Conferir perfis').first().selectOption({ label: 'Feito' });
+  await ana
+    .getByLabel('Etapa de Subir campanha do cliente')
+    .first()
+    .selectOption({ label: 'Bloqueado' });
+  const changes = ana.getByRole('region', { name: 'Mudanças feitas sem conexão' });
+  await expect(changes).toContainText('2 mudanças feitas sem conexão esperam para ser enviadas.');
+  await expect(ana.getByLabel('Etapa de Conferir perfis').first()).toHaveValue(
+    (await ana
+      .getByLabel('Etapa de Conferir perfis')
+      .first()
+      .locator('option', { hasText: 'Feito' })
+      .getAttribute('value')) ?? '',
+  );
+  await shot(ana, 'offline-mudancas-celular');
+
+  // Meanwhile the owner, online, moves one of the same items somewhere else.
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  await owner.getByLabel('Etapa de Conferir perfis').first().selectOption({ label: 'Bloqueado' });
+
+  // Back online: what nobody else touched goes through; the other one asks her to decide.
   await anaContext.setOffline(false);
-  await ana.reload();
-  await heading(ana, 'Tarefas');
+  await expect(changes).toContainText(
+    'Enquanto você estava sem conexão, alguém mudou “Conferir perfis”: na etapa, a sua é Feito e a de lá é Bloqueado.',
+  );
+  await expect(changes).not.toContainText(/espera/);
   await expect(ana.getByText(/Você está vendo o que este aparelho guardou/)).toHaveCount(0);
+  await shot(ana, 'offline-conflito-celular');
+  await changes.getByRole('button', { name: 'Manter a minha' }).click();
+  await expect(changes).toHaveCount(0);
+  await expect(ana.getByText(/Você está vendo o que este aparelho guardou/)).toHaveCount(0);
+  await owner.reload();
+  const stageOf = async (title: string): Promise<string | null> => {
+    const select = owner.getByLabel(`Etapa de ${title}`).first();
+    const value = await select.inputValue();
+    return select.locator(`option[value="${value}"]`).textContent();
+  };
+  expect(await stageOf('Conferir perfis')).toBe('Feito');
+  expect(await stageOf('Subir campanha do cliente')).toBe('Bloqueado');
+  // Back as it was, for what comes next.
+  await owner.getByLabel('Etapa de Conferir perfis').first().selectOption({ label: 'Fazendo' });
+  await owner
+    .getByLabel('Etapa de Subir campanha do cliente')
+    .first()
+    .selectOption({ label: 'Fazendo' });
+  await expect.poll(() => stageOf('Subir campanha do cliente')).toBe('Fazendo');
   expect(
     problems.splice(before).filter((problem) => !/ERR_INTERNET_DISCONNECTED/.test(problem)),
   ).toEqual([]);

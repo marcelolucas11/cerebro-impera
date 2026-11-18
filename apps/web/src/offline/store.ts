@@ -171,9 +171,75 @@ export async function recall(path: string): Promise<{ value: unknown } | null> {
   }
 }
 
+// ---- Read and written by the queue of changes made offline -----------------------
+
+async function readSealed(slot: string): Promise<{ value: unknown; savedAt: number } | null> {
+  const record = await read<Record_>(RECORDS, slot);
+  const lock = record === undefined ? null : await deviceKey();
+  if (record === undefined || lock === null) return null;
+  const value = await unseal(lock, slot, record);
+  return value === undefined ? null : { value, savedAt: record.savedAt };
+}
+
+async function writeSealed(slot: string, value: unknown, savedAt: number): Promise<void> {
+  const lock = await deviceKey();
+  if (lock === null) throw new Error('no key');
+  const sealed = await seal(lock, slot, value);
+  await write(RECORDS, slot, { ...sealed, savedAt } satisfies Record_);
+}
+
+const LIST_ITEMS = /^\/api\/lists\/[0-9a-f-]{36}\/items$/;
+
+/** An item as this device kept it, with the list it was kept in. */
+export async function keptItem(
+  itemId: string,
+): Promise<{ path: string; items: { id: string }[]; at: number } | null> {
+  const db = await database();
+  if (db === null) return null;
+  const slots = (await done(db.transaction(RECORDS, 'readonly').objectStore(RECORDS).getAllKeys()))
+    .map(String)
+    .filter((slot) => LIST_ITEMS.test(slot));
+  for (const path of slots) {
+    const kept = await readSealed(path);
+    const items = kept?.value as { id: string }[] | undefined;
+    if (kept !== null && Array.isArray(items) && items.some((item) => item.id === itemId)) {
+      return { path, items, at: kept.savedAt };
+    }
+  }
+  return null;
+}
+
+/** What this device kept for an address, as it was kept (no expiry, no notice on screen). */
+export async function keptValue(path: string): Promise<unknown> {
+  return (await readSealed(path))?.value;
+}
+
+/** Writes over what was kept for an address, keeping the moment it came from the server. */
+export async function rekeep(path: string, value: unknown, savedAt: number): Promise<void> {
+  await writeSealed(path, value, savedAt);
+}
+
+const QUEUE = 'queue';
+
+export async function readQueue<T>(): Promise<T[]> {
+  try {
+    const kept = await readSealed(QUEUE);
+    return Array.isArray(kept?.value) ? (kept.value as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function writeQueue(entries: readonly unknown[]): Promise<void> {
+  await writeSealed(QUEUE, entries, Date.now());
+}
+
 /** Removes everything this device kept, the key included. */
+export const FORGOTTEN = 'cerebro:offline-forgotten';
+
 export async function forget(): Promise<void> {
   era += 1;
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(FORGOTTEN));
   signedIn = false;
   tree = null;
   key = null;

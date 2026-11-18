@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState, type ReactNode } from 'react';
-import { api, type CustomField, type Item, type Stage } from '../api.js';
+import { type CustomField, type Item, type Stage } from '../api.js';
+import { changeItem } from '../offline/sync.js';
 import { canEnter, useMyRole } from '../entry.js';
 import { Cancelled } from '../cancelled.js';
 import {
@@ -88,7 +89,7 @@ export function Table({
     async (item: Item, stageId: string) => {
       setError(null);
       try {
-        await guard(() => api.updateItem(item.id, { stageId }));
+        await guard(() => changeItem(item.id, { stageId }));
       } catch (failure) {
         if (!(failure instanceof Cancelled)) setError(describeError(failure));
       } finally {
