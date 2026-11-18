@@ -945,6 +945,20 @@ test('the table shows the columns each person chooses, sorted by a click', async
   await owner.setViewportSize({ width: 1280, height: 900 });
 });
 
+test('the search finds items in every list the person can open, and leads to them', async () => {
+  const box = owner.getByRole('searchbox', { name: 'Buscar em todas as listas' });
+  await box.fill('PERFIS');
+  await box.press('Enter');
+  await heading(owner, 'Busca');
+  const results = owner.locator('.search-results');
+  await expect(results.getByRole('link', { name: 'Conferir perfis' })).toBeVisible();
+  await expect(results).toContainText('Tarefas');
+  await shot(owner, 'busca');
+  await results.getByRole('link', { name: 'Conferir perfis' }).click();
+  await heading(owner, 'Tarefas');
+  await expect(owner.locator('.item-rows .item-title')).toHaveText(['Conferir perfis']);
+});
+
 test('the board shows the list by stage, and a card is dragged from one to another', async () => {
   await owner.getByRole('link', { name: 'Espaços' }).click();
   await owner.getByRole('link', { name: 'Tarefas' }).click();

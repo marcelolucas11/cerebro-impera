@@ -287,6 +287,9 @@ export const moveItemSchema = z.strictObject({
 });
 export const setAssigneesSchema = z.strictObject({ userIds: z.array(idSchema).max(50) });
 
+/** Words to look for in every list the person can open. */
+export const searchQuerySchema = z.strictObject({ q: z.string().trim().min(2).max(100) });
+
 export const itemHistoryQuerySchema = z.strictObject({
   before: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
