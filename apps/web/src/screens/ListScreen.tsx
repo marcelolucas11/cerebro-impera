@@ -34,6 +34,7 @@ import { BulkBar } from './BulkBar.js';
 import { ListTools } from './ListTools.js';
 import { SavedViews } from './SavedViews.js';
 import { StageEditor } from './StageEditor.js';
+import { Automations } from './Automations.js';
 
 const needsCode = (error: unknown): boolean =>
   error instanceof ApiError && error.code === 'step_up_required';
@@ -81,7 +82,7 @@ export function ListScreen({
     queryFn: () => api.listPeople(listId),
     enabled: handsOutWork,
   });
-  const [editing, setEditing] = useState<'stages' | 'fields' | null>(null);
+  const [editing, setEditing] = useState<'stages' | 'fields' | 'rules' | null>(null);
   const [chosen, setChosen] = useState<Set<string>>(() => new Set());
   const myself = useQuery({ queryKey: ['me'], queryFn: api.me, retry: false });
   // What is narrowed and how it is ordered lives in the address, so it survives a reload.
@@ -291,6 +292,14 @@ export function ListScreen({
           >
             {editing === 'fields' ? 'Fechar edição dos campos' : 'Editar campos'}
           </Button>
+          <Button
+            variant="quiet"
+            onClick={() => {
+              setEditing(editing === 'rules' ? null : 'rules');
+            }}
+          >
+            {editing === 'rules' ? 'Fechar as automações' : 'Automações'}
+          </Button>
         </div>
       ) : null}
       {editing === 'stages' ? (
@@ -303,6 +312,20 @@ export function ListScreen({
       ) : null}
       {editing === 'fields' ? (
         <FieldEditor listId={listId} fields={fields.data} otherLists={otherLists} />
+      ) : null}
+      {editing === 'rules' ? (
+        <Automations
+          listId={listId}
+          stages={stages.data}
+          fields={fields.data}
+          isSensitive={list.isSensitive}
+          meId={myself.data?.user.id}
+          canWrite={
+            myself.data !== undefined &&
+            (myself.data.user.role === 'owner' ||
+              myself.data.capabilities.includes('automations.manage'))
+          }
+        />
       ) : null}
       <SavedViews
         listId={listId}

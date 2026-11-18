@@ -32,6 +32,8 @@ import {
   addCheckSchema,
   commentSchema,
   recurrenceSchema,
+  automationSchema,
+  updateAutomationSchema,
   readNotificationsSchema,
   notificationsQuerySchema,
   updateCheckSchema,
@@ -68,6 +70,7 @@ import * as people from './modules/people.js';
 import * as searching from './modules/search.js';
 import * as secrets from './modules/secrets.js';
 import * as views from './modules/views.js';
+import * as automations from './modules/automations.js';
 import * as checklist from './modules/checklist.js';
 import * as comments from './modules/comments.js';
 import * as notifications from './modules/notifications.js';
@@ -459,6 +462,35 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     await signedIn(request, (tx, actor) => checklist.removeCheck(tx, actor, id));
     return { ok: true };
+  });
+
+  // ---- Automations -----------------------------------------------------------------
+  app.get('/api/lists/:id/automations', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => automations.listAutomations(tx, actor, id));
+  });
+  app.get('/api/lists/:id/automation-audience', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => automations.listAudience(tx, actor, id));
+  });
+  app.post('/api/lists/:id/automations', (request) => {
+    const id = paramId(request);
+    const body = parse(automationSchema, request.body);
+    return signedIn(request, (tx, actor) => automations.createAutomation(tx, actor, id, body));
+  });
+  app.patch('/api/automations/:id', (request) => {
+    const id = paramId(request);
+    const body = parse(updateAutomationSchema, request.body);
+    return signedIn(request, (tx, actor) => automations.updateAutomation(tx, actor, id, body));
+  });
+  app.delete('/api/automations/:id', async (request) => {
+    const id = paramId(request);
+    await signedIn(request, (tx, actor) => automations.removeAutomation(tx, actor, id));
+    return { ok: true };
+  });
+  app.get('/api/automations/:id/runs', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => automations.automationRuns(tx, actor, id));
   });
 
   // ---- Saved views -----------------------------------------------------------------

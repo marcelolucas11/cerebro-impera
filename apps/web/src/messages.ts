@@ -56,6 +56,15 @@ const BY_CODE: Record<string, string> = {
   invalid_parent:
     'A subtarefa precisa ficar debaixo de um item desta lista que não seja subtarefa.',
   dates_out_of_order: 'O prazo não pode vir antes do começo.',
+  unknown_stage: 'Uma das etapas da regra não é desta lista. Recarregue a página e confira.',
+  unknown_field: 'Um dos campos da regra não é desta lista, foi arquivado ou não tem essa opção.',
+  unknown_person: 'Uma das pessoas da regra não existe mais.',
+  cannot_notify_person: 'Uma das pessoas a avisar não vê esta lista.',
+  too_many_automations: 'Esta lista já tem 50 regras, o máximo. Apague uma para criar outra.',
+  sensitive_list: 'Listas sensíveis não têm regras: nelas, tudo é feito por uma pessoa.',
+  bad_trigger: 'A regra precisa dizer quando age.',
+  bad_conditions: 'Uma das condições da regra está incompleta.',
+  bad_actions: 'A regra precisa de uma a cinco ações completas.',
   same_password: 'A nova senha precisa ser diferente da atual.',
   cannot_assign_person:
     'Essa pessoa não pode trabalhar nesta lista. Dê a ela acesso para editar antes de passar o item.',

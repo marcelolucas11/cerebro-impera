@@ -1073,14 +1073,87 @@ test('a recurring item comes back, a step later, when it is finished', async () 
   await expect(rows).toHaveCount(0);
 });
 
+test('a rule acts on its own, with its author’s access, and says it was the rule', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  await owner.getByRole('button', { name: 'Automações', exact: true }).click();
+  const rules = owner.getByRole('region', { name: 'Automações desta lista' });
+  await expect(rules.getByText('Nenhuma regra ainda.')).toBeVisible();
+  await rules.getByRole('button', { name: 'Criar regra' }).click();
+  await rules.getByLabel('Nome da regra').fill('Feito vai para a Ana');
+  await rules.getByLabel('Entra em').selectOption({ label: 'Feito' });
+  await rules.getByLabel('Ação 1', { exact: true }).selectOption({ label: 'Passar para' });
+  await rules.getByLabel('Valor da ação 1').selectOption({ label: 'Ana Souza' });
+  await rules.getByRole('button', { name: 'Adicionar ação' }).click();
+  await rules.getByLabel('Ação 2', { exact: true }).selectOption({ label: 'Comentar' });
+  await rules.getByLabel('Texto do comentário da ação 2').fill('Ana, confira antes de fechar.');
+  await rules.getByRole('button', { name: 'Salvar regra' }).click();
+  await expect(rules.locator('.rule-sentence')).toHaveText(
+    'Quando um item entra em Feito: passar para Ana Souza e comentar “Ana, confira antes de fechar.”.',
+  );
+  await expect(rules).toContainText('Age com o seu acesso. Ainda não agiu.');
+
+  // The owner finishes an item; the rule hands it to Ana and comments, as itself.
+  await owner
+    .getByRole('button', { name: /^Adicionar item em/ })
+    .first()
+    .click();
+  await owner.getByLabel(/^Novo item em/).fill('Fechar o caixa');
+  await owner.getByRole('button', { name: 'Adicionar', exact: true }).click();
+  const rows = owner.locator('.item-rows > li').filter({ hasText: 'Fechar o caixa' });
+  await rows.first().getByLabel('Etapa de Fechar o caixa').selectOption({ label: 'Feito' });
+  // The page catches up by itself with what the rule did.
+  await expect(rows.first().locator('.item-row .item-marks')).toContainText('1 comentário');
+  await expect(rows.first()).toContainText('Com Ana Souza');
+  await rows.first().getByRole('button', { name: 'Fechar o caixa', exact: true }).click();
+  const panel = rows.first().locator('.item-panel');
+  await expect(panel.locator('.comment-head')).toContainText(
+    'A automação “Feito vai para a Ana”com o seu acesso',
+  );
+  await expect(panel).toContainText('Ana, confira antes de fechar.');
+  await rules.getByRole('button', { name: 'Ver o registro' }).click();
+  await expect(rules.locator('.rule-runs')).toContainText('AgiuFechar o caixa');
+  await shot(owner, 'automacoes');
+
+  // Ana is told, by the rule's name.
+  await ana.goto('/');
+  await ana.getByRole('link', { name: /^Avisos/ }).click();
+  await expect(
+    ana.getByRole('button', {
+      name: /^A automação “Feito vai para a Ana” passou “Fechar o caixa” para você/,
+    }),
+  ).toBeVisible();
+  await shot(ana, 'automacao-aviso-celular');
+  await ana.getByRole('button', { name: 'Marcar todos como lidos' }).click();
+
+  // Paused, it no longer acts; removed, it is gone. The list is left as it was.
+  await rules.getByRole('button', { name: 'Pausar' }).click();
+  await expect(rules.locator('.rule.is-paused')).toContainText('Pausada');
+  await rules.getByRole('button', { name: 'Apagar', exact: true }).click();
+  await rules.getByRole('button', { name: 'Apagar “Feito vai para a Ana” de vez' }).click();
+  await expect(rules.getByText('Nenhuma regra ainda.')).toBeVisible();
+  await owner.getByRole('button', { name: 'Fechar as automações' }).click();
+  await rows.first().getByRole('button', { name: 'Mandar para a lixeira Fechar o caixa' }).click();
+  await expect(rows).toHaveCount(0);
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');
   await owner.getByRole('button', { name: 'Verificar se o registro está íntegro' }).click();
   await expect(owner.getByText(/Registro íntegro: \d+ entradas conferidas/)).toBeVisible();
   const record = owner.locator('main');
+  // The record shows the latest entries first; older ones come a page at a time.
+  const older = owner.getByRole('button', { name: 'Carregar entradas mais antigas' });
+  while (await older.isVisible()) {
+    const shown = await record.locator('tbody tr').count();
+    await older.click();
+    await expect(record.locator('tbody tr')).not.toHaveCount(shown);
+  }
   for (const entry of [
     'Instalação concluída',
+    'Automação criada',
     'Pessoa convidada',
     'Link de acesso usado',
     'Aparelho novo pediu aprovação',

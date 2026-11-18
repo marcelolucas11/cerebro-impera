@@ -33,6 +33,8 @@ export interface ItemChangeView {
   fieldId: string | null;
   old: unknown;
   new: unknown;
+  /** Set when a rule made the change, on behalf of `actor`; the name is gone with the rule. */
+  automation: { id: string; name: string | null } | null;
 }
 
 /** The changes of an item, newest first. `before` continues from an earlier page. */
@@ -51,8 +53,12 @@ export async function itemHistory(
     field_id: string | null;
     old: unknown;
     new: unknown;
+    automation_id: string | null;
+    automation_name: string | null;
   }>(tx, {
-    text: `SELECT id, at, actor, what, field_id, old, new FROM app.item_changes
+    text: `SELECT id, at, actor, what, field_id, old, new, automation_id,
+                  app.automation_name(automation_id) AS automation_name
+           FROM app.item_changes
            WHERE item_id = $1 AND ($2::bigint IS NULL OR id < $2::bigint)
            ORDER BY id DESC LIMIT $3`,
     values: [itemId, query.before ?? null, query.limit],
@@ -65,5 +71,7 @@ export async function itemHistory(
     fieldId: row.field_id,
     old: row.old,
     new: row.new,
+    automation:
+      row.automation_id === null ? null : { id: row.automation_id, name: row.automation_name },
   }));
 }

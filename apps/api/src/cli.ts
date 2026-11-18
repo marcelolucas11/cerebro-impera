@@ -9,6 +9,7 @@ import { FileStore } from './files/store.js';
 import { migrate } from './migrate.js';
 import { ensureSetupToken } from './modules/auth.js';
 import { purgeAttachments, resumeScans } from './modules/attachments.js';
+import { purgeAutomationRuns } from './modules/automations.js';
 import { purgeTrash } from './modules/structure.js';
 import { notifyDue } from './modules/notifications.js';
 import { initSecrets, readSecrets } from './secrets.js';
@@ -80,6 +81,8 @@ async function commandServe(): Promise<void> {
         // What is due today or late reminds whoever it is with.
         const reminded = await inTransaction(pools.app, notifyDue);
         if (reminded > 0) app.log.info({ reminded }, 'due date reminders made');
+        const runs = await inTransaction(pools.app, purgeAutomationRuns);
+        if (runs > 0) app.log.info({ runs }, 'old automation runs removed');
         const files = await purgeAttachments(deps);
         if (files > 0) app.log.info({ files }, 'attachments removed for good');
       })

@@ -26,6 +26,8 @@ export interface CommentView {
   versions: number;
   /** People mentioned in it; empty once removed. */
   mentions: string[];
+  /** Set when a rule wrote it, as `authorId`; nobody rewrites it. */
+  automation: { id: string; name: string | null } | null;
   /** What the caller may do with it. */
   canEdit: boolean;
   canRemove: boolean;
@@ -42,6 +44,8 @@ interface CommentRow {
   deleted_by: string | null;
   versions: number;
   mentions: string[];
+  automation_id: string | null;
+  automation_name: string | null;
 }
 
 /** What the caller may do with a comment: the same rules the database holds. */
@@ -50,7 +54,7 @@ function toComment(row: CommentRow, actor: Actor, access: ResolvedAccess): Comme
   const authorAtWork = row.author_id === actor.userId && levelAtLeast(access.level, 'edit');
   return {
     ...shape(row),
-    canEdit: live && authorAtWork,
+    canEdit: live && authorAtWork && row.automation_id === null,
     canRemove: live && (authorAtWork || access.level === 'manage'),
   };
 }
@@ -66,13 +70,16 @@ const shape = (row: CommentRow): Omit<CommentView, 'canEdit' | 'canRemove'> => (
   removedBy: row.deleted_by,
   versions: row.deleted_at === null ? row.versions : 0,
   mentions: row.deleted_at === null ? row.mentions : [],
+  automation:
+    row.automation_id === null ? null : { id: row.automation_id, name: row.automation_name },
 });
 
 const COLUMNS = `c.id, c.item_id, c.author_id, c.body, c.created_at, c.edited_at, c.deleted_at,
   c.deleted_by,
   (SELECT count(*)::int FROM app.item_comment_versions v WHERE v.comment_id = c.id) AS versions,
   coalesce((SELECT array_agg(m.user_id ORDER BY m.created_at, m.user_id)
-            FROM app.comment_mentions m WHERE m.comment_id = c.id), '{}'::uuid[]) AS mentions`;
+            FROM app.comment_mentions m WHERE m.comment_id = c.id), '{}'::uuid[]) AS mentions,
+  c.automation_id, app.automation_name(c.automation_id) AS automation_name`;
 
 export async function listComments(tx: Tx, actor: Actor, itemId: string): Promise<CommentView[]> {
   const { access } = await openItem(tx, actor, itemId, 'view');

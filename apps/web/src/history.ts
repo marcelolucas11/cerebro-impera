@@ -36,8 +36,15 @@ export interface ChangeLine {
   before?: string;
 }
 
+/** Whoever is said to have done something: a rule by its name, or a person. */
+export function ruleName(rule: { name: string | null }): string {
+  return rule.name === null ? 'uma automação apagada' : `a automação “${rule.name}”`;
+}
+
 export function describeChange(change: ItemChange, context: HistoryContext): ChangeLine {
-  const who = capitalized(context.nameOf(change.actor));
+  const who = capitalized(
+    change.automation ? ruleName(change.automation) : context.nameOf(change.actor),
+  );
   switch (change.what) {
     case 'created':
       return { sentence: `${who} criou o item` };

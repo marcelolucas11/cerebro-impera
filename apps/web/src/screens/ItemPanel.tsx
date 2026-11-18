@@ -18,7 +18,7 @@ import {
   RECURRENCE_CHOICES,
   recurrenceText,
 } from '../due.js';
-import { describeChange } from '../history.js';
+import { describeChange, ruleName } from '../history.js';
 import { mentionsIn, splitMentions, type Named } from '../mentions.js';
 import { formatDuration, formatWhen } from '../labels.js';
 import { describeError } from '../messages.js';
@@ -414,7 +414,7 @@ function Comments({
             <CommentEntry
               key={comment.id}
               comment={comment}
-              mine={comment.authorId === meId}
+              mine={comment.authorId === meId && comment.automation === null}
               nameOf={nameHere}
               mentionNames={comment.mentions.flatMap((id) => names.get(id) ?? [])}
               onChange={refresh}
@@ -502,7 +502,10 @@ function CommentEntry({
       await onChange();
     }, [comment.id, onChange]),
   );
-  const author = capitalize(nameOf(comment.authorId));
+  // What a rule wrote is the rule's, done with its author's access.
+  const author = capitalize(
+    comment.automation ? ruleName(comment.automation) : nameOf(comment.authorId),
+  );
   // For screen readers: which comment a button acts on.
   const whose = mine ? 'o seu comentário' : `o comentário de ${author}`;
   if (comment.removedAt !== null) {
@@ -517,6 +520,7 @@ function CommentEntry({
       <p className="comment-head">
         <strong>{author}</strong>
         <span className="muted">
+          {comment.automation ? `${accessOf(nameOf(comment.authorId))} · ` : ''}
           {formatWhen(comment.createdAt)}
           {comment.editedAt !== null ? ' · editado' : ''}
         </span>
@@ -614,6 +618,10 @@ function CommentEntry({
 }
 
 const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** Whose access a rule used, said the way it reads to this person. */
+const accessOf = (name: string): string =>
+  name === 'você' ? 'com o seu acesso' : `com o acesso de ${name}`;
 
 /** Who removed a comment, and when, said the way it reads to this person. */
 function removalSentence(

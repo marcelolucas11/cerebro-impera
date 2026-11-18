@@ -31,6 +31,7 @@ const change = (partial: Partial<ItemChange>): ItemChange => ({
   fieldId: null,
   old: null,
   new: null,
+  automation: null,
   ...partial,
 });
 const say = (partial: Partial<ItemChange>): string =>
@@ -176,6 +177,15 @@ describe('a line of an item’s history', () => {
     );
     expect(say({ what: 'repeated', new: 'escondido' })).toBe(
       'Você terminou o item anterior, e este item veio em seguida',
+    );
+  });
+
+  it('names the rule that made a change, rather than whose access it used', () => {
+    expect(
+      say({ what: 'priority', new: 1, automation: { id: 'r', name: 'Urgente ao criar' } }),
+    ).toBe('A automação “Urgente ao criar” definiu a prioridade: 1 · Urgente');
+    expect(say({ what: 'created', automation: { id: 'r', name: null } })).toBe(
+      'Uma automação apagada criou o item',
     );
   });
 
