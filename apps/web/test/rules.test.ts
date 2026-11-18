@@ -171,8 +171,14 @@ describe('what the rule form edits', () => {
       { on: 'field', field: 'conferido', is: false },
       { on: 'assigned' },
       { on: 'assigned', to: 'ana' },
+      { on: 'due', offset: -2 },
+      { on: 'due', offset: 0 },
+      { on: 'due', offset: 3 },
     ];
     for (const trigger of all) expect(triggerOf(triggerDraft(trigger))).toEqual(trigger);
+    for (const is of ['', '31', '-31', '1.5', 'x']) {
+      expect(triggerOf({ ...none, on: 'due', is }), is).toBeUndefined();
+    }
   });
 });
 
@@ -214,6 +220,21 @@ describe('the newer rules as sentences', () => {
     );
     expect(say({ on: 'assigned', to: 'ana' }, [{ do: 'subtask', title: 'Ligar' }])).toBe(
       'Quando Ana recebe um item: criar a subtarefa “Ligar”.',
+    );
+    expect(say({ on: 'due', offset: -1 }, [{ do: 'priority', to: 1 }])).toBe(
+      'Quando falta 1 dia para o prazo: mudar a prioridade para Urgente.',
+    );
+    expect(say({ on: 'due', offset: -3 }, [{ do: 'priority', to: 1 }])).toBe(
+      'Quando faltam 3 dias para o prazo: mudar a prioridade para Urgente.',
+    );
+    expect(say({ on: 'due', offset: 0 }, [{ do: 'priority', to: 1 }])).toBe(
+      'Quando o prazo chega: mudar a prioridade para Urgente.',
+    );
+    expect(say({ on: 'due', offset: 1 }, [{ do: 'priority', to: 1 }])).toBe(
+      'Quando o item está 1 dia atrasado: mudar a prioridade para Urgente.',
+    );
+    expect(say({ on: 'due', offset: 7 }, [{ do: 'priority', to: 1 }])).toBe(
+      'Quando o item está 7 dias atrasado: mudar a prioridade para Urgente.',
     );
     expect(say({ on: 'field', field: 'velho' }, [{ do: 'due', in: 2 }])).toBe(
       'Quando um campo arquivado muda: pôr o prazo para daqui a 2 dias.',

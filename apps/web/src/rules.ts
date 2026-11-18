@@ -48,6 +48,7 @@ function fieldTriggerText(
 export function triggerText(trigger: RuleTrigger, context: RuleContext): string {
   if (trigger.on === 'created') return 'Quando um item é criado';
   if (trigger.on === 'field') return fieldTriggerText(trigger.field, trigger.is, context);
+  if (trigger.on === 'due') return dueTriggerText(trigger.offset);
   if (trigger.on === 'assigned') {
     return trigger.to === undefined
       ? 'Quando alguém recebe um item'
@@ -115,6 +116,16 @@ export function actionText(action: RuleAction, context: RuleContext): string {
     case 'subtask':
       return `criar a subtarefa ${quoted(action.title)}`;
   }
+}
+
+/** "Quando faltam 2 dias para o prazo", "Quando o prazo chega", "Quando o item está 1 dia atrasado". */
+export function dueTriggerText(offset: number): string {
+  if (offset === 0) return 'Quando o prazo chega';
+  const days = Math.abs(offset);
+  const count = days === 1 ? '1 dia' : `${String(days)} dias`;
+  return offset < 0
+    ? `Quando ${days === 1 ? 'falta' : 'faltam'} ${count} para o prazo`
+    : `Quando o item está ${count} atrasado`;
 }
 
 /** "hoje", "amanhã", "daqui a 3 dias". */
@@ -280,8 +291,8 @@ export function actionDraft(action: RuleAction): ActionDraft {
 
 /**
  * The trigger as the form edits it ('' for any): the stages it names; the
- * field and the value it changes to ('true'/'false' for a checkbox); or the
- * person handed the item, kept in `to`.
+ * field and the value it changes to ('true'/'false' for a checkbox); the
+ * person handed the item, kept in `to`; or the days from the due date, in `is`.
  */
 export interface TriggerDraft {
   on: RuleTrigger['on'];
@@ -310,6 +321,12 @@ export function triggerOf(draft: TriggerDraft): RuleTrigger | undefined {
     }
     case 'assigned':
       return draft.to === '' ? { on: 'assigned' } : { on: 'assigned', to: draft.to };
+    case 'due': {
+      const offset = Number(draft.is);
+      return draft.is !== '' && Number.isInteger(offset) && Math.abs(offset) <= 30
+        ? { on: 'due', offset }
+        : undefined;
+    }
   }
 }
 
@@ -329,5 +346,7 @@ export function triggerDraft(trigger: RuleTrigger): TriggerDraft {
       };
     case 'assigned':
       return { ...empty, on: 'assigned', to: trigger.to ?? '' };
+    case 'due':
+      return { ...empty, on: 'due', is: String(trigger.offset) };
   }
 }
