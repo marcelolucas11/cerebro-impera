@@ -24,6 +24,8 @@ export interface CommentView {
   removedBy: string | null;
   /** How many earlier versions there are to read. */
   versions: number;
+  /** People mentioned in it; empty once removed. */
+  mentions: string[];
   /** What the caller may do with it. */
   canEdit: boolean;
   canRemove: boolean;
@@ -39,6 +41,7 @@ interface CommentRow {
   deleted_at: Date | null;
   deleted_by: string | null;
   versions: number;
+  mentions: string[];
 }
 
 /** What the caller may do with a comment: the same rules the database holds. */
@@ -62,11 +65,14 @@ const shape = (row: CommentRow): Omit<CommentView, 'canEdit' | 'canRemove'> => (
   removedAt: row.deleted_at,
   removedBy: row.deleted_by,
   versions: row.deleted_at === null ? row.versions : 0,
+  mentions: row.deleted_at === null ? row.mentions : [],
 });
 
 const COLUMNS = `c.id, c.item_id, c.author_id, c.body, c.created_at, c.edited_at, c.deleted_at,
   c.deleted_by,
-  (SELECT count(*)::int FROM app.item_comment_versions v WHERE v.comment_id = c.id) AS versions`;
+  (SELECT count(*)::int FROM app.item_comment_versions v WHERE v.comment_id = c.id) AS versions,
+  coalesce((SELECT array_agg(m.user_id ORDER BY m.created_at, m.user_id)
+            FROM app.comment_mentions m WHERE m.comment_id = c.id), '{}'::uuid[]) AS mentions`;
 
 export async function listComments(tx: Tx, actor: Actor, itemId: string): Promise<CommentView[]> {
   const { access } = await openItem(tx, actor, itemId, 'view');
@@ -82,7 +88,7 @@ export async function addComment(
   tx: Tx,
   actor: Actor,
   itemId: string,
-  body: { body: string },
+  body: { body: string; mentions?: string[] | undefined },
 ): Promise<CommentView> {
   const { access } = await openItem(tx, actor, itemId, 'edit');
   const id = randomUUID();
@@ -90,6 +96,7 @@ export async function addComment(
     tx,
     sql`INSERT INTO app.item_comments (id, item_id, body) VALUES (${id}, ${itemId}, ${body.body})`,
   );
+  await mention(tx, itemId, id, body.mentions ?? []);
   return toComment(await findComment(tx, id), actor, access);
 }
 
@@ -107,13 +114,15 @@ export async function editComment(
   tx: Tx,
   actor: Actor,
   commentId: string,
-  body: { body: string },
+  body: { body: string; mentions?: string[] | undefined },
 ): Promise<CommentView> {
   const comment = await findComment(tx, commentId);
   if (comment.deleted_at !== null) throw badRequest('comment_removed');
   if (comment.author_id !== actor.userId) throw forbidden();
   const { access } = await openItem(tx, actor, comment.item_id, 'edit');
   await run(tx, sql`UPDATE app.item_comments SET body = ${body.body} WHERE id = ${commentId}`);
+  // Mentions made stay made; editing can only name more people.
+  await mention(tx, comment.item_id, commentId, body.mentions ?? []);
   return toComment(await findComment(tx, commentId), actor, access);
 }
 
@@ -150,4 +159,37 @@ export async function commentVersions(
            WHERE comment_id = $1 ORDER BY id`,
     values: [commentId],
   });
+}
+
+/** The people of an item: who can see it, and who took part in its comments. */
+export interface ItemPerson {
+  id: string;
+  name: string;
+  /** Can see the item now, so can be mentioned on it. */
+  seesItem: boolean;
+}
+
+export async function itemPeople(tx: Tx, actor: Actor, itemId: string): Promise<ItemPerson[]> {
+  await openItem(tx, actor, itemId, 'view');
+  return rows<ItemPerson>(tx, {
+    text: `SELECT id, name, sees_item AS "seesItem" FROM app.item_people($1)`,
+    values: [itemId],
+  });
+}
+
+/** Names people in a comment. Each must be able to see the item (the database checks it too). */
+async function mention(tx: Tx, itemId: string, commentId: string, ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const able = await rows<{ id: string }>(tx, {
+    text: `SELECT id FROM app.item_people($1) WHERE sees_item`,
+    values: [itemId],
+  });
+  const seeing = new Set(able.map((person) => person.id));
+  if (!ids.every((id) => seeing.has(id))) throw badRequest('cannot_mention');
+  await run(
+    tx,
+    sql`INSERT INTO app.comment_mentions (comment_id, user_id)
+        SELECT ${commentId}, person FROM unnest(${ids}::uuid[]) AS person
+        ON CONFLICT DO NOTHING`,
+  );
 }
