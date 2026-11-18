@@ -9,24 +9,24 @@
 navegador real rodando no CI. A Fase 2 (estrutura) está completa no código: etapas, campos
 personalizados (inclusive pessoas, secreto e arquivos), histórico, lixeira, mover entre listas,
 modelos de etapas, delegação, "Minha conta" e anexos; falta o mantenedor revisar e decidir o
-antivírus. Da Fase 3 já existe o quadro. Falta o que está em "Próximo passo".
+antivírus. Da Fase 3 já existem o quadro e filtrar e ordenar. Falta o que está em "Próximo passo".
 
-| Fase                                                              | Situação                                |
-| ----------------------------------------------------------------- | --------------------------------------- |
-| 0. Preparação do repositório (proteções no GitHub)                | depende do mantenedor, ver "Pendências" |
-| 1. Fundação e segurança                                           | pronta                                  |
-| **2. Estrutura (etapas, campos personalizados, anexos, lixeira)** | pronta no código, aguardando revisão    |
-| 3. Visões (lista, quadro, calendário, tabela, linha do tempo)     | **em andamento: quadro pronto**         |
-| 4. Tarefas e colaboração                                          | a fazer                                 |
-| 5. Automações                                                     | a fazer                                 |
-| 6. Painéis e relatórios                                           | a fazer                                 |
-| 7. PWA e offline                                                  | a fazer                                 |
-| 8. Atualizador assinado                                           | a fazer                                 |
-| 9. Backup e restauração                                           | a fazer                                 |
-| 10. White label, assistente visual e formulários                  | a fazer                                 |
-| 11. Blindagem (revisão independente)                              | a fazer                                 |
-| 12. Implantação                                                   | só com autorização do mantenedor        |
-| 13. Migração de dados                                             | só com autorização do mantenedor        |
+| Fase                                                              | Situação                                          |
+| ----------------------------------------------------------------- | ------------------------------------------------- |
+| 0. Preparação do repositório (proteções no GitHub)                | depende do mantenedor, ver "Pendências"           |
+| 1. Fundação e segurança                                           | pronta                                            |
+| **2. Estrutura (etapas, campos personalizados, anexos, lixeira)** | pronta no código, aguardando revisão              |
+| 3. Visões (lista, quadro, calendário, tabela, linha do tempo)     | **em andamento: quadro, filtros e ordem prontos** |
+| 4. Tarefas e colaboração                                          | a fazer                                           |
+| 5. Automações                                                     | a fazer                                           |
+| 6. Painéis e relatórios                                           | a fazer                                           |
+| 7. PWA e offline                                                  | a fazer                                           |
+| 8. Atualizador assinado                                           | a fazer                                           |
+| 9. Backup e restauração                                           | a fazer                                           |
+| 10. White label, assistente visual e formulários                  | a fazer                                           |
+| 11. Blindagem (revisão independente)                              | a fazer                                           |
+| 12. Implantação                                                   | só com autorização do mantenedor                  |
+| 13. Migração de dados                                             | só com autorização do mantenedor                  |
 
 ## Feito na Fase 1
 
@@ -151,7 +151,11 @@ antivírus. Da Fase 3 já existe o quadro. Falta o que está em "Próximo passo"
   dedo ou caneta, sem dependência nova; menu de etapa no cartão para teclado e leitor de tela;
   cartão aberto numa janela com o painel do item; no celular as colunas rolam de lado.
 
-### O que os testes provam (326 testes)
+- Filtrar e ordenar (D37): busca no título sem diferença de acentos, responsável, etapa, uma
+  condição por campo (opção, texto, valor mínimo ou máximo, data, preenchido ou vazio) e ordem por
+  título, datas ou qualquer campo; vale para a lista e o quadro e fica no endereço.
+
+### O que os testes provam (339 testes)
 
 | Arquivo                                    | O que garante                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -174,9 +178,9 @@ antivírus. Da Fase 3 já existe o quadro. Falta o que está em "Próximo passo"
 | `apps/api/test/structure.test.ts` (4)      | quem gerencia um espaço ou uma pasta, sem ser Dono, cria pastas e listas ali e em nenhum outro lugar, e não cria espaços; quem só trabalha numa lista não cria nada em volta dela; a árvore diz a cada pessoa onde ela pode criar                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `apps/api/test/scale.test.ts` (2)          | uma lista de 500 itens com 8 campos abre em bem menos de um segundo para Dono, gestor e funcionário, e continua mostrando a cada um só o que é seu                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `apps/api/test/web.test.ts` (9)            | a página vem com a política que proíbe código embutido e de outras origens; nenhum arquivo de fora da pasta, oculto ou de tipo desconhecido é servido; endereços da API nunca respondem com a página; a API continua recusando outras origens                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `apps/web/test/*.test.ts` (58)             | a página compilada só carrega arquivos próprios, sem nada embutido; mensagens de erro nunca mostram detalhe técnico; durações e datas escritas por extenso; números, dinheiro e datas lidos e digitados como se escreve em português; um valor guardado só vira link se o endereço for seguro de abrir; um arquivo de etapas exportado é lido de volta igual, e qualquer outro é recusado com uma frase; cada linha do histórico vira uma frase, sem nomear pessoa ou lista que quem lê não pode ver; o envio de arquivo manda só as partes que faltam, tenta de novo quando a conexão cai, desiste quando o servidor recusa e para quando a pessoa cancela                                                                                       |
+| `apps/web/test/*.test.ts` (71)             | a página compilada só carrega arquivos próprios, sem nada embutido; mensagens de erro nunca mostram detalhe técnico; durações e datas escritas por extenso; números, dinheiro e datas lidos e digitados como se escreve em português; um valor guardado só vira link se o endereço for seguro de abrir; um arquivo de etapas exportado é lido de volta igual, e qualquer outro é recusado com uma frase; cada linha do histórico vira uma frase, sem nomear pessoa ou lista que quem lê não pode ver; o envio de arquivo manda só as partes que faltam, tenta de novo quando a conexão cai, desiste quando o servidor recusa e para quando a pessoa cancela                                                                                       |
 
-**Percurso em navegador real** (`apps/web/e2e`, 21 passos, job "Percurso em navegador real" no CI):
+**Percurso em navegador real** (`apps/web/e2e`, 22 passos, job "Percurso em navegador real" no CI):
 um Dono no computador e uma funcionária no celular, contra uma instalação criada do zero pelos
 mesmos comandos de produção. Instalação recusada sem o token do servidor; senha fraca explicada na
 hora; mesma resposta para senha errada e e-mail inexistente; só a senha não abre nada; convite
@@ -188,7 +192,7 @@ inválido barrado antes de enviar e campo arquivado e restaurado sem perder nada
 lido em frases; item mandado para a lixeira e restaurado como estava; item levado para a lista sensível e trazido
 de volta com os valores intactos; etapas exportadas como arquivo, modelo pronto aplicado, arquivo
 errado recusado e arquivo salvo importado; item passado para a funcionária, que o encontra na hora e não
-vê a escolha de responsáveis; campo de pessoas preenchido pela Dona e só lido pela funcionária; imagem e texto anexados pelo celular, imagem mostrada na página, texto só baixado e recebido no computador idêntico ao enviado, anexo removido e restaurado e tudo isso no histórico; senha guardada pela funcionária, que não consegue lê-la de volta, e revelada pela Dona só depois do código; campo de arquivos que oferece só os anexos do item; funcionária que passa a gerenciar o espaço cria uma lista nele, sem poder criar espaços; quadro com cartão arrastado de uma coluna para outra, que continua lá depois de recarregar, movido de volta pelo menu de etapa, aberto numa janela, e no celular só o quadro rola de lado; Dona troca a própria senha e continua conectada; lista sensível
+vê a escolha de responsáveis; campo de pessoas preenchido pela Dona e só lido pela funcionária; imagem e texto anexados pelo celular, imagem mostrada na página, texto só baixado e recebido no computador idêntico ao enviado, anexo removido e restaurado e tudo isso no histórico; senha guardada pela funcionária, que não consegue lê-la de volta, e revelada pela Dona só depois do código; campo de arquivos que oferece só os anexos do item; funcionária que passa a gerenciar o espaço cria uma lista nele, sem poder criar espaços; quadro com cartão arrastado de uma coluna para outra, que continua lá depois de recarregar, movido de volta pelo menu de etapa, aberto numa janela, e no celular só o quadro rola de lado; lista filtrada pelo título e por valor digitado como se escreve aqui, ordenada por um campo, filtro mantido depois de recarregar e no quadro; Dona troca a própria senha e continua conectada; lista sensível
 fechada até o código; registro de auditoria íntegro; suspensão que derruba a sessão
 na hora; e nenhuma violação da política de segurança da página do começo ao fim. Esse percurso já pegou
 três defeitos reais, todos corrigidos e cobertos por teste: a tela de pessoas mostrava situação
@@ -235,8 +239,8 @@ pnpm check
 
 ## Próximo passo exato
 
-1. **Fase 3 — Visões, o que falta:** tabela, calendário e linha do tempo; ordenar e filtrar;
-   visões salvas por pessoa; ordem manual dentro da coluna do quadro.
+1. **Fase 3 — Visões, o que falta:** visões salvas por pessoa (filtro, ordem e tipo de visão com
+   nome); calendário e tabela; ordem manual dentro da coluna do quadro.
 2. Itens adiados que dependem da interface: passkeys e CAPTCHA.
 
 Cada fatia, sempre nesta ordem: migração e API com testes nas duas camadas, depois a tela e o

@@ -12,17 +12,14 @@ export interface BoardColumn {
 }
 
 /**
- * One column per stage, in the list's order. Inside a column, whoever has
- * been waiting longest comes first: the item that entered the stage earliest.
+ * One column per stage, in the list's order. Inside a column, items keep the
+ * order they were given in: the list's chosen order (by default, whoever has
+ * been waiting longest in their stage first).
  */
 export function columnsOf(stages: readonly Stage[], items: readonly Item[]): BoardColumn[] {
   return stages.map((stage) => ({
     stage,
-    items: items
-      .filter((item) => item.stageId === stage.id)
-      .sort(
-        (a, b) => Date.parse(a.stageSince) - Date.parse(b.stageSince) || a.id.localeCompare(b.id),
-      ),
+    items: items.filter((item) => item.stageId === stage.id),
   }));
 }
 

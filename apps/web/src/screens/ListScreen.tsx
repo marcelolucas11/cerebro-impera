@@ -2,6 +2,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState, type CSSProperties, type ReactNode } from 'react';
 import { api, ApiError, type CustomField, type Item, type Me, type Stage } from '../api.js';
 import { hasValue } from '../fieldvalues.js';
+import {
+  fromSearch,
+  isFiltering,
+  matches,
+  sortItems,
+  toSearch,
+  type Filter,
+  type Sort,
+} from '../filters.js';
 import { formatDuration } from '../labels.js';
 import { describeError } from '../messages.js';
 import { Link, type ListView } from '../router.js';
@@ -12,6 +21,7 @@ import { AddItem } from './AddItem.js';
 import { Board } from './Board.js';
 import { FieldValueView } from './FieldInput.js';
 import { ItemPanel } from './ItemPanel.js';
+import { ListTools } from './ListTools.js';
 import { StageEditor } from './StageEditor.js';
 
 const needsCode = (error: unknown): boolean =>
@@ -61,6 +71,13 @@ export function ListScreen({
     enabled: handsOutWork,
   });
   const [editing, setEditing] = useState<'stages' | 'fields' | null>(null);
+  // What is narrowed and how it is ordered lives in the address, so it survives a reload.
+  const [shaping, setShaping] = useState(() => fromSearch(window.location.search));
+  const reshape = useCallback((filter: Filter, sort: Sort) => {
+    setShaping({ filter, sort });
+    window.history.replaceState(null, '', window.location.pathname + toSearch(filter, sort));
+  }, []);
+  const search = toSearch(shaping.filter, shaping.sort);
 
   const unlock = useAction(
     useCallback(async () => {
@@ -110,10 +127,10 @@ export function ListScreen({
         <p className="muted">Você vê aqui só os itens que são seus.</p>
       ) : null}
       <nav className="view-switch" aria-label="Ver como">
-        <Link to={`/listas/${listId}`} current={view === 'list'}>
+        <Link to={`/listas/${listId}${search}`} current={view === 'list'}>
           Lista
         </Link>
-        <Link to={`/listas/${listId}/quadro`} current={view === 'board'}>
+        <Link to={`/listas/${listId}/quadro${search}`} current={view === 'board'}>
           Quadro
         </Link>
       </nav>
@@ -148,6 +165,25 @@ export function ListScreen({
   }
 
   const columns = fields.data.slice(0, FIELD_COLUMNS);
+  const { filter, sort } = shaping;
+  const visible = sortItems(
+    items.data.filter((item) => matches(item, filter, { me: me.id, fields: fields.data })),
+    sort,
+    fields.data,
+  );
+  const shownStages = stages.data.filter(
+    (stage) => filter.stageId === null || stage.id === filter.stageId,
+  );
+  // Who can be picked in "Responsável": people on these items or who can take them, by name.
+  const pickable = [
+    ...new Set([
+      ...items.data.flatMap((item) => item.assignees),
+      ...(workers.data ?? []).map((worker) => worker.id),
+    ]),
+  ]
+    .filter((id) => id !== me.id && names.has(id))
+    .map((id) => ({ id, name: names.get(id) ?? '' }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   // Lists whose fields could be copied into this one: every other list the person can open.
   const otherLists = tree.data.lists
     .filter((other) => other.id !== listId)
@@ -195,11 +231,24 @@ export function ListScreen({
       {editing === 'fields' ? (
         <FieldEditor listId={listId} fields={fields.data} otherLists={otherLists} />
       ) : null}
+      <ListTools
+        filter={filter}
+        sort={sort}
+        onChange={reshape}
+        stages={stages.data}
+        fields={fields.data}
+        people={pickable}
+        shown={visible.length}
+        total={items.data.length}
+      />
+      {isFiltering(filter) && visible.length === 0 ? (
+        <Notice tone="info">Nenhum item corresponde a estes filtros.</Notice>
+      ) : null}
       {view === 'board' ? (
         <Board
           listId={listId}
-          stages={stages.data}
-          items={items.data}
+          stages={shownStages}
+          items={visible}
           fields={fields.data}
           canEdit={canEdit}
           nameOf={nameOf}
@@ -208,14 +257,14 @@ export function ListScreen({
         />
       ) : null}
       {view === 'list'
-        ? stages.data.map((stage) => (
+        ? shownStages.map((stage) => (
             <StageGroup
               key={stage.id}
               stage={stage}
               stages={stages.data}
               fields={fields.data}
               columns={columns}
-              items={items.data.filter((item) => item.stageId === stage.id)}
+              items={visible.filter((item) => item.stageId === stage.id)}
               canEdit={canEdit}
               nameOf={nameOf}
               listNameOf={listNameOf}

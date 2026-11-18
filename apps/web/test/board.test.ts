@@ -29,14 +29,14 @@ const item = (id: string, stageId: string, since: string): Item => ({
 });
 
 describe('the columns of a board', () => {
-  it('follow the stages in order, with whoever waited longest on top', () => {
+  it('follow the stages in order, keeping the order the items were given in', () => {
     const columns = columnsOf(STAGES, [
       item('novo', 'a-fazer', '2026-11-18T10:00:00Z'),
       item('antigo', 'a-fazer', '2026-11-17T10:00:00Z'),
       item('andando', 'fazendo', '2026-11-18T09:00:00Z'),
     ]);
     expect(columns.map((column) => column.stage.id)).toEqual(['a-fazer', 'fazendo', 'feito']);
-    expect(columns[0]?.items.map((one) => one.id)).toEqual(['antigo', 'novo']);
+    expect(columns[0]?.items.map((one) => one.id)).toEqual(['novo', 'antigo']);
     expect(columns[2]?.items).toEqual([]);
   });
 });

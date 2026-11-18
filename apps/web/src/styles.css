@@ -1535,3 +1535,34 @@ audio.file-preview {
     rotate: none;
   }
 }
+
+/* ---- Filtering and ordering --------------------------------------------------- */
+
+/* One quiet band above the list or board: controls wrap onto as many rows as the
+   screen needs, each keeping its own label above it. */
+.list-tools {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--linha);
+  border-radius: calc(var(--raio) * 2);
+}
+
+.list-tools-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.875rem;
+  align-items: end;
+}
+
+.list-tools-row .field {
+  min-width: 10rem;
+}
+
+.list-tools-search {
+  flex: 1 1 14rem;
+}
+
+.list-tools .field-note {
+  margin: 0;
+}
