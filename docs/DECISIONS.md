@@ -337,6 +337,23 @@ demais veem "você" ou "outra pessoa".
 **Por quê.** É a mesma pergunta de passar um item para alguém, então a resposta é a mesma. E o
 campo não pode virar um jeito de um funcionário descobrir quem são os colegas.
 
+## D33 — Anexos: volume próprio, cifrados por segmento, sem link público
+
+**Decisão.** O desenho completo está em `docs/design/anexos.md`. Em resumo: arquivos num volume
+da instalação, fora do banco, com nome aleatório; cada arquivo com chave própria guardada cifrada
+pela chave da instância; conteúdo em segmentos de 8 MiB com AES-256-GCM, que servem também ao
+envio retomável; baixar só com a sessão normal, sempre com `nosniff` e `sandbox`, e
+pré-visualização só para tipos que não executam nada; anexo segue as permissões do item; nada é
+apagado antes de 30 dias.
+
+**Pendente (Rodrigo):** antivírus. Proposta: ClamAV na mesma VPS, se houver de 1,2 a 1,5 GB de
+memória livre. Até lá, o verificador é uma peça trocável e os testes usam um falso.
+
+**Por quê.** Um serviço de arquivos à parte (MinIO, como previa o plano) seria mais um contêiner,
+mais uma senha e mais uma porta para proteger, sem ganho para 20 pessoas. A API já autentica e já
+sabe quem pode ver cada item; servir os arquivos por ela mantém uma regra só. _Diverge do plano
+inicial (MinIO e links pré-assinados)._
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |
