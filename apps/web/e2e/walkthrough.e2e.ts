@@ -894,6 +894,57 @@ test('the calendar puts each item on its day, and becomes an agenda on a phone',
   await owner.setViewportSize({ width: 1280, height: 900 });
 });
 
+test('the table shows the columns each person chooses, sorted by a click', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  await owner
+    .getByRole('navigation', { name: 'Ver como' })
+    .getByRole('link', { name: 'Tabela' })
+    .click();
+  const table = owner.getByRole('table');
+  const rowTitles = table.locator('tbody th[scope="row"]');
+  await expect(rowTitles).toHaveCount(2);
+  await expect(table.getByRole('columnheader', { name: 'Fornecedor' })).toBeVisible();
+
+  await table.getByRole('button', { name: 'Valor' }).click();
+  await expect(table.getByRole('columnheader', { name: /Valor/ })).toHaveAttribute(
+    'aria-sort',
+    'ascending',
+  );
+  await expect(rowTitles).toHaveText(['Conferir perfis', 'Subir campanha do cliente']);
+  await table.getByRole('button', { name: /Valor/ }).click();
+  await expect(rowTitles).toHaveText(['Subir campanha do cliente', 'Conferir perfis']);
+
+  // Columns are chosen, and the choice is in the address.
+  await owner.getByText('Escolher colunas').click();
+  await owner.getByRole('checkbox', { name: 'Fornecedor' }).uncheck();
+  await owner.getByRole('checkbox', { name: 'Criado em' }).check();
+  await expect(table.getByRole('columnheader', { name: 'Fornecedor' })).toHaveCount(0);
+  await owner.reload();
+  await expect(
+    owner.getByRole('table').getByRole('columnheader', { name: 'Criado em' }),
+  ).toBeVisible();
+  await expect(
+    owner.getByRole('table').getByRole('columnheader', { name: 'Fornecedor' }),
+  ).toHaveCount(0);
+  await shot(owner, 'tabela');
+
+  // A row opens the item; the stage changes right in the table.
+  await rowTitles.getByRole('button', { name: 'Conferir perfis' }).click();
+  const dialog = owner.getByRole('dialog', { name: 'Conferir perfis' });
+  await expect(dialog.getByLabel('Título')).toHaveValue('Conferir perfis');
+  await dialog.getByRole('button', { name: 'Fechar', exact: true }).first().click();
+  await owner.getByLabel('Etapa de Conferir perfis').selectOption({ label: 'Feito' });
+  await expect(owner.getByLabel('Etapa de Conferir perfis')).toHaveValue(/.+/);
+  await owner.getByLabel('Etapa de Conferir perfis').selectOption({ label: 'Fazendo' });
+
+  // On a phone the table scrolls sideways inside itself, never the page.
+  await owner.setViewportSize({ width: 390, height: 844 });
+  expect(await owner.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await owner.setViewportSize({ width: 1280, height: 900 });
+});
+
 test('the board shows the list by stage, and a card is dragged from one to another', async () => {
   await owner.getByRole('link', { name: 'Espaços' }).click();
   await owner.getByRole('link', { name: 'Tarefas' }).click();
@@ -908,12 +959,15 @@ test('the board shows the list by stage, and a card is dragged from one to anoth
   await expect(cardIn('Fazendo')).toBeVisible();
 
   // Taken by its handle and dropped on the next column, which lights up on the way.
+  await cardIn('Fazendo').locator('.card-handle').scrollIntoViewIfNeeded();
   const handle = await cardIn('Fazendo').locator('.card-handle').boundingBox();
   const target = await column('Feito').boundingBox();
   if (!handle || !target) throw new Error('the board is not laid out');
-  await owner.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  const y = handle.y + handle.height / 2;
+  await owner.mouse.move(handle.x + handle.width / 2, y);
   await owner.mouse.down();
-  await owner.mouse.move(target.x + target.width / 2, target.y + 60, { steps: 12 });
+  // Straight across: a column takes a card anywhere along its height.
+  await owner.mouse.move(target.x + target.width / 2, y, { steps: 12 });
   await expect(column('Feito')).toHaveClass(/is-target/);
   await shot(owner, 'quadro-arrastando');
   await owner.mouse.up();

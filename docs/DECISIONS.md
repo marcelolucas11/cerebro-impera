@@ -466,6 +466,18 @@ ordem e visões salvas valem aqui também; itens sem data ficam numa lista à pa
 para quem está no Brasil. Arrastar um item para outro dia fica para depois (por enquanto a data
 muda no próprio item).
 
+## D40 — Tabela com colunas escolhidas no endereço
+
+**Decisão.** A quarta visão é a tabela (`/listas/:id/tabela`): uma linha por item, o título fixo
+à esquerda enquanto o resto rola de lado, e as colunas que cada pessoa escolhe (etapa,
+responsáveis, criado, atualizado e qualquer campo). A escolha vai no endereço (`colunas=`) junto
+com filtro e ordem, então uma visão salva a guarda. Clicar no nome de uma coluna ordena por ela.
+Na própria célula muda só a etapa; o resto se edita no item, que abre numa janela.
+
+**Por quê.** Editar qualquer campo direto na célula pede um editor por tipo de campo dentro da
+tabela; o painel do item já faz isso bem e com as mesmas regras. _Rever com o mantenedor:_ editar
+na célula os campos mais usados.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

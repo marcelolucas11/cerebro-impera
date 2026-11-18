@@ -228,7 +228,7 @@ export const updateItemSchema = z
 /** The query part of an address as the page writes it ("?busca=…"), or nothing. */
 export const VIEW_QUERY_PATTERN = /^(\?[A-Za-z0-9%._~:=&+-]*)?$/;
 export const MAX_VIEWS_PER_LIST = 30;
-export const VIEW_KINDS = ['list', 'board', 'calendar'] as const;
+export const VIEW_KINDS = ['list', 'board', 'calendar', 'table'] as const;
 export type ViewKind = (typeof VIEW_KINDS)[number];
 const viewName = z
   .string()

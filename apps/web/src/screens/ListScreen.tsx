@@ -8,6 +8,7 @@ import {
   matches,
   sortItems,
   toSearch,
+  type Columns,
   type Filter,
   type Sort,
 } from '../filters.js';
@@ -20,6 +21,7 @@ import { FIELD_COLUMNS, FieldEditor } from './FieldEditor.js';
 import { AddItem } from './AddItem.js';
 import { Board } from './Board.js';
 import { Calendar } from './Calendar.js';
+import { Table } from './Table.js';
 import { FieldValueView } from './FieldInput.js';
 import { ItemPanel } from './ItemPanel.js';
 import { ListTools } from './ListTools.js';
@@ -75,11 +77,18 @@ export function ListScreen({
   const [editing, setEditing] = useState<'stages' | 'fields' | null>(null);
   // What is narrowed and how it is ordered lives in the address, so it survives a reload.
   const [shaping, setShaping] = useState(() => fromSearch(window.location.search));
-  const reshape = useCallback((filter: Filter, sort: Sort) => {
-    setShaping({ filter, sort });
-    window.history.replaceState(null, '', window.location.pathname + toSearch(filter, sort));
+  const reshape = useCallback((filter: Filter, sort: Sort, columns?: Columns) => {
+    setShaping((current) => {
+      const next = { filter, sort, columns: columns === undefined ? current.columns : columns };
+      window.history.replaceState(
+        null,
+        '',
+        window.location.pathname + toSearch(next.filter, next.sort, next.columns),
+      );
+      return next;
+    });
   }, []);
-  const search = toSearch(shaping.filter, shaping.sort);
+  const search = toSearch(shaping.filter, shaping.sort, shaping.columns);
   // Back and forward bring their own filter with them.
   useEffect(() => {
     const follow = (): void => {
@@ -147,6 +156,9 @@ export function ListScreen({
         </Link>
         <Link to={listPath(listId, 'calendar', search)} current={view === 'calendar'}>
           Calendário
+        </Link>
+        <Link to={listPath(listId, 'table', search)} current={view === 'table'}>
+          Tabela
         </Link>
       </nav>
     </header>
@@ -253,7 +265,7 @@ export function ListScreen({
         onApply={(saved) => {
           const parsed = fromSearch(saved.query);
           navigate(listPath(listId, saved.kind, saved.query));
-          reshape(parsed.filter, parsed.sort);
+          reshape(parsed.filter, parsed.sort, parsed.columns);
         }}
       />
       <ListTools
@@ -279,6 +291,25 @@ export function ListScreen({
           nameOf={nameOf}
           listNameOf={listNameOf}
           workers={handsOutWork ? (workers.data ?? []) : null}
+        />
+      ) : null}
+      {view === 'table' ? (
+        <Table
+          stages={stages.data}
+          items={visible}
+          fields={fields.data}
+          canEdit={canEdit}
+          nameOf={nameOf}
+          listNameOf={listNameOf}
+          workers={handsOutWork ? (workers.data ?? []) : null}
+          sort={sort}
+          columns={shaping.columns}
+          onSort={(next) => {
+            reshape(filter, next);
+          }}
+          onColumns={(next) => {
+            reshape(filter, sort, next);
+          }}
         />
       ) : null}
       {view === 'calendar' ? (

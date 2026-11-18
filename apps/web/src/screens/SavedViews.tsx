@@ -9,6 +9,7 @@ const KIND_NAMES: Record<ListView, string> = {
   list: 'lista',
   board: 'quadro',
   calendar: 'calendário',
+  table: 'tabela',
 };
 
 /*

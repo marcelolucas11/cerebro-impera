@@ -211,8 +211,28 @@ const OPS = new Set<FieldTest['op']>([
   'until',
 ]);
 
+/**
+ * The columns a table shows, by id: a field's id, or one of the fixed ones.
+ * Null means the table's default choice.
+ */
+export type Columns = string[] | null;
+export const FIXED_COLUMNS = ['etapa', 'responsaveis', 'criado', 'atualizado'] as const;
+const COLUMN_ID = /^[a-z0-9-]{1,40}$/;
+
+/** Without a choice: stage, who, and the first fields of the list (long texts left out). */
+export function defaultColumns(fields: readonly FieldLike[]): string[] {
+  return [
+    'etapa',
+    'responsaveis',
+    ...fields
+      .filter((field) => field.kind !== 'long_text')
+      .slice(0, 6)
+      .map((field) => field.id),
+  ];
+}
+
 /** Reads what the address says, ignoring anything that does not make sense. */
-export function fromSearch(search: string): { filter: Filter; sort: Sort } {
+export function fromSearch(search: string): { filter: Filter; sort: Sort; columns: Columns } {
   const params = new URLSearchParams(search);
   const text = (params.get('busca') ?? '').slice(0, 200);
   const who = params.get('quem') ?? 'anyone';
@@ -234,14 +254,20 @@ export function fromSearch(search: string): { filter: Filter; sort: Sort } {
     key === 'title' || key === 'created' || key === 'updated' || key.startsWith('field:')
       ? (key as SortKey)
       : 'stage';
+  const listed = params.get('colunas');
+  const columns =
+    listed === null
+      ? null
+      : [...new Set(listed.split(','))].filter((id) => COLUMN_ID.test(id)).slice(0, 80);
   return {
     filter: { text, who, stageId, field },
     sort: { key: sortKey, descending: params.get('direcao') === 'desc' },
+    columns,
   };
 }
 
-/** The address part for a filter and an order; empty when nothing is chosen. */
-export function toSearch(filter: Filter, sort: Sort): string {
+/** The address part for a filter, an order and a table's columns; empty when nothing is chosen. */
+export function toSearch(filter: Filter, sort: Sort, columns: Columns = null): string {
   const params = new URLSearchParams();
   if (filter.text.trim() !== '') params.set('busca', filter.text.trim());
   if (filter.who !== 'anyone') params.set('quem', filter.who);
@@ -253,6 +279,7 @@ export function toSearch(filter: Filter, sort: Sort): string {
   }
   if (sort.key !== 'stage') params.set('ordem', sort.key);
   if (sort.descending) params.set('direcao', 'desc');
+  if (columns !== null) params.set('colunas', columns.join(','));
   const text = params.toString();
   return text === '' ? '' : `?${text}`;
 }
