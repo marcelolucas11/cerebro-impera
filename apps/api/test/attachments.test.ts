@@ -226,6 +226,22 @@ describe('the antivirus', () => {
     expect(waiting.status).toBe(409);
   });
 
+  it('is asked only once the upload is closed for good, however fast it answers', async () => {
+    const working = env.deps.scanner;
+    const errors: unknown[] = [];
+    // Answers at once, without reading: the slowest part left is the database's commit.
+    env.deps.scanner = { scan: () => Promise.resolve('clean') };
+    try {
+      for (let round = 0; round < 5; round += 1) {
+        const sent = await upload(s.ana, s.itemAna, `rapido-${round}.txt`, Buffer.from('já'));
+        expect((await settled(s.ana, s.itemAna, sent.id)).status).toBe('ready');
+      }
+    } finally {
+      env.deps.scanner = working;
+    }
+    expect(errors).toEqual([]);
+  });
+
   it('when it cannot be reached, files wait, and are checked once it is back, once each', async () => {
     const working = env.deps.scanner;
     if (working === null) throw new Error('the tests run with an antivirus');

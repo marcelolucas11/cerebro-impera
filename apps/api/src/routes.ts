@@ -341,13 +341,16 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     return signedIn(request, (tx, actor) => attachments.uploadState(deps, tx, actor, id));
   });
-  app.post('/api/uploads/:id/finish', (request) => {
+  app.post('/api/uploads/:id/finish', async (request) => {
     const id = paramId(request);
-    return signedIn(request, (tx, actor) =>
+    const finished = await signedIn(request, (tx, actor) =>
       attachments.finishUpload(deps, tx, actor, id, (error) => {
         request.log.error({ err: error }, 'an attachment could not be checked');
       }),
     );
+    // Committed: now the antivirus may answer.
+    finished.scan();
+    return finished.attachment;
   });
   app.delete('/api/uploads/:id', async (request) => {
     const id = paramId(request);

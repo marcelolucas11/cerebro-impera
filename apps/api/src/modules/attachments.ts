@@ -215,7 +215,9 @@ async function* contentOf(
 
 /**
  * Closes an upload once every part is in. The content is read back in full to
- * compute its digest and type, then handed to the antivirus in the background.
+ * compute its digest and type. `scan` hands it to the antivirus, and must be
+ * called only after this transaction has committed: before that, the database
+ * would refuse the antivirus's answer for a file that is not yet waiting for it.
  */
 export async function finishUpload(
   deps: Deps,
@@ -223,7 +225,7 @@ export async function finishUpload(
   actor: Actor,
   uploadId: string,
   log: (error: unknown) => void,
-): Promise<AttachmentView> {
+): Promise<{ attachment: AttachmentView; scan: () => void }> {
   const { size, key } = await openUpload(deps, tx, actor, uploadId);
   const digest = createHash('sha256');
   let head: Buffer | null = null;
@@ -242,8 +244,12 @@ export async function finishUpload(
   );
   const row = await findAttachment(tx, uploadId);
   if (!row) throw notFound();
-  scanLater(deps, uploadId, size, key, log);
-  return toView(row);
+  return {
+    attachment: toView(row),
+    scan: () => {
+      scanLater(deps, uploadId, size, key, log);
+    },
+  };
 }
 
 /** Attachments this process is handing to the antivirus right now. */
@@ -259,7 +265,6 @@ function scanLater(
   const scanner = deps.scanner;
   if (scanner === null || inFlight.has(attachmentId)) return;
   inFlight.add(attachmentId);
-  // After the request's transaction has committed.
   setImmediate(() => {
     scanner
       .scan(contentOf(deps, attachmentId, size, key))
