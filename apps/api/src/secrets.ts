@@ -29,9 +29,15 @@ const UPDATER_KEY_FILE = 'updater-key';
  * also for installations from before the updater existed; never overwritten.
  */
 function ensureUpdaterKey(configDir: string): void {
-  const path = join(configDir, UPDATER_KEY_FILE);
-  if (existsSync(path)) return;
-  writeFileSync(path, randomBytes(32).toString('base64'), { mode: 0o600, flag: 'wx' });
+  // 'wx' creates it only if it is not there, in one step: an existing key is left alone.
+  try {
+    writeFileSync(join(configDir, UPDATER_KEY_FILE), randomBytes(32).toString('base64'), {
+      mode: 0o600,
+      flag: 'wx',
+    });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+  }
 }
 
 /** Creates the secrets on first boot; never overwrites existing ones. */
