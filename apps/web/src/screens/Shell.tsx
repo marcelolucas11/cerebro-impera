@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, type ReactNode } from 'react';
 import { api } from '../api.js';
 import { describeError, ROLE_NAMES } from '../messages.js';
-import { Link, listIdFrom, usePath } from '../router.js';
+import { Link, listIdFrom, listViewFrom, usePath } from '../router.js';
 import { onSignedOut as listenForSignOut } from '../session.js';
 import { StepUpProvider } from '../stepup.js';
 import { Button, Notice, useAction } from '../ui/kit.js';
@@ -95,7 +95,13 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
         <main className={listId !== undefined ? 'shell-main shell-main-wide' : 'shell-main'}>
           {signOut.error ? <Notice tone="error">{signOut.error}</Notice> : null}
           {listId !== undefined ? (
-            <ListScreen key={listId} listId={listId} me={user} canSeePeople={can('users.manage')} />
+            <ListScreen
+              key={listId}
+              listId={listId}
+              view={listViewFrom(path)}
+              me={user}
+              canSeePeople={can('users.manage')}
+            />
           ) : path === '/conta' ? (
             <Account me={user} />
           ) : here === undefined ? (

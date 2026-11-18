@@ -794,6 +794,59 @@ test('the owner changes her own password, and sees where she is signed in', asyn
   await heading(owner, 'Seus espaços');
 });
 
+test('the board shows the list by stage, and a card is dragged from one to another', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  await owner
+    .getByRole('navigation', { name: 'Ver como' })
+    .getByRole('link', { name: 'Quadro' })
+    .click();
+  const column = (name: string) => owner.getByRole('region', { name: `Etapa ${name}` });
+  const cardIn = (name: string) =>
+    column(name).locator('.card').filter({ hasText: 'Conferir perfis' });
+  await expect(cardIn('Fazendo')).toBeVisible();
+
+  // Taken by its handle and dropped on the next column, which lights up on the way.
+  const handle = await cardIn('Fazendo').locator('.card-handle').boundingBox();
+  const target = await column('Feito').boundingBox();
+  if (!handle || !target) throw new Error('the board is not laid out');
+  await owner.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await owner.mouse.down();
+  await owner.mouse.move(target.x + target.width / 2, target.y + 60, { steps: 12 });
+  await expect(column('Feito')).toHaveClass(/is-target/);
+  await shot(owner, 'quadro-arrastando');
+  await owner.mouse.up();
+  await expect(cardIn('Feito')).toBeVisible();
+  await expect(cardIn('Fazendo')).toHaveCount(0);
+
+  // The server has it: it is still there after a reload.
+  await owner.reload();
+  await expect(cardIn('Feito')).toBeVisible();
+  // The way for the keyboard: the stage menu on the card.
+  await owner.getByLabel('Etapa de Conferir perfis').selectOption({ label: 'Fazendo' });
+  await expect(cardIn('Fazendo')).toBeVisible();
+
+  // A card opens the whole item over the board.
+  await column('Fazendo').getByRole('button', { name: 'Conferir perfis', exact: true }).click();
+  const dialog = owner.getByRole('dialog', { name: 'Conferir perfis' });
+  await expect(dialog.getByLabel('Título')).toHaveValue('Conferir perfis');
+  await shot(owner, 'quadro-item-aberto');
+  await dialog.getByRole('button', { name: 'Fechar', exact: true }).first().click();
+  await expect(dialog).toHaveCount(0);
+
+  // On a phone the columns stay side by side, and the board scrolls sideways.
+  await owner.setViewportSize({ width: 390, height: 844 });
+  const scrolls = await owner
+    .locator('.board')
+    .evaluate((element) => element.scrollWidth > element.clientWidth);
+  expect(scrolls).toBe(true);
+  // Only the board scrolls; the page itself stays as wide as the screen.
+  expect(await owner.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await shot(owner, 'quadro-celular');
+  await owner.setViewportSize({ width: 1280, height: 900 });
+});
+
 test('the page never broke its own security policy along the way', () => {
   expect(problems).toEqual([]);
 });
