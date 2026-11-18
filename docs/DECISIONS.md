@@ -422,6 +422,22 @@ item, em `/listas/:id/quadro`, ao lado da visão em lista.
 navegador já faz; os eventos de ponteiro funcionam igual em computador, iPad e celular. O menu de
 etapa garante que ninguém dependa de arrastar.
 
+## D37 — Filtrar e ordenar na própria página, guardado no endereço
+
+**Decisão.** Busca no título, responsável, etapa, uma condição por campo e a ordem são aplicados
+pela página sobre os itens que a pessoa já recebeu, e ficam no endereço (`?busca=…&ordem=…`), de
+modo que recarregar, trocar entre lista e quadro ou mandar o link mantém o recorte.
+
+- Um filtro só esconde; nunca pede ao servidor nada além do que a pessoa já vê. Campo secreto se
+  filtra só por "preenchido" ou "vazio".
+- Endereço com valores sem sentido é ignorado, nunca dá erro.
+- A ordem padrão é "tempo na etapa" (quem espera há mais tempo primeiro), a mesma do quadro.
+
+**Por quê.** Uma lista de até alguns milhares de itens já chega inteira em bem menos de um segundo
+(teste de escala); filtrar no servidor seria mais um caminho de consulta para proteger, sem ganho
+para uma equipe deste tamanho. Se um dia as listas crescerem muito, a mesma descrição de filtro
+pode ir para a API.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

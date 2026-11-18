@@ -794,6 +794,47 @@ test('the owner changes her own password, and sees where she is signed in', asyn
   await heading(owner, 'Seus espaços');
 });
 
+test('a list is narrowed and ordered, and stays that way across a reload and the board', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  const tools = owner.getByRole('search', { name: 'Filtrar e ordenar' });
+  const titles = owner.locator('.item-rows .item-title');
+  await expect(titles).toHaveCount(2);
+
+  await tools.getByLabel('Buscar no título').fill('PERFIS');
+  await expect(titles).toHaveText(['Conferir perfis']);
+  await expect(tools.getByRole('status')).toHaveText('Mostrando 1 de 2 itens.');
+  // In the address: a reload keeps it, and so does the board.
+  await owner.reload();
+  await expect(tools.getByLabel('Buscar no título')).toHaveValue('PERFIS');
+  await expect(titles).toHaveText(['Conferir perfis']);
+  await owner
+    .getByRole('navigation', { name: 'Ver como' })
+    .getByRole('link', { name: 'Quadro' })
+    .click();
+  await expect(owner.locator('.card .card-title')).toHaveText(['Conferir perfis']);
+  await owner
+    .getByRole('navigation', { name: 'Ver como' })
+    .getByRole('link', { name: 'Lista' })
+    .click();
+
+  // By a field, typed the way amounts are written here, and ordered by it.
+  await tools.getByLabel('Buscar no título').fill('');
+  await tools.getByLabel('Filtrar por campo').selectOption({ label: 'Valor' });
+  await tools.getByLabel('Condição de Valor').selectOption({ label: 'pelo menos' });
+  await tools.getByLabel('Valor de Valor').fill('1.000,00');
+  await expect(titles).toHaveText(['Subir campanha do cliente']);
+  await tools.getByLabel('Filtrar por campo').selectOption({ label: 'Nenhum campo' });
+  await tools.getByLabel('Ordenar por').selectOption({ label: 'Valor' });
+  await tools.getByRole('button', { name: 'Ordem crescente' }).click();
+  await expect(titles).toHaveText(['Subir campanha do cliente', 'Conferir perfis']);
+  await shot(owner, 'filtros');
+  await tools.getByRole('button', { name: 'Limpar filtros e ordem' }).click();
+  await expect(titles).toHaveCount(2);
+  expect(new URL(owner.url()).search).toBe('');
+});
+
 test('the board shows the list by stage, and a card is dragged from one to another', async () => {
   await owner.getByRole('link', { name: 'Espaços' }).click();
   await owner.getByRole('link', { name: 'Tarefas' }).click();
