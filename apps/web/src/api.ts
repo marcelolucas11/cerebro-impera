@@ -206,6 +206,8 @@ export interface Item {
   parentId: string | null;
   /** How far its checklist is. */
   checks: { done: number; total: number };
+  /** Comments on it that were not removed. */
+  comments: number;
   /** Set only for an item in the trash. */
   trashedAt: string | null;
   trashedBy: string | null;
@@ -263,6 +265,21 @@ export interface ItemChange {
   fieldId: string | null;
   old: unknown;
   new: unknown;
+}
+/** A comment on an item, with what the person may do with it. */
+export interface ItemComment {
+  id: string;
+  itemId: string;
+  authorId: string;
+  /** Empty once removed. */
+  body: string;
+  createdAt: string;
+  editedAt: string | null;
+  removedAt: string | null;
+  removedBy: string | null;
+  versions: number;
+  canEdit: boolean;
+  canRemove: boolean;
 }
 /** One line of an item's checklist. */
 export interface CheckLine {
@@ -421,6 +438,15 @@ export const api = {
     ),
 
   items: (listId: string) => request<Item[]>('GET', `/api/lists/${listId}/items`),
+  comments: (itemId: string) => request<ItemComment[]>('GET', `/api/items/${itemId}/comments`),
+  addComment: (itemId: string, body: string) =>
+    request<ItemComment>('POST', `/api/items/${itemId}/comments`, { body }),
+  editComment: (commentId: string, body: string) =>
+    request<ItemComment>('PATCH', `/api/comments/${commentId}`, { body }),
+  removeComment: (commentId: string) =>
+    request<ItemComment>('DELETE', `/api/comments/${commentId}`),
+  commentVersions: (commentId: string) =>
+    request<{ body: string; replacedAt: string }[]>('GET', `/api/comments/${commentId}/versions`),
   checklist: (itemId: string) => request<CheckLine[]>('GET', `/api/items/${itemId}/checklist`),
   addCheck: (itemId: string, text: string) =>
     request<CheckLine>('POST', `/api/items/${itemId}/checklist`, { text }),

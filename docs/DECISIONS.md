@@ -615,6 +615,24 @@ antiga só olhava título, descrição e lista).
 **Fica para depois:** várias checklists com nome no mesmo item, reordenar linhas e transformar
 uma linha em subtarefa. A API já guarda a posição de cada linha.
 
+## D48 — Comentários: escreve quem edita, só o autor muda, apagado some do aplicativo
+
+**Decisão.** Cada item tem comentários, em ordem (`0030_comments.sql`).
+
+- **Lê quem vê o item; escreve quem pode editá-lo.** Quem só vê a lista lê, mas não comenta:
+  "ver" continua sendo só ler. _Rever com o mantenedor_ se quem só vê deve poder perguntar.
+- **Só o autor muda o que escreveu**, e cada versão anterior fica guardada e legível para quem lê
+  o comentário ("editado" e "Ver versões anteriores").
+- **Apagar:** o autor, ou quem gerencia a lista (moderação). Apagado, o comentário mostra só quem
+  apagou e quando; o texto sai do alcance da aplicação, inclusive as versões anteriores, e fica
+  só no banco, para quem cuida do servidor. Um comentário apagado não volta nem muda.
+- Autor, horário, edição e quem apagou são escritos pelo banco; as versões não podem ser
+  escritas, mudadas nem apagadas, nem pelo dono do banco.
+- Nada muda nos comentários de um item na lixeira; eles saem junto quando o item sai de vez.
+- Texto puro, com as quebras de linha como foram escritas; até 10 mil caracteres.
+
+As menções com @ entram na próxima fatia, junto do que decide quem pode ser mencionado.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

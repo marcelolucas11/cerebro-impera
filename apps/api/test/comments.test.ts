@@ -18,6 +18,8 @@ interface Comment {
   removedAt: string | null;
   removedBy: string | null;
   versions: number;
+  canEdit: boolean;
+  canRemove: boolean;
 }
 interface ErrorBody {
   error: { code: string };
@@ -90,6 +92,10 @@ describe('by the API', () => {
     expect((await edit(s.ana, own.body.id, 'Volta')).body.error.code).toBe('comment_removed');
 
     const hers = await write(s.ana, s.itemAna, 'Senha do painel: 1234');
+    // Each person is told what they may do with it.
+    const asMarta = (await list(s.marta, s.itemAna)).body.find((one) => one.id === hers.body.id);
+    expect(asMarta).toMatchObject({ canEdit: false, canRemove: true });
+    expect(hers.body).toMatchObject({ canEdit: true, canRemove: true });
     // Bruno does not see the item; Marta manages the space, so the list.
     expect((await remove(s.bruno, hers.body.id)).status).toBe(404);
     const moderated = await remove(s.marta, hers.body.id);
@@ -101,6 +107,10 @@ describe('by the API', () => {
   it('does not let a colleague remove what someone else wrote without managing the list', async () => {
     // Bruno edits his own item; the owner comments on it.
     const ownerSaid = await write(s.owner, s.itemBruno, 'Revisa o valor?');
+    const asBruno = (await list(s.bruno, s.itemBruno)).body.find(
+      (one) => one.id === ownerSaid.body.id,
+    );
+    expect(asBruno).toMatchObject({ canEdit: false, canRemove: false });
     expect((await remove(s.bruno, ownerSaid.body.id)).status).toBe(403);
     expect((await edit(s.bruno, ownerSaid.body.id, 'Mudei')).status).toBe(403);
   });

@@ -885,6 +885,55 @@ test('a checklist inside the item is ticked by whoever works on it', async () =>
   await shot(ana, 'checklist-celular');
 });
 
+test('comments are a conversation on the item, with every change kept', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  const row = (page: Page) =>
+    page.locator('.item-rows > li').filter({ hasText: 'Conferir perfis' }).first();
+  await owner.getByRole('button', { name: 'Conferir perfis', exact: true }).click();
+  await row(owner).getByLabel('Escrever um comentário').fill('Consegue conferir até sexta?');
+  await row(owner).getByRole('button', { name: 'Comentar' }).click();
+  await expect(row(owner).locator('.comments')).toContainText('Consegue conferir até sexta?');
+  await expect(row(owner).locator('.item-row .item-marks').first()).toContainText('1 comentário');
+
+  // The employee answers on her phone, then corrects herself.
+  await ana.goto('/');
+  await ana.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(ana, 'Tarefas');
+  await ana.getByRole('button', { name: 'Conferir perfis', exact: true }).click();
+  const hers = row(ana);
+  await expect(hers.locator('.comments')).toContainText('Consegue conferir até sexta?');
+  await hers.getByLabel('Escrever um comentário').fill('Confiro hoje.');
+  await hers.getByRole('button', { name: 'Comentar' }).click();
+  await hers.getByRole('button', { name: 'Editar o seu comentário' }).click();
+  await hers.getByLabel('Mudar o comentário').fill('Confiro hoje à tarde.\nTe aviso aqui.');
+  await hers.getByRole('button', { name: 'Salvar comentário' }).click();
+  await expect(hers.locator('.comments')).toContainText('editado');
+  // She cannot change or remove what the owner wrote.
+  await expect(
+    hers.getByRole('button', { name: 'Editar o comentário de Olívia Dona' }),
+  ).toHaveCount(0);
+  await expect(
+    hers.getByRole('button', { name: 'Apagar o comentário de Olívia Dona' }),
+  ).toHaveCount(0);
+  expect(await ana.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await shot(ana, 'comentarios-celular');
+
+  // The owner reads what it said before, and, managing the list, removes it.
+  await owner.reload();
+  await owner.getByRole('button', { name: 'Conferir perfis', exact: true }).click();
+  const answer = row(owner).locator('.comment').filter({ hasText: 'Confiro hoje à tarde.' });
+  await answer.getByRole('button', { name: 'Ver versões anteriores' }).click();
+  await expect(answer.locator('.comment-versions')).toContainText('Confiro hoje.');
+  await shot(owner, 'comentarios');
+  await answer.getByRole('button', { name: 'Apagar o comentário de Ana Souza' }).click();
+  await expect(row(owner).locator('.comments')).toContainText(
+    'Comentário de Ana Souza apagado por você',
+  );
+  await expect(row(owner).locator('.comments')).not.toContainText('Confiro hoje');
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');

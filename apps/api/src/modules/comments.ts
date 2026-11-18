@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { levelAtLeast } from '@cerebro/shared';
+import { levelAtLeast, type ResolvedAccess } from '@cerebro/shared';
 import type { Actor } from '../actor.js';
 import { one, rows, run, sql, type Tx } from '../db.js';
 import { badRequest, forbidden, notFound } from '../http/errors.js';
@@ -24,6 +24,9 @@ export interface CommentView {
   removedBy: string | null;
   /** How many earlier versions there are to read. */
   versions: number;
+  /** What the caller may do with it. */
+  canEdit: boolean;
+  canRemove: boolean;
 }
 
 interface CommentRow {
@@ -38,7 +41,18 @@ interface CommentRow {
   versions: number;
 }
 
-const toComment = (row: CommentRow): CommentView => ({
+/** What the caller may do with a comment: the same rules the database holds. */
+function toComment(row: CommentRow, actor: Actor, access: ResolvedAccess): CommentView {
+  const live = row.deleted_at === null;
+  const authorAtWork = row.author_id === actor.userId && levelAtLeast(access.level, 'edit');
+  return {
+    ...shape(row),
+    canEdit: live && authorAtWork,
+    canRemove: live && (authorAtWork || access.level === 'manage'),
+  };
+}
+
+const shape = (row: CommentRow): Omit<CommentView, 'canEdit' | 'canRemove'> => ({
   id: row.id,
   itemId: row.item_id,
   authorId: row.author_id,
@@ -55,13 +69,13 @@ const COLUMNS = `c.id, c.item_id, c.author_id, c.body, c.created_at, c.edited_at
   (SELECT count(*)::int FROM app.item_comment_versions v WHERE v.comment_id = c.id) AS versions`;
 
 export async function listComments(tx: Tx, actor: Actor, itemId: string): Promise<CommentView[]> {
-  await openItem(tx, actor, itemId, 'view');
+  const { access } = await openItem(tx, actor, itemId, 'view');
   const found = await rows<CommentRow>(tx, {
     text: `SELECT ${COLUMNS} FROM app.item_comments c
            WHERE c.item_id = $1 ORDER BY c.created_at, c.id LIMIT 1000`,
     values: [itemId],
   });
-  return found.map(toComment);
+  return found.map((row) => toComment(row, actor, access));
 }
 
 export async function addComment(
@@ -70,13 +84,13 @@ export async function addComment(
   itemId: string,
   body: { body: string },
 ): Promise<CommentView> {
-  await openItem(tx, actor, itemId, 'edit');
+  const { access } = await openItem(tx, actor, itemId, 'edit');
   const id = randomUUID();
   await run(
     tx,
     sql`INSERT INTO app.item_comments (id, item_id, body) VALUES (${id}, ${itemId}, ${body.body})`,
   );
-  return mustFind(tx, id);
+  return toComment(await findComment(tx, id), actor, access);
 }
 
 async function findComment(tx: Tx, commentId: string): Promise<CommentRow> {
@@ -98,9 +112,9 @@ export async function editComment(
   const comment = await findComment(tx, commentId);
   if (comment.deleted_at !== null) throw badRequest('comment_removed');
   if (comment.author_id !== actor.userId) throw forbidden();
-  await openItem(tx, actor, comment.item_id, 'edit');
+  const { access } = await openItem(tx, actor, comment.item_id, 'edit');
   await run(tx, sql`UPDATE app.item_comments SET body = ${body.body} WHERE id = ${commentId}`);
-  return mustFind(tx, commentId);
+  return toComment(await findComment(tx, commentId), actor, access);
 }
 
 /** Removes a comment: its author, or whoever manages the list. */
@@ -115,7 +129,7 @@ export async function removeComment(tx: Tx, actor: Actor, commentId: string): Pr
     sql`UPDATE app.item_comments SET deleted_at = now() WHERE id = ${commentId}`,
   );
   if (changed !== 1) throw forbidden();
-  return mustFind(tx, commentId);
+  return toComment(await findComment(tx, commentId), actor, access);
 }
 
 export interface CommentVersion {
@@ -136,8 +150,4 @@ export async function commentVersions(
            WHERE comment_id = $1 ORDER BY id`,
     values: [commentId],
   });
-}
-
-async function mustFind(tx: Tx, commentId: string): Promise<CommentView> {
-  return toComment(await findComment(tx, commentId));
 }
