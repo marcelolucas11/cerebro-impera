@@ -695,6 +695,55 @@ test('whoever manages a space builds inside it, without being an owner', async (
   await shot(ana, 'gestora-cria-lista');
 });
 
+test('several items change at once; several to the trash asks for the code again', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  await owner
+    .getByRole('button', { name: /^Adicionar item em/ })
+    .first()
+    .click();
+  const newTitle = owner.getByLabel(/^Novo item em/);
+  for (const title of ['Lote A', 'Lote B']) {
+    await newTitle.fill(title);
+    await owner.getByRole('button', { name: 'Adicionar', exact: true }).click();
+    await expect(owner.getByRole('button', { name: title, exact: true })).toBeVisible();
+  }
+  const pick = async (): Promise<void> => {
+    await owner.getByLabel('Selecionar Lote A').check();
+    await owner.getByLabel('Selecionar Lote B').check();
+  };
+  await pick();
+  const bar = owner.getByRole('region', { name: 'Itens selecionados' });
+  await expect(bar).toContainText('2 itens selecionados');
+  await bar.getByLabel('Mover para a etapa').selectOption({ label: 'Feito' });
+  await bar.getByRole('button', { name: 'Mover selecionados' }).click();
+  const done = owner.getByRole('region', { name: 'Etapa Feito' });
+  await expect(done.getByRole('button', { name: 'Lote A', exact: true })).toBeVisible();
+  await expect(done.getByRole('button', { name: 'Lote B', exact: true })).toBeVisible();
+  await pick();
+  await bar.getByLabel('Passar para').selectOption({ label: 'Ana Souza' });
+  await bar.getByRole('button', { name: 'Passar selecionados' }).click();
+  for (const title of ['Lote A', 'Lote B']) {
+    await expect(
+      owner.locator('.item-rows > li').filter({ hasText: title }).locator('.item-row'),
+    ).toContainText('Com Ana Souza');
+  }
+
+  await sql(
+    "UPDATE auth.sessions SET step_up_at = now() - interval '1 hour' WHERE user_id = (SELECT id FROM app.users WHERE email = 'olivia@exemplo.test')",
+  );
+  await pick();
+  await shot(owner, 'edicao-em-massa');
+  await bar.getByRole('button', { name: 'Mandar selecionados para a lixeira' }).click();
+  const dialog = owner.getByRole('dialog');
+  await dialog.getByLabel('Código de 6 dígitos').fill(await authenticatorCode(ownerKey));
+  await dialog.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(owner.getByRole('button', { name: 'Lote A', exact: true })).toHaveCount(0);
+  await expect(owner.getByRole('button', { name: 'Lote B', exact: true })).toHaveCount(0);
+  await expect(bar).toHaveCount(0);
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');
@@ -710,6 +759,7 @@ test('everything is on the record, and the record is intact', async () => {
     'Acesso concedido',
     'Lista sensível aberta',
     'Valor secreto revelado',
+    'Vários itens mandados para a lixeira de uma vez',
   ]) {
     await expect(record, entry).toContainText(entry);
   }

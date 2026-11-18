@@ -28,6 +28,7 @@ import {
   setupSchema,
   setupTotpSchema,
   setSecretSchema,
+  bulkSchema,
   searchQuerySchema,
   orderItemsSchema,
   createViewSchema,
@@ -312,6 +313,12 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.get('/api/search', (request) => {
     const query = parse(searchQuerySchema, request.query);
     return signedIn(request, (tx, actor) => searching.search(tx, actor, query.q));
+  });
+
+  app.post('/api/lists/:id/bulk', (request) => {
+    const id = paramId(request);
+    const body = parse(bulkSchema, request.body);
+    return signedIn(request, (tx, actor) => structure.bulkChange(tx, actor, id, body));
   });
 
   // ---- Saved views -----------------------------------------------------------------

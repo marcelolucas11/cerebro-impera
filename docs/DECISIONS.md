@@ -524,6 +524,30 @@ enquanto os dias rolam de lado, também no celular. Barras cortadas na borda mos
 de um mês com folga. Arrastar a barra para mudar as datas fica para depois (as datas mudam no
 item, como no calendário).
 
+## D44 — Edição em massa, com a lixeira em massa tratada como ação crítica
+
+**Decisão.** Na visão de lista, cada item tem uma caixa de seleção; com algo selecionado aparece
+uma barra para mover tudo para uma etapa, passar tudo para uma pessoa e mandar tudo para a
+lixeira. Cada mudança é tudo ou nada: se um dos itens escolhidos não pode ser mudado por quem pede
+(ou saiu da lista), nada muda.
+
+- Mover e passar seguem as regras de um item por vez: mover pede poder editar cada item; passar é
+  só de quem distribui trabalho na lista e só para quem pode trabalhar nela.
+- Mandar **um** item para a lixeira pela barra é o mesmo que o botão do item. Mandar **vários**
+  exige a capacidade "Apagar em massa" e o código do autenticador recente, fica no registro e
+  alerta os Donos.
+- O banco faz a mesma conta por conta própria (`0026_bulk_trash.sql`): soma os itens mandados para
+  a lixeira na mesma requisição, mesmo um comando por vez, e recusa o segundo sem a capacidade e o
+  código.
+
+**Limitação conhecida.** A soma é por requisição. Quem tem só "editar" pode mandar itens um a um,
+em requisições separadas, como já podia pelo botão do item; isso fica no histórico de cada item,
+mas não dispara o alerta. Um alerta por volume em janela de tempo fica para quando as
+notificações existirem (Fase 4).
+
+**Por quê.** Apagar muita coisa de uma vez é o estrago mais rápido que uma conta comprometida ou um
+engano pode fazer; por isso a barreira está onde o dano é grande e não no uso comum.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |
