@@ -900,6 +900,28 @@ acesso. Desenho completo da Fase 7 em [`docs/design/pwa.md`](design/pwa.md).
 - Os dados offline (cifrados, com expiração e apagamento remoto) são a próxima parte, como no
   desenho.
 
+## D62 — Leitura offline, cifrada, do que a pessoa já abriu
+
+**Decisão.** O aparelho guarda, cifrado, o que o servidor acabou de responder:
+
+- a conta da pessoa, a estrutura que ela vê e o Início sem nada de lista sensível;
+- os itens, as etapas e os campos das listas não sensíveis que ela abriu.
+
+Sem conexão, a página mostra o que foi guardado e diz de quando é. Nada de lista sensível, valor
+secreto, anexo, auditoria ou pessoas vai para o aparelho. Desenho em
+[`docs/design/pwa.md`](design/pwa.md), seção 3.
+
+- **Cifragem:** cada registro vai cifrado com AES-GCM de 256 bits. O vetor é novo a cada gravação
+  e o registro fica preso ao seu endereço. A chave é gerada no aparelho, não exportável, como pede
+  o roteiro. O limite está escrito no desenho: a chave fica no perfil do navegador.
+- **Expira** depois de 7 dias sem falar com o servidor.
+- **Apagado** em quatro casos: ao sair (antes de avisar o servidor), quando a sessão acaba, ao
+  entrar e por ordem remota (próxima parte). Resposta pedida antes de apagar e que chega depois
+  é descartada.
+- **Só leitura:** mudar algo sem conexão continua recusado, com aviso. A fila de mudanças é a
+  parte 4 da Fase 7.
+- Rever com o mantenedor: os 7 dias.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

@@ -1,7 +1,7 @@
 # Aplicativo instalável e modo offline — desenho
 
-Estado: **em construção** (Fase 7). A primeira parte está pronta: instalar e abrir sem conexão.
-Os dados offline, a fila de mudanças e o apagamento remoto seguem a ordem da seção 5. Nada aqui
+Estado: **em construção** (Fase 7). Prontos: instalar e abrir sem conexão, e ler offline o que
+o aparelho guardou, cifrado. O apagamento remoto e a fila de mudanças seguem a ordem da seção 5. Nada aqui
 é específico de uma empresa.
 
 ## 1. O que precisa valer
@@ -38,11 +38,18 @@ Os dados offline, a fila de mudanças e o apagamento remoto seguem a ordem da se
   poucos segundos e quando o aparelho avisa que a conexão voltou). Com o aplicativo aberto, uma
   faixa avisa que nada é salvo até a conexão voltar.
 
-## 3. Dados offline (próxima parte)
+## 3. Dados offline (pronto, só leitura)
 
-- **O que vai:** as listas não sensíveis que a pessoa abriu nos últimos dias ou fixou no Início:
-  itens, etapas, campos (sem o valor dos secretos), checklist e comentários. Lido com o acesso
-  dela, como na tela; quem vê só os próprios itens guarda só os próprios itens.
+- **O que vai** (`apps/web/src/offline/policy.ts`, com testes):
+  - a conta da pessoa;
+  - a estrutura que ela vê;
+  - o Início, sem nada de lista sensível;
+  - os itens, as etapas e os campos das listas não sensíveis que ela abriu.
+    É sempre a última resposta do servidor, lida com o acesso dela, então quem vê só os próprios
+    itens guarda só os próprios itens. Valores secretos nunca vêm junto com os itens, então nunca
+    são guardados. Checklist e comentários ficam para a fila de mudanças.
+- **Quando:** depois de cada resposta do servidor, e só depois que o servidor disse quem está
+  conectado. Lido só quando o servidor não responde; a tela diz de quando são os dados.
 - **Onde e como:** IndexedDB, cada registro cifrado com AES-GCM de 256 bits e um vetor novo por
   gravação. A chave é gerada no próprio aparelho pelo WebCrypto, marcada como não exportável, e
   guardada no IndexedDB. Nenhum código da página consegue ler os bytes da chave, só usá-la.
@@ -55,13 +62,14 @@ Os dados offline, a fila de mudanças e o apagamento remoto seguem a ordem da se
   - encerramento da sessão por um Dono;
   - apagamento remoto.
     Assim está pedido no roteiro do projeto.
-- **Expiração:** sem falar com o servidor por 7 dias (ajustável pelo Dono), o aparelho apaga tudo e
-  pede a entrada de novo.
-- **Apagado:**
-  - ao sair;
+- **Expiração:** sem falar com o servidor por 7 dias, o aparelho apaga tudo. Tornar o prazo
+  ajustável pelo Dono fica para quando houver configurações da instalação na tela.
+- **Apagado** (a chave junto):
+  - ao sair, antes mesmo de avisar o servidor (sair sem conexão também apaga);
   - quando o servidor responde que a sessão acabou;
-  - quando o aparelho é desaprovado;
+  - ao entrar, para ninguém herdar o que outra pessoa deixou no aparelho;
   - quando um Dono manda apagar (seção 4).
+    Uma resposta pedida antes de apagar e que chega depois é descartada.
 
 ## 4. Apagamento remoto
 
@@ -75,7 +83,7 @@ Os dados offline, a fila de mudanças e o apagamento remoto seguem a ordem da se
 ## 5. Ordem de construção
 
 1. ~~Instalar e abrir sem conexão~~ (D61).
-2. Dados offline cifrados, só leitura, com expiração e apagamento ao sair ou perder a sessão.
+2. ~~Dados offline cifrados, só leitura, com expiração e apagamento ao sair ou perder a sessão~~ (D62).
 3. Apagamento remoto por aparelho.
 4. Fila de mudanças offline (etapa, título, prazo, prioridade, checklist e comentário), conferida
    no servidor, com conflito por campo.

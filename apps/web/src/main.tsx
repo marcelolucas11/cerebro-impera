@@ -11,7 +11,8 @@ import { announceSignedOut } from './session.js';
 const root = document.getElementById('app');
 if (!root) throw new Error('missing #app');
 
-// Nothing is kept on disk: data lives in memory and is fetched again on every visit.
+// Answers live in memory and are fetched again on every visit. For reading offline, only
+// what offline/policy.ts allows is also kept on the device, sealed (offline/store.ts).
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error) => {

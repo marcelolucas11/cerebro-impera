@@ -3,6 +3,8 @@ import { useCallback, useEffect, type ReactNode } from 'react';
 import { api } from '../api.js';
 import { describeError, ROLE_NAMES } from '../messages.js';
 import { useLiveUpdates } from '../live.js';
+import { formatWhen } from '../labels.js';
+import { forget, useServedFromDevice } from '../offline/store.js';
 import { useOnline } from '../online.js';
 import { Link, listIdFrom, listViewFrom, usePath } from '../router.js';
 import { onSignedOut as listenForSignOut } from '../session.js';
@@ -26,6 +28,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
   const me = useQuery({ queryKey: ['me'], queryFn: api.me, retry: false });
   const unread = useUnreadNotifications();
   const online = useOnline();
+  const kept = useServedFromDevice();
   useLiveUpdates();
 
   useEffect(
@@ -39,6 +42,8 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
 
   const signOut = useAction(
     useCallback(async () => {
+      // What this device kept goes first, even if the server cannot be reached to sign out.
+      await forget();
       await api.signOut();
       queryClient.clear();
       onSignedOut();
@@ -118,7 +123,11 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
           </div>
         </header>
         <main className={listId !== undefined ? 'shell-main shell-main-wide' : 'shell-main'}>
-          {online ? null : (
+          {kept !== null ? (
+            <Notice tone="info">
+              {`Sem conexão. Você está vendo o que este aparelho guardou em ${formatWhen(new Date(kept).toISOString())}; nada é salvo até a conexão voltar.`}
+            </Notice>
+          ) : online ? null : (
             <Notice tone="info">
               Sem conexão. O que está na tela pode estar desatualizado, e nada é salvo até a conexão
               voltar.

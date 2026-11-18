@@ -1354,7 +1354,7 @@ test('the weekly report counts each list and each person, against the week befor
   );
 });
 
-test('the app can be installed and opens without a connection, keeping no data', async () => {
+test('the app can be installed, and its worker keeps the page and never anything from the API', async () => {
   await owner.getByRole('link', { name: 'Início' }).click();
   await heading(owner, 'Início');
   const manifest = await owner.evaluate(() =>
@@ -1375,17 +1375,103 @@ test('the app can be installed and opens without a connection, keeping no data',
   expect(kept).toContain('/index.html');
   expect(kept.filter((path) => path !== '/index.html' && !path.startsWith('/assets/'))).toEqual([]);
 
-  // Without a connection the page still opens, says so, and comes back by itself.
+  // Without a connection the page still opens; what this device kept is shown, and says so.
   const before = problems.length;
   await ownerContext.setOffline(true);
   await owner.reload();
-  await expect(owner.getByText('Sem conexão com o servidor.', { exact: false })).toBeVisible();
-  await shot(owner, 'sem-conexao');
-  await ownerContext.setOffline(false);
   await heading(owner, 'Início');
-  // The refused requests while offline are the expected ones, nothing else.
+  await expect(owner.getByText(/Você está vendo o que este aparelho guardou em/)).toBeVisible();
+  await ownerContext.setOffline(false);
+  await owner.reload();
+  await heading(owner, 'Início');
   expect(
     problems.splice(before).filter((problem) => !/ERR_INTERNET_DISCONNECTED/.test(problem)),
+  ).toEqual([]);
+});
+
+test('a phone keeps the lists it opened, sealed, to read offline, and forgets them on signing out', async () => {
+  await ana.getByRole('link', { name: 'Espaços' }).click();
+  await ana.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(ana, 'Tarefas');
+  await expect(ana.getByText('Conferir perfis').first()).toBeVisible();
+  const listId = new URL(ana.url()).pathname.split('/')[2] ?? '';
+  // What the device kept: the list, and nothing readable without the key.
+  const kept = async (): Promise<{ slots: string[]; readable: boolean }> =>
+    ana.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open('cerebro-offline');
+        request.onsuccess = () => {
+          resolve(request.result);
+        };
+        request.onerror = () => {
+          reject(new Error('no database'));
+        };
+      });
+      const store = db.transaction('records', 'readonly').objectStore('records');
+      const slots = await new Promise<string[]>((resolve) => {
+        const request = store.getAllKeys();
+        request.onsuccess = () => {
+          resolve(request.result.map(String));
+        };
+      });
+      const values = await new Promise<{ data: ArrayBuffer }[]>((resolve) => {
+        const request = db.transaction('records', 'readonly').objectStore('records').getAll();
+        request.onsuccess = () => {
+          resolve(request.result as { data: ArrayBuffer }[]);
+        };
+      });
+      db.close();
+      const plain = values.map((value) => new TextDecoder().decode(value.data)).join(' ');
+      return { slots, readable: /Conferir perfis|Ana Souza|Tarefas/.test(plain) };
+    });
+  await expect
+    .poll(async () => (await kept()).slots.sort())
+    .toEqual(
+      [
+        '/api/home',
+        '/api/me',
+        '/api/tree',
+        `/api/lists/${listId}/items`,
+        `/api/lists/${listId}/stages`,
+        `/api/lists/${listId}/fields`,
+      ].sort(),
+    );
+  expect((await kept()).readable).toBe(false);
+
+  // Offline, the list opens from the device and says where it comes from.
+  const before = problems.length;
+  await anaContext.setOffline(true);
+  await ana.reload();
+  await heading(ana, 'Tarefas');
+  await expect(ana.getByText('Conferir perfis').first()).toBeVisible();
+  await expect(ana.getByText(/Você está vendo o que este aparelho guardou em/)).toBeVisible();
+  await shot(ana, 'offline-lista-celular');
+  await anaContext.setOffline(false);
+  await ana.reload();
+  await heading(ana, 'Tarefas');
+  await expect(ana.getByText(/Você está vendo o que este aparelho guardou/)).toHaveCount(0);
+  expect(
+    problems.splice(before).filter((problem) => !/ERR_INTERNET_DISCONNECTED/.test(problem)),
+  ).toEqual([]);
+
+  // Signing out takes everything the device kept, the key included.
+  await ana.getByRole('button', { name: 'Sair' }).click();
+  await expect(ana.getByLabel('E-mail')).toBeVisible();
+  expect(
+    await ana.evaluate(async () =>
+      (await indexedDB.databases()).some((db) => db.name === 'cerebro-offline'),
+    ),
+  ).toBe(false);
+  // Offline now, there is nothing to open: the page says so and waits for the connection.
+  const after = problems.length;
+  await anaContext.setOffline(true);
+  await ana.reload();
+  await expect(ana.getByText('Sem conexão com o servidor.', { exact: false })).toBeVisible();
+  await shot(ana, 'sem-conexao-celular');
+  await anaContext.setOffline(false);
+  await expect(ana.getByLabel('E-mail')).toBeVisible();
+  expect(
+    problems.splice(after).filter((problem) => !/ERR_INTERNET_DISCONNECTED/.test(problem)),
   ).toEqual([]);
 });
 

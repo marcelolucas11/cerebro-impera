@@ -1,4 +1,5 @@
 import type { FieldConfig, FieldKind, FieldValue } from '@cerebro/shared';
+import { currentEra, recall, remember } from './offline/store.js';
 import type { ListView } from './router.js';
 
 /** A refusal from the server, or `network` when it could not be reached. */
@@ -43,6 +44,7 @@ async function call<T>(
   path: string,
   body: { type: string; content: string | Blob } | null,
 ): Promise<T> {
+  const era = currentEra();
   let response: Response;
   try {
     response = await fetch(path, {
@@ -57,6 +59,9 @@ async function call<T>(
       ...(body === null ? {} : { body: body.content }),
     });
   } catch {
+    // Out of reach: a reading this device kept, if there is one, stands in for the answer.
+    const kept = body === null && method === 'GET' ? await recall(path) : null;
+    if (kept !== null) return kept.value as T;
     throw new ApiError(0, 'network');
   }
 
@@ -75,6 +80,7 @@ async function call<T>(
       isRecord(error.details) ? error.details : {},
     );
   }
+  if (method === 'GET') void remember(path, data, era);
   return data as T;
 }
 
