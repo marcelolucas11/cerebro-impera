@@ -5,6 +5,7 @@ import { Vault } from './crypto/vault.js';
 import { closePools, createPools, inTransaction } from './db.js';
 import type { Deps } from './deps.js';
 import { clamdScanner, noScanner } from './files/scanner.js';
+import { httpUpdater } from './updates/client.js';
 import { FileStore } from './files/store.js';
 import { migrate } from './migrate.js';
 import { ensureSetupToken } from './modules/auth.js';
@@ -64,6 +65,7 @@ async function commandServe(): Promise<void> {
         : config.antivirus.kind === 'off'
           ? noScanner
           : clamdScanner(config.antivirus.host, config.antivirus.port),
+    updater: config.updater === null ? null : httpUpdater(config.updater.url, config.updater.key),
   };
   const app = await buildApp(deps);
 

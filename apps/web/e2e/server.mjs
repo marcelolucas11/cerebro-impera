@@ -11,6 +11,7 @@ import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { URL } from 'node:url';
 import pg from 'pg';
+import { startFakeUpdater } from './fake-updater.mjs';
 
 const adminUrl = process.env.TEST_PG_ADMIN_URL;
 if (!adminUrl) {
@@ -49,6 +50,9 @@ const env = {
   CEREBRO_FILES_DIR: join(work, 'files'),
   // No antivirus in the browser tests: files are kept, marked as not checked.
   CEREBRO_ANTIVIRUS: 'off',
+  // A stand-in updater, on the next port, signed like the real one.
+  CEREBRO_VERSION: '1.4.0',
+  CEREBRO_UPDATER_URL: `http://127.0.0.1:${String(Number(port) + 1)}`,
 };
 mkdirSync(env.CEREBRO_FILES_DIR, { recursive: true, mode: 0o700 });
 
@@ -64,6 +68,10 @@ const secrets = JSON.parse(readFileSync(secretsFile, 'utf8'));
 secrets.db.adminPassword = decodeURIComponent(admin.password);
 writeFileSync(secretsFile, JSON.stringify(secrets), { mode: 0o600 });
 run('migrate');
+
+const updaterKey = randomBytes(32);
+writeFileSync(join(configDir, 'updater-key'), updaterKey.toString('base64'), { mode: 0o600 });
+const fakeUpdater = startFakeUpdater(updaterKey, Number(port) + 1);
 
 const databaseUrl = new URL(adminUrl);
 databaseUrl.pathname = `/${database}`;
@@ -96,6 +104,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
     if (stopping) return;
     stopping = true;
+    fakeUpdater.close();
     server.kill('SIGTERM');
   });
 }
