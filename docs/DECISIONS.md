@@ -509,6 +509,18 @@ de fora. O que é digitado vale literalmente (`%` e `_` não viram curingas).
 **Por quê.** Uma busca com caminho de leitura próprio seria o jeito mais fácil de vazar um item
 entre funcionários; usando as regras de linha, ela não consegue achar o que a pessoa não veria.
 
+## D43 — Linha do tempo de seis semanas, por dois campos de data
+
+**Decisão.** A quinta visão é a linha do tempo (`/listas/:id/linha-do-tempo`): uma linha por item
+e uma barra do campo "começa em" ao "termina em" (escolhidos entre os campos de data da lista;
+com um só, cada item marca um dia), na cor da etapa. Mostra seis semanas a partir da segunda-feira
+da semana anterior, anda de quatro em quatro semanas e volta para hoje. Os títulos ficam fixos
+enquanto os dias rolam de lado, também no celular. Barras cortadas na borda mostram o corte.
+
+**Por quê.** Seis semanas cabem numa tela de computador com dias legíveis e cobrem o planejamento
+de um mês com folga. Arrastar a barra para mudar as datas fica para depois (as datas mudam no
+item, como no calendário).
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

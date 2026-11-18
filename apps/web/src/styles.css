@@ -1891,3 +1891,115 @@ audio.file-preview {
 .search-results li {
   align-items: baseline;
 }
+
+/* ---- The timeline ---------------------------------------------------------------- */
+
+/* One row per item on a grid of days; titles stay put while the days scroll. Bars
+   take their stage's color, softly, with the full color as their leading edge. */
+.timeline-wrap {
+  position: relative;
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+}
+
+.timeline {
+  --colunas-tempo: minmax(10rem, 15rem) repeat(var(--dias), minmax(1.875rem, 1fr));
+
+  width: max(100%, calc(15rem + var(--dias) * 1.875rem));
+  font-size: var(--menor);
+}
+
+.timeline-row {
+  display: grid;
+  grid-template-columns: var(--colunas-tempo);
+  align-items: center;
+  min-height: 2.5rem;
+  border-bottom: 1px solid var(--linha);
+}
+
+.timeline-row:last-child {
+  border-bottom: 0;
+}
+
+.timeline-head {
+  min-height: 2.75rem;
+  color: var(--texto-suave);
+}
+
+.timeline-title {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  grid-column: 1;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-right: 1px solid var(--linha);
+  background: var(--fundo);
+}
+
+.timeline-day {
+  display: grid;
+  justify-items: center;
+  align-self: stretch;
+  align-content: end;
+  padding-bottom: 0.25rem;
+  font-family: var(--fonte-exata);
+}
+
+.timeline-day.is-weekend {
+  background: color-mix(in srgb, var(--superficie) 45%, transparent);
+}
+
+.timeline-day.is-today {
+  color: var(--marca);
+  font-weight: 650;
+}
+
+.timeline-month {
+  color: var(--texto);
+  font-family: var(--fonte);
+  font-size: 0.75rem;
+  text-transform: lowercase;
+}
+
+.timeline-cell {
+  min-width: 0;
+  padding: 0.25rem 0.125rem;
+}
+
+.timeline-bar {
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  overflow: hidden;
+  border: 0;
+  border-left: 3px solid var(--cor);
+  border-radius: var(--raio);
+  background: color-mix(in srgb, var(--cor) 28%, var(--superficie));
+  color: var(--texto);
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.timeline-bar.is-clipped-start {
+  border-left-style: dashed;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.timeline-bar.is-clipped-end {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.timeline-outside {
+  grid-column: 2 / -1;
+  padding-left: 0.75rem;
+  color: var(--texto-suave);
+}

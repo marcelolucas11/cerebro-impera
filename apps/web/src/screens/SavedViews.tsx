@@ -10,6 +10,7 @@ const KIND_NAMES: Record<ListView, string> = {
   board: 'quadro',
   calendar: 'calendário',
   table: 'tabela',
+  timeline: 'linha do tempo',
 };
 
 /*
