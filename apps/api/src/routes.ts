@@ -72,6 +72,7 @@ import * as searching from './modules/search.js';
 import * as secrets from './modules/secrets.js';
 import * as views from './modules/views.js';
 import * as automations from './modules/automations.js';
+import * as reports from './modules/reports.js';
 import * as summary from './modules/summary.js';
 import * as home from './modules/home.js';
 import * as checklist from './modules/checklist.js';
@@ -480,6 +481,14 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   // ---- Start page -------------------------------------------------------------------
   app.get('/api/home', (request) => signedIn(request, (tx, actor) => home.homeOf(tx, actor)));
+  app.get('/api/reports', (request) =>
+    signedIn(request, (tx, actor) => reports.reports(tx, actor)),
+  );
+  app.get('/api/reports/:id', (request) => {
+    const id = paramId(request);
+    const sensitive = (request.query as { sensitive?: unknown }).sensitive === '1';
+    return signedIn(request, (tx, actor) => reports.report(tx, actor, id, { sensitive }));
+  });
   app.put('/api/home/pins', (request) => {
     const body = parse(homePinsSchema, request.body);
     return signedIn(request, (tx, actor) => home.setPins(tx, actor, body));

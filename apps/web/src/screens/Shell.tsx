@@ -13,6 +13,7 @@ import { Account } from './Account.js';
 import { ListScreen } from './ListScreen.js';
 import { Notifications, useUnreadNotifications } from './Notifications.js';
 import { People } from './People.js';
+import { Reports } from './Reports.js';
 import { Search, SearchBox } from './Search.js';
 import { Security } from './Security.js';
 import { Spaces } from './Spaces.js';
@@ -64,6 +65,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
   const sections = [
     { to: '/inicio', label: 'Início', show: true },
     { to: '/', label: 'Espaços', show: true },
+    { to: '/relatorios', label: 'Relatórios', show: can('reports.view') },
     { to: '/pessoas', label: 'Pessoas', show: can('users.manage') },
     { to: '/aparelhos', label: 'Aparelhos', show: true },
     { to: '/seguranca', label: 'Segurança', show: can('audit.view') },
@@ -141,6 +143,8 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
                 Ir para Espaços
               </Link>
             </>
+          ) : path === '/relatorios' ? (
+            <Reports isOwner={isOwner} />
           ) : path === '/pessoas' ? (
             <People me={user} />
           ) : path === '/aparelhos' ? (

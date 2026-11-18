@@ -1323,6 +1323,37 @@ test('each person starts from their own page: their items by due date and the pa
   await shot(ana, 'inicio-celular');
 });
 
+test('the weekly report counts each list and each person, against the week before', async () => {
+  // The routine writes last week's report at the start; this week's is written here, so
+  // far, and the code is stale so the sensitive lists stay out until it is confirmed.
+  await sql("SELECT app.weekly_report_make(date_trunc('week', current_date)::date)");
+  await sql(
+    "UPDATE auth.sessions SET step_up_at = step_up_at - interval '2 hours' WHERE step_up_at IS NOT NULL",
+  );
+  await owner.getByRole('link', { name: 'Relatórios' }).click();
+  await heading(owner, 'Relatório da semana');
+  await expect(owner.getByRole('button', { name: 'Incluir as listas sensíveis' })).toBeVisible();
+  const lists = owner.getByRole('region', { name: 'Por lista' });
+  const tarefas = lists.getByRole('row', { name: /^Tarefas/ });
+  await expect(tarefas.getByRole('cell')).toHaveText(['2', '0', '2', '0']);
+  await expect(lists.getByRole('row', { name: /^Dinheiro/ })).toHaveCount(0);
+  await expect(owner.getByRole('region', { name: 'Por pessoa' })).toContainText('Ana Souza');
+  await expect(owner.locator('.report-change').first()).toContainText(
+    'em relação à semana anterior',
+  );
+  await shot(owner, 'relatorio-semanal');
+  await owner.setViewportSize({ width: 390, height: 844 });
+  expect(await owner.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await shot(owner, 'relatorio-semanal-celular');
+  await owner.setViewportSize({ width: 1280, height: 900 });
+
+  // Without the capability there is no report to open.
+  await expect(ana.getByRole('link', { name: 'Relatórios' })).toHaveCount(0);
+  await sql(
+    "UPDATE auth.sessions SET step_up_at = step_up_at + interval '2 hours' WHERE step_up_at IS NOT NULL",
+  );
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');

@@ -69,6 +69,7 @@ describe('names for what the system records', () => {
       'automations.manage',
       'secret_fields.reveal',
       'system.config',
+      'reports.view',
     ]) {
       expect(CAPABILITY_NAMES[key]?.name, key).toBeTruthy();
       expect(CAPABILITY_NAMES[key]?.detail, key).toBeTruthy();

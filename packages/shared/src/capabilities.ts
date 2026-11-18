@@ -11,6 +11,7 @@ export const CAPABILITIES = [
   'automations.manage',
   'secret_fields.reveal',
   'system.config',
+  'reports.view',
 ] as const;
 export type Capability = (typeof CAPABILITIES)[number];
 

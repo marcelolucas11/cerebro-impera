@@ -844,7 +844,7 @@ bloqueado".
   lista.
 - **Desenho:** números sempre escritos; as barras, de uma cor só (validada para o fundo escuro),
   só ajudam a comparar. Cada bloco é uma tabela, lida por leitores de tela.
-- A tela inicial (D59) e o relatório periódico são os próximos passos da Fase 6.
+- A tela inicial (D59) e o relatório semanal (D60) completam a Fase 6.
 
 ## D59 — Tela inicial de cada pessoa
 
@@ -864,6 +864,26 @@ ela escolhe.
   completo da lista, a um clique.
 - **Endereço `/`:** continua sendo Espaços, para não quebrar links já guardados. Abrir o
   aplicativo direto em Início é uma escolha simples a confirmar com o mantenedor.
+
+## D60 — Relatório semanal
+
+**Decisão.** Toda segunda-feira, a rotina de hora em hora escreve o relatório da semana que
+terminou (segunda a domingo, no calendário da instalação): por lista, quantos itens entraram,
+quantos foram concluídos na semana (e continuam concluídos), quantos estão em aberto e quantos
+estão atrasados; e, por pessoa, concluídos, em aberto e atrasados dos itens com ela. A tela
+**Relatórios** mostra a semana escolhida e quanto cada número mudou em relação à anterior.
+
+- **Quem lê:** os Donos, e quem recebe deles a permissão nova **Ver relatórios**
+  (`reports.view`). Mesmo com ela, cada um lê só as listas em que vê todos os itens; lista
+  sensível só depois do código (a página oferece confirmar). Nomes de pessoas vêm de uma função do
+  banco que só nomeia quem está nas linhas que a pessoa pode ler.
+- **Quem escreve:** só a rotina (`0041_weekly_report.sql`). A função se recusa a rodar dentro de
+  uma requisição; a aplicação não insere, muda nem apaga relatório. Uma semana já escrita não é
+  reescrita. Guarda-se um ano.
+- **Contagem:** feita no momento em que o relatório é escrito, na primeira hora da segunda-feira.
+  Se o servidor estiver parado nessa hora, o relatório sai quando ele voltar, com os números
+  daquele momento. Item na lixeira não conta.
+- **E-mail:** fica para quando o mantenedor decidir o servidor de e-mail. Rever com o mantenedor.
 
 ## Adiado, com motivo
 

@@ -424,6 +424,32 @@ export interface Home {
   unread: number;
   pins: string[];
 }
+/** The numbers a weekly report keeps for a list, or summed over several. */
+export interface ReportTotals {
+  created: number;
+  finished: number;
+  open: number;
+  overdue: number;
+}
+export interface ReportWeek {
+  id: string;
+  /** Monday, YYYY-MM-DD. */
+  weekStart: string;
+  madeAt: string;
+}
+/** A weekly report, over the lists where this person sees every item. */
+export interface WeeklyReport extends ReportWeek {
+  totals: ReportTotals;
+  previous: ReportTotals | null;
+  lists: (ReportTotals & { listId: string; listName: string; spaceName: string })[];
+  people: {
+    userId: string;
+    name: string | null;
+    finished: number;
+    open: number;
+    overdue: number;
+  }[];
+}
 export interface MySession {
   id: string;
   deviceId: string;
@@ -601,6 +627,10 @@ export const api = {
   removeCheck: (checkId: string) => request<{ ok: true }>('DELETE', `/api/checklist/${checkId}`),
   listSummary: (listId: string) => request<ListSummary>('GET', `/api/lists/${listId}/summary`),
   home: () => request<Home>('GET', '/api/home'),
+  reports: () => request<ReportWeek[]>('GET', '/api/reports'),
+  /** With `sensitive`, the server asks for the code first, so the sensitive lists come too. */
+  report: (id: string, sensitive = false) =>
+    request<WeeklyReport>('GET', `/api/reports/${id}${sensitive ? '?sensitive=1' : ''}`),
   setHomePins: (listIds: string[]) => request<Home>('PUT', '/api/home/pins', { listIds }),
   automations: (listId: string) => request<Automation[]>('GET', `/api/lists/${listId}/automations`),
   ruleAudience: (listId: string) =>
