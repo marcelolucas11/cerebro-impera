@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { MAX_STAGES_PER_LIST, type StageDraft, type StageKind } from '@cerebro/shared';
+import {
+  MAX_STAGES_PER_LIST,
+  type StageDraft,
+  type StageEntryRole,
+  type StageKind,
+} from '@cerebro/shared';
 import type { Actor } from '../actor.js';
 import { one, rows, run, sql, type Tx } from '../db.js';
 import { badRequest, conflict, notFound } from '../http/errors.js';
@@ -18,6 +23,8 @@ export interface StageView {
   color: string;
   kind: StageKind;
   position: number;
+  /** Only people from this role up put items into the stage; null for anyone who edits them. */
+  entryRole: StageEntryRole | null;
 }
 
 interface StageRow {
@@ -27,6 +34,7 @@ interface StageRow {
   color: string;
   kind: StageKind;
   position: number;
+  entry_role: StageEntryRole | null;
 }
 
 const toStage = (row: StageRow): StageView => ({
@@ -36,12 +44,13 @@ const toStage = (row: StageRow): StageView => ({
   color: row.color,
   kind: row.kind,
   position: row.position,
+  entryRole: row.entry_role,
 });
 
 async function stagesOf(tx: Tx, listId: string): Promise<StageView[]> {
   const found = await rows<StageRow>(
     tx,
-    sql`SELECT id, list_id, name, color, kind, position FROM app.list_stages
+    sql`SELECT id, list_id, name, color, kind, position, entry_role FROM app.list_stages
         WHERE list_id = ${listId} ORDER BY position, created_at`,
   );
   return found.map(toStage);
@@ -58,7 +67,12 @@ export async function createStage(
   tx: Tx,
   actor: Actor,
   listId: string,
-  body: { name: string; color?: string | undefined; kind?: StageKind | undefined },
+  body: {
+    name: string;
+    color?: string | undefined;
+    kind?: StageKind | undefined;
+    entryRole?: StageEntryRole | null | undefined;
+  },
 ): Promise<StageView> {
   await openList(tx, actor, listId, 'manage');
   const existing = await stagesOf(tx, listId);
@@ -67,9 +81,9 @@ export async function createStage(
   const position = Math.max(-1, ...existing.map((stage) => stage.position)) + 1;
   await run(
     tx,
-    sql`INSERT INTO app.list_stages (id, list_id, name, color, kind, position)
+    sql`INSERT INTO app.list_stages (id, list_id, name, color, kind, position, entry_role)
         VALUES (${id}, ${listId}, ${body.name}, ${body.color ?? '#9ba6b8'},
-                ${body.kind ?? 'active'}, ${position})`,
+                ${body.kind ?? 'active'}, ${position}, ${body.entryRole ?? null}::app.user_role)`,
   );
   const created = (await stagesOf(tx, listId)).find((stage) => stage.id === id);
   if (!created) throw notFound();
@@ -80,7 +94,7 @@ export async function createStage(
 async function openStage(tx: Tx, actor: Actor, stageId: string): Promise<StageView> {
   const row = await one<StageRow>(
     tx,
-    sql`SELECT id, list_id, name, color, kind, position FROM app.list_stages WHERE id = ${stageId}`,
+    sql`SELECT id, list_id, name, color, kind, position, entry_role FROM app.list_stages WHERE id = ${stageId}`,
   );
   if (!row) throw notFound();
   await openList(tx, actor, row.list_id, 'manage');
@@ -91,7 +105,12 @@ export async function updateStage(
   tx: Tx,
   actor: Actor,
   stageId: string,
-  body: { name?: string | undefined; color?: string | undefined; kind?: StageKind | undefined },
+  body: {
+    name?: string | undefined;
+    color?: string | undefined;
+    kind?: StageKind | undefined;
+    entryRole?: StageEntryRole | null | undefined;
+  },
 ): Promise<StageView> {
   const stage = await openStage(tx, actor, stageId);
   await run(
@@ -99,7 +118,9 @@ export async function updateStage(
     sql`UPDATE app.list_stages SET
           name = coalesce(${body.name ?? null}, name),
           color = coalesce(${body.color ?? null}, color),
-          kind = coalesce(${body.kind ?? null}::app.stage_kind, kind)
+          kind = coalesce(${body.kind ?? null}::app.stage_kind, kind),
+          entry_role = CASE WHEN ${body.entryRole !== undefined}::boolean
+                            THEN ${body.entryRole ?? null}::app.user_role ELSE entry_role END
         WHERE id = ${stageId}`,
   );
   const updated = (await stagesOf(tx, stage.listId)).find((candidate) => candidate.id === stageId);

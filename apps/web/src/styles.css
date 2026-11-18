@@ -898,7 +898,7 @@ tr[aria-selected='true'] > * {
 
 .stage-fields {
   display: grid;
-  grid-template-columns: minmax(10rem, 1fr) auto minmax(10rem, 16rem);
+  grid-template-columns: minmax(10rem, 1fr) auto minmax(10rem, 14rem) minmax(10rem, 14rem);
   gap: 1rem;
   align-items: start;
 }

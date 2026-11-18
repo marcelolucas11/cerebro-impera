@@ -172,6 +172,7 @@ export interface AuditEntry {
   targetId: string | null;
 }
 export type StageKind = 'open' | 'active' | 'done' | 'closed';
+export type StageEntryRole = 'manager' | 'admin' | 'owner';
 export interface Stage {
   id: string;
   listId: string;
@@ -179,6 +180,8 @@ export interface Stage {
   color: string;
   kind: StageKind;
   position: number;
+  /** Only people from this role up put items into the stage; null for anyone who edits them. */
+  entryRole: StageEntryRole | null;
 }
 export interface Item {
   id: string;
@@ -524,8 +527,10 @@ export const api = {
   stages: (listId: string) => request<Stage[]>('GET', `/api/lists/${listId}/stages`),
   createStage: (listId: string, input: { name: string; color: string; kind: StageKind }) =>
     request<Stage>('POST', `/api/lists/${listId}/stages`, input),
-  updateStage: (id: string, input: { name?: string; color?: string; kind?: StageKind }) =>
-    request<Stage>('PATCH', `/api/stages/${id}`, input),
+  updateStage: (
+    id: string,
+    input: { name?: string; color?: string; kind?: StageKind; entryRole?: StageEntryRole | null },
+  ) => request<Stage>('PATCH', `/api/stages/${id}`, input),
   applyStages: (listId: string, stages: { name: string; color: string; kind: StageKind }[]) =>
     request<Stage[]>('POST', `/api/lists/${listId}/stages/apply`, { stages }),
   reorderStages: (listId: string, ids: string[]) =>

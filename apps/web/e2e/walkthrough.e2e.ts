@@ -1204,6 +1204,37 @@ test('a rule started by a hand-over sets a due date, fills in a field and adds a
   await expect(rows).toHaveCount(0);
 });
 
+test('a stage can take items only from some roles up, and the page offers it only to them', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  await owner.getByRole('button', { name: 'Editar etapas' }).click();
+  const blocked = owner
+    .locator('.stage-editor > li')
+    .filter({ has: owner.getByRole('button', { name: 'Remover Bloqueado' }) });
+  await blocked.getByLabel('Quem põe itens aqui').selectOption({ label: 'ADMs ou acima' });
+  await blocked.getByRole('button', { name: 'Salvar etapa' }).click();
+  await expect(blocked.getByRole('button', { name: 'Salvar etapa' })).toBeDisabled();
+  await shot(owner, 'etapa-restrita');
+
+  // Ana works on her item, but cannot put it in Bloqueado; the owner still can.
+  await ana.goto('/');
+  await ana.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(ana, 'Tarefas');
+  const hers = ana.getByLabel('Etapa de Conferir perfis').first();
+  await expect(hers.locator('option', { hasText: 'Bloqueado' })).toBeDisabled();
+  await expect(hers.locator('option', { hasText: 'Feito' })).toBeEnabled();
+  await shot(ana, 'etapa-restrita-celular');
+  const ownerSelect = owner.getByLabel('Etapa de Conferir perfis').first();
+  await expect(ownerSelect.locator('option', { hasText: 'Bloqueado' })).toBeEnabled();
+
+  // Back as it was, for what comes next.
+  await blocked.getByLabel('Quem põe itens aqui').selectOption({ label: 'Quem edita o item' });
+  await blocked.getByRole('button', { name: 'Salvar etapa' }).click();
+  await expect(blocked.getByRole('button', { name: 'Salvar etapa' })).toBeDisabled();
+  await owner.getByRole('button', { name: 'Fechar edição das etapas' }).click();
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');

@@ -56,6 +56,8 @@ const BY_CODE: Record<string, string> = {
   invalid_parent:
     'A subtarefa precisa ficar debaixo de um item desta lista que não seja subtarefa.',
   dates_out_of_order: 'O prazo não pode vir antes do começo.',
+  stage_restricted:
+    'Essa etapa só recebe itens de pessoas com um papel acima do seu. Peça a quem gerencia a lista.',
   unknown_stage: 'Uma das etapas da regra não é desta lista. Recarregue a página e confira.',
   unknown_field: 'Um dos campos da regra não é desta lista, foi arquivado ou não tem essa opção.',
   unknown_person: 'Uma das pessoas da regra não existe mais.',

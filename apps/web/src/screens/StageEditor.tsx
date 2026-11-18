@@ -1,7 +1,8 @@
 import { STAGE_PRESETS } from '@cerebro/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useId, useState, type ChangeEvent, type ReactNode } from 'react';
-import { api, ApiError, type Stage, type StageKind } from '../api.js';
+import { api, ApiError, type Stage, type StageEntryRole, type StageKind } from '../api.js';
+import { ENTRY_NAMES } from '../entry.js';
 import { STAGE_KIND_NAMES } from '../labels.js';
 import { download, readStageFile, stageFileName, stageFileOf } from '../stagefile.js';
 import { useGuard } from '../stepup.js';
@@ -10,6 +11,10 @@ import { Button, Field, Form, Notice, Select, useAction } from '../ui/kit.js';
 const KIND_OPTIONS = (Object.keys(STAGE_KIND_NAMES) as StageKind[]).map((value) => ({
   value,
   label: STAGE_KIND_NAMES[value],
+}));
+const ENTRY_OPTIONS = (Object.keys(ENTRY_NAMES) as (StageEntryRole | 'anyone')[]).map((value) => ({
+  value,
+  label: ENTRY_NAMES[value],
 }));
 
 /** Where whoever manages a list shapes the stages its items go through. */
@@ -223,13 +228,23 @@ function StageRow({
   const [kind, setKind] = useState<StageKind>(stage.kind);
   // Set when the stage still holds items: they need somewhere to go first.
   const [moveTo, setMoveTo] = useState<string | null>(null);
-  const changed = name.trim() !== stage.name || color !== stage.color || kind !== stage.kind;
+  const [entry, setEntry] = useState<StageEntryRole | 'anyone'>(stage.entryRole ?? 'anyone');
+  const changed =
+    name.trim() !== stage.name ||
+    color !== stage.color ||
+    kind !== stage.kind ||
+    entry !== (stage.entryRole ?? 'anyone');
 
   const save = useAction(
     useCallback(async () => {
-      await api.updateStage(stage.id, { name: name.trim(), color, kind });
+      await api.updateStage(stage.id, {
+        name: name.trim(),
+        color,
+        kind,
+        entryRole: entry === 'anyone' ? null : entry,
+      });
       await onChanged();
-    }, [stage.id, name, color, kind, onChanged]),
+    }, [stage.id, name, color, kind, entry, onChanged]),
   );
   const remove = useAction(
     useCallback(async () => {
@@ -266,6 +281,12 @@ function StageRow({
           }}
         />
         <Select label="Significado" value={kind} onChange={setKind} options={KIND_OPTIONS} />
+        <Select
+          label="Quem põe itens aqui"
+          value={entry}
+          onChange={setEntry}
+          options={ENTRY_OPTIONS}
+        />
       </div>
       <div className="actions">
         <Button
