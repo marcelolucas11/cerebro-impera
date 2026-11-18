@@ -1532,6 +1532,12 @@ test('the owner updates from the app: looks for a version, confirms the code, fo
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');
+  const copies = owner.getByRole('region', { name: 'Cópias de segurança' });
+  await expect(copies).toContainText('deu certo');
+  await expect(copies).toContainText(
+    'a cópia abriu, com 3 pessoas e a trilha de auditoria íntegra',
+  );
+  await shot(owner, 'seguranca-copias');
   await owner.getByRole('button', { name: 'Verificar se o registro está íntegro' }).click();
   await expect(owner.getByText(/Registro íntegro: \d+ entradas conferidas/)).toBeVisible();
   const record = owner.locator('main');

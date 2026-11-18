@@ -48,6 +48,8 @@ export interface Config {
   version: string;
   /** Where the updater listens, and the key requests to it are signed with; null without one. */
   updater: { url: string; key: Buffer } | null;
+  /** The backup service's situation file, read-only; null without the service. */
+  backupStatusFile: string | null;
 }
 
 export function parseAntivirus(raw: string | undefined): Config['antivirus'] {
@@ -143,6 +145,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     antivirus: parseAntivirus(env.CEREBRO_ANTIVIRUS),
     version: parseVersion(env.CEREBRO_VERSION),
     updater: parseUpdater(env.CEREBRO_UPDATER_URL, configDir),
+    backupStatusFile:
+      env.CEREBRO_BACKUP_STATUS === undefined || env.CEREBRO_BACKUP_STATUS === ''
+        ? null
+        : env.CEREBRO_BACKUP_STATUS,
   };
 }
 

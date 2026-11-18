@@ -478,6 +478,27 @@ export interface UpdatesView {
   } | null;
   refused: string | null;
 }
+/** How the copies are doing, as the backup service reports it. */
+export interface BackupView {
+  configured: boolean;
+  readable: boolean;
+  lastBackup: {
+    startedAt: string;
+    finishedAt: string;
+    ok: boolean;
+    snapshot: string | null;
+    bytes: number | null;
+    problem: string | null;
+  } | null;
+  lastSuccessAt: string | null;
+  lastRestoreTest: {
+    at: string;
+    ok: boolean;
+    people: number | null;
+    problem: string | null;
+  } | null;
+  nextRunAt: string | null;
+}
 export interface MySession {
   id: string;
   deviceId: string;
@@ -655,6 +676,7 @@ export const api = {
   removeCheck: (checkId: string) => request<{ ok: true }>('DELETE', `/api/checklist/${checkId}`),
   listSummary: (listId: string) => request<ListSummary>('GET', `/api/lists/${listId}/summary`),
   home: () => request<Home>('GET', '/api/home'),
+  backups: () => request<BackupView>('GET', '/api/backups'),
   updates: () => request<UpdatesView>('GET', '/api/updates'),
   checkUpdates: () => request<UpdatesView>('POST', '/api/updates/check'),
   applyUpdate: (version: string) => request<UpdatesView>('POST', '/api/updates/apply', { version }),

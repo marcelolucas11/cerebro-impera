@@ -115,3 +115,28 @@ mudança no servidor, faça um snapshot da VPS.
    - anexa à release o manifesto assinado.
 3. `infra/release/min-from` diz a versão mais antiga de onde se pode chegar à nova. Suba esse
    número quando uma migração exigir uma versão intermediária.
+
+## Cópias de segurança
+
+O backup é opcional e fica no perfil `backup`. Todo dia, na hora de `CEREBRO_BACKUP_HOUR` (03h por
+padrão, no fuso `TZ`), ele copia o banco, os anexos e a configuração para o repositório do restic
+em `CEREBRO_BACKUP_REPOSITORY`. Tudo é cifrado antes de sair do servidor e guardado por um ano. No
+dia 1 de cada mês, ele prova que a cópia restaura. Desenho em `docs/design/backup.md`; restauração
+em `docs/RESTORE.md`.
+
+```sh
+# no .env deste diretório:
+CEREBRO_BACKUP_IMAGE=ghcr.io/<dono>/<repositório>/backup@sha256:<digest>   # ou cerebro-backup:local
+CEREBRO_BACKUP_STATUS=/opt/cerebro/backup-status/backup.json
+CEREBRO_BACKUP_REPOSITORY=rclone:<remoto>:<pasta>   # sem isso, um volume local (só para testar)
+TZ=America/Sao_Paulo
+
+docker compose --file infra/compose.yaml --profile backup up --detach
+```
+
+- Para o Google Drive, use uma conta exclusiva para backups, com 2FA. Ponha o `rclone.conf` dela
+  no volume de configuração (`/opt/cerebro/config/rclone.conf`, dono 1000, permissão 600).
+- Copie a chave das cópias para o cofre e para o papel logo depois de instalar (`docs/RESTORE.md`,
+  passo 1).
+- Para conferir uma instalação nova, `CEREBRO_BACKUP_NOW=backup+test` faz uma cópia e o teste logo
+  ao subir.

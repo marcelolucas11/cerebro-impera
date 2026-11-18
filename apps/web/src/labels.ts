@@ -49,6 +49,9 @@ export const STATUS_NAMES: Record<UserStatus, string> = {
 };
 
 export const ALERT_NAMES: Record<string, string> = {
+  backup_failed: 'A cópia de segurança falhou',
+  backup_stale: 'Mais de um dia sem cópia de segurança boa',
+  restore_test_failed: 'O teste de restauração da cópia falhou',
   device_pending: 'Aparelho novo aguardando aprovação',
   device_approved: 'Aparelho aprovado por quem não é Dono',
   permission_changed: 'Permissão alterada por quem não é Dono',

@@ -53,6 +53,8 @@ const env = {
   // A stand-in updater, on the next port, signed like the real one.
   CEREBRO_VERSION: '1.4.0',
   CEREBRO_UPDATER_URL: `http://127.0.0.1:${String(Number(port) + 1)}`,
+  // What a backup service would have written: last night's copy and this month's test.
+  CEREBRO_BACKUP_STATUS: join(work, 'backup.json'),
 };
 mkdirSync(env.CEREBRO_FILES_DIR, { recursive: true, mode: 0o700 });
 
@@ -68,6 +70,29 @@ const secrets = JSON.parse(readFileSync(secretsFile, 'utf8'));
 secrets.db.adminPassword = decodeURIComponent(admin.password);
 writeFileSync(secretsFile, JSON.stringify(secrets), { mode: 0o600 });
 run('migrate');
+
+const hour = 60 * 60 * 1000;
+writeFileSync(
+  env.CEREBRO_BACKUP_STATUS,
+  JSON.stringify({
+    lastBackup: {
+      startedAt: new Date(Date.now() - 9 * hour).toISOString(),
+      finishedAt: new Date(Date.now() - 9 * hour + 95_000).toISOString(),
+      ok: true,
+      snapshot: '5f2c1a9e',
+      bytes: 48_234_496,
+      problem: null,
+    },
+    lastSuccessAt: new Date(Date.now() - 9 * hour + 95_000).toISOString(),
+    lastRestoreTest: {
+      at: new Date(Date.now() - 6 * 24 * hour).toISOString(),
+      ok: true,
+      people: 3,
+      problem: null,
+    },
+    nextRunAt: new Date(Date.now() + 15 * hour).toISOString(),
+  }),
+);
 
 const updaterKey = randomBytes(32);
 writeFileSync(join(configDir, 'updater-key'), updaterKey.toString('base64'), { mode: 0o600 });
