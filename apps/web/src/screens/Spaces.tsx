@@ -6,7 +6,10 @@ import { describeError } from '../messages.js';
 import { Link } from '../router.js';
 import { Button, Field, Form, Notice, Select, useAction } from '../ui/kit.js';
 
-/** The areas this person can reach. Owners also shape the structure here. */
+/**
+ * The areas this person can reach. Owners create spaces; whoever manages a
+ * space or a folder creates folders and lists inside it.
+ */
 export function Spaces({ isOwner }: { isOwner: boolean }): ReactNode {
   const tree = useQuery({ queryKey: ['tree'], queryFn: api.tree });
   if (tree.isPending) return <p className="lead">Abrindo…</p>;
@@ -36,10 +39,13 @@ export function Spaces({ isOwner }: { isOwner: boolean }): ReactNode {
                 <Lists lists={tree.data.lists.filter((l) => l.folderId === folder.id)} />
               </div>
             ))}
-          {isOwner ? (
+          {space.canManage ||
+          tree.data.folders.some((f) => f.spaceId === space.id && f.canManage) ? (
             <AddInside
               spaceId={space.id}
-              folders={tree.data.folders.filter((f) => f.spaceId === space.id)}
+              spaceName={space.name}
+              atRoot={space.canManage}
+              folders={tree.data.folders.filter((f) => f.spaceId === space.id && f.canManage)}
             />
           ) : null}
         </section>
@@ -102,12 +108,25 @@ function AddSpace(): ReactNode {
   );
 }
 
-function AddInside({ spaceId, folders }: { spaceId: string; folders: Tree['folders'] }): ReactNode {
+function AddInside({
+  spaceId,
+  spaceName,
+  atRoot,
+  folders,
+}: {
+  spaceId: string;
+  spaceName: string;
+  /** Manages the whole space: folders, and lists outside any folder. */
+  atRoot: boolean;
+  /** Folders where this person may create lists. */
+  folders: Tree['folders'];
+}): ReactNode {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<'list' | 'folder'>('list');
   const [name, setName] = useState('');
-  const [folderId, setFolderId] = useState('');
+  // Someone who manages only folders starts in the first of them.
+  const [folderId, setFolderId] = useState(atRoot ? '' : (folders[0]?.id ?? ''));
   const [isSensitive, setSensitive] = useState(false);
   const add = useAction(
     useCallback(async () => {
@@ -133,22 +152,25 @@ function AddInside({ spaceId, folders }: { spaceId: string; folders: Tree['folde
           setOpen(true);
         }}
       >
-        Adicionar lista ou pasta
+        {atRoot ? 'Adicionar lista ou pasta' : 'Adicionar lista'}
+        <span className="visually-hidden"> em {spaceName}</span>
       </Button>
     );
   }
   return (
     <Form onSubmit={add.run}>
       <div className="inline-fields">
-        <Select
-          label="O que criar"
-          value={kind}
-          onChange={setKind}
-          options={[
-            { value: 'list', label: 'Lista' },
-            { value: 'folder', label: 'Pasta' },
-          ]}
-        />
+        {atRoot ? (
+          <Select
+            label="O que criar"
+            value={kind}
+            onChange={setKind}
+            options={[
+              { value: 'list', label: 'Lista' },
+              { value: 'folder', label: 'Pasta' },
+            ]}
+          />
+        ) : null}
         <Field
           label="Nome"
           value={name}
@@ -157,13 +179,13 @@ function AddInside({ spaceId, folders }: { spaceId: string; folders: Tree['folde
           }}
           maxLength={200}
         />
-        {kind === 'list' && folders.length > 0 ? (
+        {kind === 'list' && folders.length > 0 && (atRoot || folders.length > 1) ? (
           <Select
             label="Onde"
             value={folderId}
             onChange={setFolderId}
             options={[
-              { value: '', label: 'Direto no espaço' },
+              ...(atRoot ? [{ value: '', label: 'Direto no espaço' }] : []),
               ...folders.map((folder) => ({ value: folder.id, label: `Pasta ${folder.name}` })),
             ]}
           />

@@ -98,8 +98,9 @@ export interface Me {
 }
 
 export interface Tree {
-  spaces: { id: string; name: string }[];
-  folders: { id: string; spaceId: string; name: string }[];
+  /** `canManage`: this person may create folders and lists there. */
+  spaces: { id: string; name: string; canManage: boolean }[];
+  folders: { id: string; spaceId: string; name: string; canManage: boolean }[];
   lists: {
     id: string;
     spaceId: string;
