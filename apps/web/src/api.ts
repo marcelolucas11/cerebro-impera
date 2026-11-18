@@ -343,7 +343,8 @@ export type RuleTrigger =
   | { on: 'created' }
   | { on: 'stage'; to?: string; from?: string }
   | { on: 'field'; field: string; is?: string | boolean }
-  | { on: 'assigned'; to?: string };
+  | { on: 'assigned'; to?: string }
+  | { on: 'due'; offset: number };
 export type RuleCondition =
   | { if: 'stage'; is: string }
   | { if: 'priority'; is: 1 | 2 | 3 | 4 | null }

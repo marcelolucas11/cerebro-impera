@@ -23,6 +23,7 @@ import {
   actionOf,
   conditionDraft,
   daysAhead,
+  dueTriggerText,
   conditionOf,
   OUTCOME_NAMES,
   ruleSentence,
@@ -63,6 +64,14 @@ const ACTION_CHOICES: { value: ActionKind; label: string }[] = [
   { value: 'subtask', label: 'Criar subtarefa' },
 ];
 const DUE_CHOICES = [0, 1, 2, 3, 5, 7, 10, 14, 15, 21, 30, 45, 60, 90];
+const DUE_OFFSETS = [-7, -3, -2, -1, 0, 1, 2, 3, 7];
+/** The usual offsets, and the one a rule already has, in order. */
+const offsetsWith = (current: string): number[] => {
+  const offset = Number(current);
+  const all = new Set(DUE_OFFSETS);
+  if (current !== '' && Number.isInteger(offset)) all.add(offset);
+  return [...all].sort((a, b) => a - b);
+};
 const dueChoices = (current: string): { value: string; label: string }[] => {
   const days = new Set(DUE_CHOICES);
   const typed = Number(current);
@@ -497,11 +506,31 @@ function RuleForm({
               { value: 'created', label: 'Um item é criado' },
               { value: 'field', label: 'Um campo muda' },
               { value: 'assigned', label: 'Alguém recebe um item' },
+              { value: 'due', label: 'O prazo de um item chega' },
             ]}
             onChange={(on) => {
-              setTrigger({ on, to: '', from: '', field: '', is: '' });
+              setTrigger({ on, to: '', from: '', field: '', is: on === 'due' ? '0' : '' });
             }}
           />
+          {trigger.on === 'due' ? (
+            <>
+              <Select
+                label="Quando"
+                value={trigger.is}
+                options={offsetsWith(trigger.is).map((offset) => ({
+                  value: String(offset),
+                  label: dueTriggerText(offset).replace(/^Quando /, ''),
+                }))}
+                onChange={(is) => {
+                  setTrigger({ ...trigger, is });
+                }}
+              />
+              <p className="field-note">
+                Vale para itens que ainda não foram concluídos. A regra é conferida de hora em hora
+                e age uma vez por item e prazo.
+              </p>
+            </>
+          ) : null}
           {trigger.on === 'field' ? (
             <div className="rule-row">
               <Select

@@ -1235,6 +1235,36 @@ test('a stage can take items only from some roles up, and the page offers it onl
   await owner.getByRole('button', { name: 'Fechar edição das etapas' }).click();
 });
 
+test('a rule can wait for the due date', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  await owner.getByRole('button', { name: 'Automações', exact: true }).click();
+  const rules = owner.getByRole('region', { name: 'Automações desta lista' });
+  await rules.getByRole('button', { name: 'Criar regra' }).click();
+  await rules.getByLabel('Nome da regra').fill('Véspera do prazo');
+  await rules
+    .getByLabel('O que faz a regra agir')
+    .selectOption({ label: 'O prazo de um item chega' });
+  await rules
+    .getByLabel('Quando', { exact: true })
+    .selectOption({ label: 'falta 1 dia para o prazo' });
+  await rules.getByLabel('Ação 1', { exact: true }).selectOption({ label: 'Mudar a prioridade' });
+  await rules.getByLabel('Valor da ação 1').selectOption({ label: 'Urgente' });
+  await rules.getByRole('button', { name: 'Adicionar ação' }).click();
+  await rules.getByLabel('Ação 2', { exact: true }).selectOption({ label: 'Avisar' });
+  await rules.getByRole('group', { name: 'Quem avisar na ação 2' }).getByLabel('Ana Souza').check();
+  await rules.getByRole('button', { name: 'Salvar regra' }).click();
+  await expect(rules.locator('.rule-sentence')).toHaveText(
+    'Quando falta 1 dia para o prazo: mudar a prioridade para Urgente e avisar Ana Souza.',
+  );
+  await shot(owner, 'automacao-prazo');
+  await rules.getByRole('button', { name: 'Apagar', exact: true }).click();
+  await rules.getByRole('button', { name: 'Apagar “Véspera do prazo” de vez' }).click();
+  await expect(rules.getByText('Nenhuma regra ainda.')).toBeVisible();
+  await owner.getByRole('button', { name: 'Fechar as automações' }).click();
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');

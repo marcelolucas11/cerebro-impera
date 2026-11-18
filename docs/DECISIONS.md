@@ -810,6 +810,25 @@ acima, ADMs ou acima, ou só Donos (`0037_stage_entry.sql`). Quem gerencia a lis
 - **Rever com o mantenedor:** restringir também quem tira itens de uma etapa (ex.: só gestor
   reabre o que está em "Feito").
 
+## D57 — Regras que esperam o prazo, rodadas sem ninguém conectado
+
+**Decisão.** Uma regra pode agir quando o prazo de um item chega: de 1 a 30 dias antes, no dia ou
+de 1 a 30 dias depois (`0038_automation_due.sql`). Vale para itens não concluídos e fora da
+lixeira, uma vez por regra, item e prazo (prazo novo é ocasião nova). A rotina de hora em hora,
+a mesma da lixeira e dos lembretes, roda essas regras.
+
+- **Sem ninguém conectado, a identidade continua só no banco:** para cada regra, e só enquanto
+  ela age, a função da rotina põe o autor como quem age, sem código recente e sem sessão; quando a
+  função termina, ninguém fica agindo. A função se recusa a rodar dentro da requisição de uma
+  pessoa, então nunca serve para pegar a identidade de outro.
+- Todo o resto de D53 vale: acesso do autor e nunca mais, regra desfeita inteira quando falha,
+  registro, marcada como da regra, e as regras que ela dispara param no terceiro nível.
+- **Avisos:** ninguém causou a mudança, então todos os que a regra avisa e que veem o item recebem,
+  inclusive o autor.
+- **Ficam para depois:** regras agendadas sem item (ex.: "toda segunda, crie a tarefa X", que a
+  recorrência já cobre em parte) e mover de lista por regra (precisa repetir no banco as regras
+  de mudança de lista da API: subtarefas, responsáveis e campos).
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

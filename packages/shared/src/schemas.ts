@@ -391,6 +391,7 @@ export const MAX_AUTOMATION_ACTIONS = 5;
 export const MAX_AUTOMATION_NOTIFY = 10;
 export const MAX_AUTOMATION_COMMENT = 2000;
 export const MAX_AUTOMATION_DUE_DAYS = 365;
+export const MAX_AUTOMATION_DUE_OFFSET = 30;
 const priorityOrNone = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).nullable();
 
 /** An option of a choice field, or a checkbox ticked or not. */
@@ -402,6 +403,11 @@ export const automationTriggerSchema = z.discriminatedUnion('on', [
   z.strictObject({ on: z.literal('field'), field: idSchema, is: choiceSchema.optional() }),
   /** Someone is handed the item: anyone, or one person. */
   z.strictObject({ on: z.literal('assigned'), to: idSchema.optional() }),
+  /** The due date comes: days before it (negative), on the day (0) or days late. */
+  z.strictObject({
+    on: z.literal('due'),
+    offset: z.number().int().min(-MAX_AUTOMATION_DUE_OFFSET).max(MAX_AUTOMATION_DUE_OFFSET),
+  }),
 ]);
 export const automationConditionSchema = z.discriminatedUnion('if', [
   z.strictObject({ if: z.literal('stage'), is: idSchema }),

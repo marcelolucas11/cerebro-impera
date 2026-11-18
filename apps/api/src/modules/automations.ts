@@ -220,6 +220,15 @@ export async function listAudience(tx: Tx, actor: Actor, listId: string): Promis
   });
 }
 
+/**
+ * Rules whose items reach their due date today (or the days before or after
+ * they ask for). Run by the hourly job, outside any request.
+ */
+export async function automationsDue(db: Tx): Promise<number> {
+  const found = await one<{ ran: number }>(db, sql`SELECT app.automations_due() AS ran`);
+  return found?.ran ?? 0;
+}
+
 /** Runs older than the database keeps. */
 export async function purgeAutomationRuns(db: Tx): Promise<number> {
   const found = await one<{ purged: number }>(
