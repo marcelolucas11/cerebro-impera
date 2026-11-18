@@ -225,6 +225,31 @@ export const updateItemSchema = z
     fields: fieldValuesSchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'empty update');
+/** The query part of an address as the page writes it ("?busca=…"), or nothing. */
+export const VIEW_QUERY_PATTERN = /^(\?[A-Za-z0-9%._~:=&+-]*)?$/;
+export const MAX_VIEWS_PER_LIST = 30;
+const viewName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(60)
+  // Control characters are exactly what this refuses.
+  // eslint-disable-next-line no-control-regex
+  .refine((name) => !/[\u0000-\u001f\u007f]/.test(name), 'invalid name');
+const viewQuery = z.string().max(2000).regex(VIEW_QUERY_PATTERN);
+export const createViewSchema = z.strictObject({
+  name: viewName,
+  kind: z.enum(['list', 'board']),
+  query: viewQuery,
+});
+export const updateViewSchema = z
+  .strictObject({
+    name: viewName.optional(),
+    kind: z.enum(['list', 'board']).optional(),
+    query: viewQuery.optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, 'empty update');
+
 /** A secret as typed, or null to clear it. Never trimmed. */
 export const setSecretSchema = z.strictObject({
   value: z.string().min(1).max(MAX_SECRET_LENGTH).nullable(),

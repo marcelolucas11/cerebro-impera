@@ -1566,3 +1566,38 @@ audio.file-preview {
 .list-tools .field-note {
   margin: 0;
 }
+
+/* ---- Saved views -------------------------------------------------------------- */
+
+.saved-views {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.saved-views-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.saved-view {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.3125rem 0.75rem;
+  border: 1px solid var(--linha);
+  border-radius: 999px;
+  background: none;
+  color: var(--texto);
+  font: inherit;
+  cursor: pointer;
+}
+
+.saved-view[aria-current='true'] {
+  border-color: var(--marca);
+}
+
+.saved-view-kind {
+  color: var(--texto-suave);
+  font-size: var(--menor);
+}

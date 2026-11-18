@@ -67,6 +67,8 @@ const BY_CODE: Record<string, string> = {
     'O antivírus ainda está conferindo este arquivo. Tente de novo em instantes.',
   attachment_blocked: 'O antivírus bloqueou este arquivo. Ninguém pode baixá-lo.',
   not_same_file: 'Esse não é o mesmo arquivo do envio interrompido. Escolha o arquivo original.',
+  view_name_taken: 'Você já tem uma visão com esse nome nesta lista.',
+  too_many_views: 'Você já tem 30 visões nesta lista. Apague uma para salvar outra.',
   setup_closed:
     'Token de instalação incorreto, ou a instalação já foi concluída. O token está no arquivo setup-token do servidor.',
   invalid_invite: 'Este convite não vale mais. Peça um novo a quem administra o sistema.',

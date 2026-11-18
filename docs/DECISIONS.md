@@ -438,6 +438,22 @@ modo que recarregar, trocar entre lista e quadro ou mandar o link mantém o reco
 para uma equipe deste tamanho. Se um dia as listas crescerem muito, a mesma descrição de filtro
 pode ir para a API.
 
+## D38 — Visões salvas são de cada pessoa, e só guardam o endereço
+
+**Decisão.** Uma visão salva é um nome para uma forma de olhar uma lista: lista ou quadro, mais o
+filtro e a ordem (o texto do endereço). Cada pessoa vê, cria e apaga só as próprias, e só de
+listas que ainda consegue abrir; nem um Dono vê as visões dos outros. Até 30 por lista e pessoa.
+
+- O banco guarda só o que um endereço pode conter (`?` seguido de letras, números e `%._~:=&+-`)
+  e recusa qualquer outra coisa, então uma visão nunca vira um link para fora nem código.
+- Uma visão não guarda dados nem concede acesso: aplicada, só esconde o que a pessoa já vê.
+- Quem perde o acesso à lista perde as visões dela junto (ficam fora de alcance, não são
+  entregues a ninguém).
+
+**Por quê.** Visões compartilhadas com a equipe são úteis, mas pedem decidir quem pode mudar a
+visão dos outros; ficam para depois. _Rever com o mantenedor:_ visões da equipe, definidas por
+quem gerencia a lista.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |
