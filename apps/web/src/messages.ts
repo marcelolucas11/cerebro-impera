@@ -50,6 +50,9 @@ const BY_CODE: Record<string, string> = {
   invalid_list: 'Escolha outra lista.',
   not_in_trash: 'Este item já saiu da lixeira.',
   same_list: 'O item já está nesta lista.',
+  same_password: 'A nova senha precisa ser diferente da atual.',
+  cannot_assign_person:
+    'Essa pessoa não pode trabalhar nesta lista. Dê a ela acesso para editar antes de passar o item.',
   setup_closed:
     'Token de instalação incorreto, ou a instalação já foi concluída. O token está no arquivo setup-token do servidor.',
   invalid_invite: 'Este convite não vale mais. Peça um novo a quem administra o sistema.',

@@ -307,17 +307,38 @@ cópia entre listas resolvem o reuso sem mais uma coisa com regra de acesso pró
 remover nada torna o botão seguro de apertar. Remover continua sendo no editor, escolhendo para
 onde vão os itens.
 
+## D30 — Item só vai para quem pode trabalhar nele; a lista de pessoas é de quem distribui
+
+**Decisão.** Um item só é passado para uma conta ativa que pode editar a lista dele; a regra está
+num gatilho do banco. Quem distribui trabalho numa lista (edita todos os itens dela) vê os nomes
+de quem pode recebê-lo, sem precisar da capacidade de gerenciar usuários. Quem só vê os próprios
+itens não vê essa lista e não escolhe responsáveis.
+
+**Por quê.** Passar um item para quem não enxerga a lista não serve a ninguém e esconde trabalho.
+E um gestor precisa delegar sem ganhar acesso ao cadastro de pessoas inteiro.
+
+## D31 — Trocar a própria senha pede a senha atual e um código, e derruba as outras sessões
+
+**Decisão.** A troca pede a senha atual e um código novo do autenticador; o código só é gasto se a
+senha estiver certa. Erro de qualquer um dos dois recebe a mesma resposta e conta para o bloqueio
+do aparelho. Ao trocar, todas as outras sessões da pessoa terminam; a atual continua.
+
+**Por quê.** Quem troca a senha costuma desconfiar de que alguém a conhece: as outras sessões
+precisam cair na hora. Exigir o código impede que alguém com o computador aberto e destrancado
+troque a senha e tome a conta.
+
 ## Adiado, com motivo
 
-| Item                           | Situação                                                                                          |
-| ------------------------------ | ------------------------------------------------------------------------------------------------- |
-| Passkeys / WebAuthn            | Opcional no plano; entra junto com a interface (precisa do navegador).                            |
-| CAPTCHA após falhas            | O bloqueio progressivo por conta e por endereço já existe; o CAPTCHA entra com a interface.       |
-| Restrição de login por país    | Opcional; depende de base de geolocalização, a decidir na fase de implantação.                    |
-| Alertas por e-mail e push      | Os alertas já existem e são listados para os Donos; o envio entra com notificações (Fase 4).      |
-| Checagem de senha vazada       | Opcional; a política atual recusa senhas curtas, comuns ou com dados da pessoa.                   |
-| Campo de pessoa                | Depende da lista de pessoas que cada um pode ver para delegar; entra com a delegação (Fase 4).    |
-| Campo de arquivo               | Entra junto com os anexos (Fase 2).                                                               |
-| Campo secreto                  | Fatia própria da Fase 2: valor cifrado, revelação com 2º fator e registrada.                      |
-| Campos por espaço ou pasta     | Ver D23: campos por lista com cópia que preserva a origem cobrem o uso; herança fica para depois. |
-| Colunas configuráveis na lista | Hoje os quatro primeiros campos; a escolha por pessoa entra com as visões salvas (Fase 3).        |
+| Item                                                  | Situação                                                                                                     |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Passkeys / WebAuthn                                   | Opcional no plano; entra junto com a interface (precisa do navegador).                                       |
+| CAPTCHA após falhas                                   | O bloqueio progressivo por conta e por endereço já existe; o CAPTCHA entra com a interface.                  |
+| Restrição de login por país                           | Opcional; depende de base de geolocalização, a decidir na fase de implantação.                               |
+| Alertas por e-mail e push                             | Os alertas já existem e são listados para os Donos; o envio entra com notificações (Fase 4).                 |
+| Checagem de senha vazada                              | Opcional; a política atual recusa senhas curtas, comuns ou com dados da pessoa.                              |
+| Campo de pessoa                                       | Depende da lista de pessoas que cada um pode ver para delegar; entra com a delegação (Fase 4).               |
+| Campo de arquivo                                      | Entra junto com os anexos (Fase 2).                                                                          |
+| Campo secreto                                         | Fatia própria da Fase 2: valor cifrado, revelação com 2º fator e registrada.                                 |
+| Campos por espaço ou pasta                            | Ver D23: campos por lista com cópia que preserva a origem cobrem o uso; herança fica para depois.            |
+| Nome de etapa de outra lista no "tempo em cada etapa" | Item que passou por outra lista mostra o nome da etapa onde esteve lá. Revisar junto com as visões (Fase 3). |
+| Colunas configuráveis na lista                        | Hoje os quatro primeiros campos; a escolha por pessoa entra com as visões salvas (Fase 3).                   |

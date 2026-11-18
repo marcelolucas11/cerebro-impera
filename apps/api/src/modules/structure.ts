@@ -357,6 +357,12 @@ export async function setAssignees(
   if (access.itemScope !== 'all') throw forbidden();
 
   const wanted = new Set(userIds);
+  // Work is handed only to people who can work in this list (the database checks it too).
+  const newcomers = [...wanted].filter((userId) => !item.assignees.includes(userId));
+  if (newcomers.length > 0) {
+    const able = new Set((await listPeople(tx, actor, item.listId)).map((person) => person.id));
+    if (!newcomers.every((userId) => able.has(userId))) throw badRequest('cannot_assign_person');
+  }
   for (const current of item.assignees) {
     if (!wanted.has(current)) {
       await run(
@@ -410,6 +416,22 @@ export async function moveItem(
   // Moved somewhere the caller edits but where this item is not theirs to see.
   if (!moved) throw forbidden();
   return moved;
+}
+
+/** Someone work in a list can be handed to. */
+export interface PersonView {
+  id: string;
+  name: string;
+}
+
+/**
+ * The people who can work in a list, for whoever hands out work there: edits
+ * every item of it. Nobody else learns who they are from here.
+ */
+export async function listPeople(tx: Tx, actor: Actor, listId: string): Promise<PersonView[]> {
+  const { access } = await openList(tx, actor, listId, 'edit');
+  if (access.itemScope !== 'all') throw forbidden();
+  return rows<PersonView>(tx, sql`SELECT id, name FROM app.list_people(${listId})`);
 }
 
 /** How long an item stays in the trash before it is removed for good. Enforced by the database. */

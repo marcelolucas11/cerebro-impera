@@ -482,6 +482,31 @@ test('a sensitive list opens only after the code, each time the confirmation is 
   await ana.goto('/');
 });
 
+test('work is handed to someone who can do it, and she finds it at once', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  const item = owner.locator('.item-rows > li').filter({ hasText: 'Subir campanha do cliente' });
+  await owner.getByRole('button', { name: 'Subir campanha do cliente', exact: true }).click();
+  const people = item.getByRole('group', { name: 'Responsáveis' });
+  // Offered: who can work in this list. The owner, and Ana.
+  await expect(people.getByRole('checkbox')).toHaveCount(2);
+  await people.getByRole('checkbox', { name: 'Ana Souza' }).check();
+  await people.getByRole('button', { name: 'Salvar responsáveis' }).click();
+  await expect(item.locator('.item-row')).toContainText('Com Ana Souza');
+  await shot(owner, 'responsaveis');
+
+  await ana.goto('/');
+  await ana.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(ana, 'Tarefas');
+  await expect(
+    ana.getByRole('button', { name: 'Subir campanha do cliente', exact: true }),
+  ).toBeVisible();
+  // She works on her items; handing out work is not hers to do.
+  await ana.getByRole('button', { name: 'Subir campanha do cliente', exact: true }).click();
+  await expect(ana.getByRole('group', { name: 'Responsáveis' })).toHaveCount(0);
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');
@@ -557,6 +582,27 @@ test('stages come from a ready-made set, another list or a saved file, and leave
   await expect(owner.getByText('Arquivo "Dinheiro": etapas aplicadas.')).toBeVisible();
   await shot(owner, 'modelos-de-etapas');
   await owner.getByRole('button', { name: 'Fechar edição das etapas' }).click();
+});
+
+test('the owner changes her own password, and sees where she is signed in', async () => {
+  await owner.getByRole('link', { name: 'Olívia Dona' }).click();
+  await heading(owner, 'Minha conta');
+  const sessions = owner.getByRole('region', { name: 'Onde você está conectado' });
+  await expect(sessions).toContainText('esta sessão');
+
+  await owner.getByLabel('Senha atual').fill(PASSWORD);
+  await owner.getByLabel('Nova senha').fill('12345678');
+  await expect(owner.getByRole('button', { name: 'Trocar senha' })).toBeDisabled();
+  await owner.getByLabel('Nova senha').fill(`${PASSWORD}-nova`);
+  await owner
+    .getByLabel('Código do aplicativo autenticador')
+    .fill(await authenticatorCode(ownerKey));
+  await owner.getByRole('button', { name: 'Trocar senha' }).click();
+  await expect(owner.getByText(/^Senha trocada\./)).toBeVisible();
+  await shot(owner, 'minha-conta');
+  // Still signed in here.
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await heading(owner, 'Seus espaços');
 });
 
 test('the page never broke its own security policy along the way', () => {

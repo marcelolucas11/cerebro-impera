@@ -220,6 +220,16 @@ export interface ItemChange {
   old: unknown;
   new: unknown;
 }
+export interface MySession {
+  id: string;
+  deviceId: string;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+  ip: string | null;
+  userAgent: string;
+  current: boolean;
+}
 export interface StageStay {
   stageId: string;
   stageName: string;
@@ -348,6 +358,15 @@ export const api = {
     ),
   stageHistory: (itemId: string) =>
     request<StageStay[]>('GET', `/api/items/${itemId}/stage-history`),
+  setAssignees: (id: string, userIds: string[]) =>
+    request<Item>('PUT', `/api/items/${id}/assignees`, { userIds }),
+  /** Who work in this list can be handed to; only for whoever hands it out. */
+  listPeople: (listId: string) =>
+    request<{ id: string; name: string }[]>('GET', `/api/lists/${listId}/people`),
+  mySessions: () => request<MySession[]>('GET', '/api/me/sessions'),
+  endSession: (id: string) => request<{ ok: true }>('DELETE', `/api/me/sessions/${id}`),
+  changePassword: (input: { currentPassword: string; newPassword: string; code: string }) =>
+    request<{ endedSessions: number }>('POST', '/api/me/password', input),
   moveItem: (id: string, input: { listId: string; stageId?: string }) =>
     request<Item>('POST', `/api/items/${id}/move`, input),
   trashItem: (id: string) => request<{ ok: true }>('POST', `/api/items/${id}/trash`),

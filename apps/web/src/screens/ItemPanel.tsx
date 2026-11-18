@@ -17,12 +17,15 @@ export function ItemPanel({
   canEdit,
   nameOf,
   listNameOf,
+  workers,
 }: {
   item: Item;
   fields: CustomField[];
   canEdit: boolean;
   nameOf: (userId: string | null) => string;
   listNameOf: (listId: string) => string | undefined;
+  /** People this item can be handed to; null when the viewer does not hand out work. */
+  workers: { id: string; name: string }[] | null;
 }): ReactNode {
   const queryClient = useQueryClient();
   const descriptionId = useId();
@@ -161,6 +164,9 @@ export function ItemPanel({
           })}
         </ol>
       </div>
+      {workers !== null ? (
+        <Assignees key={item.assignees.join()} item={item} workers={workers} nameOf={nameOf} />
+      ) : null}
       {canEdit ? <MoveToList item={item} /> : null}
       {canEdit ? <SendToTrash item={item} /> : null}
       <ItemHistory
@@ -323,6 +329,66 @@ function MoveToList({ item }: { item: Item }): ReactNode {
         junto; os demais ficam guardados aqui e voltam se o item voltar.
       </p>
       {move.error ? <Notice tone="error">{move.error}</Notice> : null}
+    </div>
+  );
+}
+
+/** Who the item is handed to, chosen among the people who can work in its list. */
+function Assignees({
+  item,
+  workers,
+  nameOf,
+}: {
+  item: Item;
+  workers: { id: string; name: string }[];
+  nameOf: (userId: string | null) => string;
+}): ReactNode {
+  const queryClient = useQueryClient();
+  const [chosen, setChosen] = useState<string[]>(item.assignees);
+  // Someone already on the item who can no longer be offered (access removed) still shows.
+  const offered = [
+    ...workers,
+    ...item.assignees
+      .filter((id) => !workers.some((worker) => worker.id === id))
+      .map((id) => ({ id, name: nameOf(id) })),
+  ];
+  const changed =
+    chosen.length !== item.assignees.length || chosen.some((id) => !item.assignees.includes(id));
+  const save = useAction(
+    useCallback(async () => {
+      await api.setAssignees(item.id, chosen);
+      await queryClient.invalidateQueries({ queryKey: ['items', item.listId] });
+    }, [item.id, item.listId, chosen, queryClient]),
+  );
+  return (
+    <div className="subsection">
+      <fieldset className="ticks">
+        <legend>
+          <h3>Responsáveis</h3>
+        </legend>
+        {offered.map((person) => (
+          <label key={person.id} className="tick">
+            <input
+              type="checkbox"
+              checked={chosen.includes(person.id)}
+              onChange={(event) => {
+                setChosen(
+                  event.target.checked
+                    ? [...chosen, person.id]
+                    : chosen.filter((other) => other !== person.id),
+                );
+              }}
+            />
+            {person.name}
+          </label>
+        ))}
+        {save.error ? <Notice tone="error">{save.error}</Notice> : null}
+        <div className="actions">
+          <Button variant="quiet" busy={save.busy} disabled={!changed} onClick={save.run}>
+            Salvar responsáveis
+          </Button>
+        </div>
+      </fieldset>
     </div>
   );
 }

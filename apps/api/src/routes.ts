@@ -2,6 +2,7 @@ import {
   acceptInviteSchema,
   applyStagesSchema,
   auditQuerySchema,
+  changePasswordSchema,
   copyFieldsSchema,
   createFieldSchema,
   createFolderSchema,
@@ -118,6 +119,13 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
       };
     }),
   );
+  app.post('/api/me/password', async (request) => {
+    const body = parse(changePasswordSchema, request.body);
+    // As with step-up: the login service writes sessions, so it runs after the
+    // request's own transaction has ended.
+    const actor = await signedIn(request, (_tx, who) => Promise.resolve(who));
+    return auth.changePassword(deps, request, actor, body);
+  });
   app.get('/api/me/sessions', (request) => signedIn(request, (tx) => people.mySessions(tx)));
   app.delete('/api/me/sessions/:id', async (request) => {
     const id = paramId(request);
@@ -249,6 +257,10 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return signedIn(request, (tx, actor) => stages.itemStageHistory(tx, actor, id));
   });
 
+  app.get('/api/lists/:id/people', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => structure.listPeople(tx, actor, id));
+  });
   app.post('/api/items/:id/move', (request) => {
     const id = paramId(request);
     const body = parse(moveItemSchema, request.body);
