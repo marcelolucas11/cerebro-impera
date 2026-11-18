@@ -1289,6 +1289,40 @@ test('the numbers of a list count what each person sees', async () => {
   await owner.getByRole('link', { name: 'Lista', exact: true }).click();
 });
 
+test('each person starts from their own page: their items by due date and the panels they pin', async () => {
+  await owner.getByRole('link', { name: 'Início' }).click();
+  await heading(owner, 'Início');
+  const panels = owner.getByRole('region', { name: 'Painéis' });
+  await expect(panels.getByText(/Fixe aqui as listas que você acompanha/)).toBeVisible();
+  const choose = panels.getByLabel('Fixar o painel de uma lista');
+  await choose.selectOption({ label: 'Operação / Tarefas' });
+  await panels.getByRole('button', { name: 'Fixar', exact: true }).click();
+  await choose.selectOption({ label: 'Operação / Dinheiro' });
+  await panels.getByRole('button', { name: 'Fixar', exact: true }).click();
+  const names = panels.locator('.home-panel h3 a');
+  await expect(names).toHaveText(['Tarefas', 'Dinheiro']);
+  await panels.getByRole('button', { name: 'Subir Dinheiro' }).click();
+  await expect(names).toHaveText(['Dinheiro', 'Tarefas']);
+  await panels.getByRole('button', { name: 'Tirar Dinheiro do início' }).click();
+  await expect(names).toHaveText(['Tarefas']);
+  const tiles = panels.locator('.summary-tiles');
+  await expect(tiles.locator('div').filter({ hasText: 'Itens' }).locator('dd')).toHaveText('2');
+  await expect(panels.getByRole('region', { name: 'Por etapa' })).toContainText('Fazendo');
+  // The order is kept by the server, not by this page.
+  await owner.reload();
+  await expect(names).toHaveText(['Tarefas']);
+  await shot(owner, 'inicio');
+
+  await ana.getByRole('link', { name: 'Início' }).click();
+  await heading(ana, 'Início');
+  const mine = ana.getByRole('region', { name: 'Com você' });
+  await expect(mine).toContainText('Subir campanha do cliente');
+  await expect(mine).toContainText('Conferir perfis');
+  await expect(mine.locator('.row-detail').first()).toContainText('Tarefas, em ');
+  expect(await ana.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await shot(ana, 'inicio-celular');
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');

@@ -406,6 +406,24 @@ export interface ListSummary {
   byAssignee: { userId: string | null; name: string | null; count: number }[];
   byField: { fieldId: string; options: { optionId: string | null; count: number }[] }[];
 }
+/** When an item on the start page is due, by the server's calendar. */
+export type HomeDue = 'overdue' | 'today' | 'week' | 'later';
+export interface HomeItem {
+  id: string;
+  title: string;
+  listId: string;
+  listName: string;
+  stageName: string;
+  dueDate: string | null;
+  priority: number | null;
+  due: HomeDue;
+}
+/** A person's start page: their open items, unread notices, pinned lists in order. */
+export interface Home {
+  items: HomeItem[];
+  unread: number;
+  pins: string[];
+}
 export interface MySession {
   id: string;
   deviceId: string;
@@ -582,6 +600,8 @@ export const api = {
     request<CheckLine>('PATCH', `/api/checklist/${checkId}`, input),
   removeCheck: (checkId: string) => request<{ ok: true }>('DELETE', `/api/checklist/${checkId}`),
   listSummary: (listId: string) => request<ListSummary>('GET', `/api/lists/${listId}/summary`),
+  home: () => request<Home>('GET', '/api/home'),
+  setHomePins: (listIds: string[]) => request<Home>('PUT', '/api/home/pins', { listIds }),
   automations: (listId: string) => request<Automation[]>('GET', `/api/lists/${listId}/automations`),
   ruleAudience: (listId: string) =>
     request<RuleAudience[]>('GET', `/api/lists/${listId}/automation-audience`),

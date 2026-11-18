@@ -20,6 +20,11 @@ describe('what a live event makes the page read again', () => {
     expect(touches(['notifications'], pending)).toBe(false);
   });
 
+  it('reads the start page again on any change to an item or list, not on notices alone', () => {
+    expect(touches(['home'], gather(nothingPending(), { item: 'item-1' }))).toBe(true);
+    expect(touches(['home'], gather(nothingPending(), { notifications: true }))).toBe(false);
+  });
+
   it('reads notifications again when told, and everything when access changed', () => {
     const notices = gather(nothingPending(), { notifications: true });
     expect(touches(['notifications-unread'], notices)).toBe(true);

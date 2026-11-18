@@ -844,7 +844,26 @@ bloqueado".
   lista.
 - **Desenho:** números sempre escritos; as barras, de uma cor só (validada para o fundo escuro),
   só ajudam a comparar. Cada bloco é uma tabela, lida por leitores de tela.
-- Painéis por pessoa (tela inicial) e o relatório periódico são os próximos passos da Fase 6.
+- A tela inicial (D59) e o relatório periódico são os próximos passos da Fase 6.
+
+## D59 — Tela inicial de cada pessoa
+
+**Decisão.** Uma seção nova, **Início** (`/inicio`), primeira do menu, mostra o que cada pessoa
+precisa ao entrar: os itens abertos com ela (atrasados, vencem hoje, próximos 7 dias, mais adiante
+ou sem prazo), quantos avisos esperam leitura e os painéis das listas que ela fixa, na ordem que
+ela escolhe.
+
+- **Lido como a pessoa:** os itens vêm das regras de linha de sempre (só os dela, fora da lixeira,
+  em etapas que não são de concluído ou encerrado), até 200, pelo prazo. Lista sensível pede o
+  código antes de mostrar os números do painel.
+- **Painéis fixados:** guardados no servidor (`0040_home.sql`), até 12 por pessoa, então a ordem
+  vale em qualquer aparelho. Cada um só lê, fixa e tira os próprios; só fixa lista que abre; lista
+  apagada ou perdida sai sozinha (a tabela segue a lista, e a leitura passa pelas regras de linha
+  da lista).
+- **No painel fixado:** os totais e a contagem por etapa; "com quem" e os campos ficam no painel
+  completo da lista, a um clique.
+- **Endereço `/`:** continua sendo Espaços, para não quebrar links já guardados. Abrir o
+  aplicativo direto em Início é uma escolha simples a confirmar com o mantenedor.
 
 ## Adiado, com motivo
 

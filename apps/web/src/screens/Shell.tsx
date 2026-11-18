@@ -8,6 +8,7 @@ import { onSignedOut as listenForSignOut } from '../session.js';
 import { StepUpProvider } from '../stepup.js';
 import { Button, Notice, useAction } from '../ui/kit.js';
 import { Devices } from './Devices.js';
+import { Home } from './Home.js';
 import { Account } from './Account.js';
 import { ListScreen } from './ListScreen.js';
 import { Notifications, useUnreadNotifications } from './Notifications.js';
@@ -61,6 +62,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
   const isOwner = user.role === 'owner';
   const can = (capability: string): boolean => isOwner || capabilities.includes(capability);
   const sections = [
+    { to: '/inicio', label: 'Início', show: true },
     { to: '/', label: 'Espaços', show: true },
     { to: '/pessoas', label: 'Pessoas', show: can('users.manage') },
     { to: '/aparelhos', label: 'Aparelhos', show: true },
@@ -127,6 +129,8 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
             <Search />
           ) : path === '/avisos' ? (
             <Notifications />
+          ) : path === '/inicio' ? (
+            <Home name={user.name} />
           ) : here === undefined ? (
             <>
               <h1>Esta página não existe</h1>
