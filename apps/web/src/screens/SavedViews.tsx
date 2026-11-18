@@ -11,6 +11,7 @@ const KIND_NAMES: Record<ListView, string> = {
   calendar: 'calendário',
   table: 'tabela',
   timeline: 'linha do tempo',
+  summary: 'painel',
 };
 
 /*
