@@ -362,6 +362,30 @@ mais uma senha e mais uma porta para proteger, sem ganho para 20 pessoas. A API 
 sabe quem pode ver cada item; servir os arquivos por ela mantém uma regra só. _Diverge do plano
 inicial (MinIO e links pré-assinados)._
 
+## D34 — Campo secreto: guardado à parte, revelado um por vez, cada revelação no registro
+
+**Decisão.** Um tipo de campo novo, "secreto", para senhas, chaves de acesso e dados que ninguém
+deve ler por cima do ombro.
+
+- O valor é cifrado pela API com a chave da instância (o mesmo cofre do 2º fator), preso ao item
+  e ao campo, e guardado numa tabela própria, nunca junto dos outros valores. A API não tem
+  permissão de ler a coluna cifrada: o único caminho é a função do banco que revela.
+- Revelar pede três coisas: ver o item, ter a capacidade "Revelar campos secretos" (os Donos têm
+  todas; os demais só se um Dono der) e 2º fator recente, em qualquer lista, não só nas
+  sensíveis. Um valor por vez, e cada revelação entra no registro de auditoria com quem, qual item
+  e qual campo. Quem edita o item preenche, troca ou apaga sem precisar ver o valor.
+- Listas, quadros e o histórico mostram só que existe um valor ("preenchido", "trocado",
+  "apagado"), nunca o valor, nem cifrado.
+- Na tela, o valor revelado some sozinho depois de 30 segundos e pode ser copiado sem aparecer.
+- Item que muda de lista não leva o segredo; ele fica guardado e volta se o item voltar (mesma
+  regra dos outros campos que não significam o mesmo do outro lado). Item na lixeira não revela.
+
+**Por quê.** Guardar o segredo junto dos outros valores faria ele aparecer cifrado em toda
+leitura de lista e no histórico, e a API poderia abri-lo sem deixar rastro. Separado, sem
+permissão de leitura direta, toda revelação passa pelo banco e fica registrada, mesmo se a API
+tiver uma falha. _Rever com o mantenedor:_ um alerta para os Donos quando alguém revela muitos
+segredos em pouco tempo (hoje fica só no registro).
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

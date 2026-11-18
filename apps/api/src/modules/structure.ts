@@ -176,6 +176,8 @@ export interface ItemView {
   stageSince: Date;
   /** Values of the list's custom fields, by field id. A field with no value is absent. */
   fields: Record<string, FieldValue>;
+  /** Secret fields that hold a value. The values themselves are never part of an item. */
+  secrets: string[];
   /** When the item was sent to the trash, and by whom; null for an item in use. */
   trashedAt: Date | null;
   trashedBy: string | null;
@@ -193,6 +195,7 @@ interface ItemRow {
   stage_id: string;
   stage_since: Date;
   fields: Record<string, FieldValue>;
+  secrets: string[];
   deleted_at: Date | null;
   deleted_by: string | null;
 }
@@ -210,6 +213,7 @@ function toItem(row: ItemRow): ItemView {
     stageId: row.stage_id,
     stageSince: row.stage_since,
     fields: row.fields,
+    secrets: row.secrets,
     trashedAt: row.deleted_at,
     trashedBy: row.deleted_by,
   };
@@ -220,7 +224,9 @@ const ITEM_COLUMNS = `i.id, i.list_id, i.title, i.description, i.created_by, i.c
   coalesce((SELECT array_agg(ia.user_id ORDER BY ia.assigned_at)
             FROM app.item_assignees ia WHERE ia.item_id = i.id), '{}'::uuid[]) AS assignees,
   coalesce((SELECT jsonb_object_agg(v.field_id, v.value)
-            FROM app.item_field_values v WHERE v.item_id = i.id), '{}'::jsonb) AS fields`;
+            FROM app.item_field_values v WHERE v.item_id = i.id), '{}'::jsonb) AS fields,
+  coalesce((SELECT array_agg(s.field_id ORDER BY s.field_id)
+            FROM app.item_secrets s WHERE s.item_id = i.id), '{}'::uuid[]) AS secrets`;
 
 /** Opens a list for the caller, or explains why not, without leaking its existence. */
 export async function openList(

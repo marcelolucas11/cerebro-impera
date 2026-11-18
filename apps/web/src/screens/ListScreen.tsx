@@ -344,15 +344,33 @@ function ItemRow({
           há {formatDuration(Date.now() - Date.parse(item.stageSince))}
           <span className="visually-hidden"> nesta etapa</span>
         </span>
-        {columns.map((field) => (
-          <span
-            key={field.id}
-            className={hasValue(field, item.fields[field.id]) ? 'item-cell' : 'item-cell is-empty'}
-          >
-            <span className="cell-name">{field.name}: </span>
-            <FieldValueView field={field} value={item.fields[field.id]} nameOf={nameOf} />
-          </span>
-        ))}
+        {columns.map((field) =>
+          field.kind === 'secret' ? (
+            // A secret is never in a list: only whether there is one.
+            <span
+              key={field.id}
+              className={item.secrets.includes(field.id) ? 'item-cell' : 'item-cell is-empty'}
+            >
+              <span className="cell-name">{field.name}: </span>
+              {item.secrets.includes(field.id) ? (
+                <>
+                  <span aria-hidden="true">••••••</span>
+                  <span className="visually-hidden">guardado</span>
+                </>
+              ) : null}
+            </span>
+          ) : (
+            <span
+              key={field.id}
+              className={
+                hasValue(field, item.fields[field.id]) ? 'item-cell' : 'item-cell is-empty'
+              }
+            >
+              <span className="cell-name">{field.name}: </span>
+              <FieldValueView field={field} value={item.fields[field.id]} nameOf={nameOf} />
+            </span>
+          ),
+        )}
         {canEdit ? (
           <select
             className="stage-select"

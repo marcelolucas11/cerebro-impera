@@ -34,6 +34,7 @@ export const FIELD_KIND_NAMES: Record<FieldKind, string> = {
   phone: 'Telefone',
   rating: 'Nota',
   people: 'Pessoas',
+  secret: 'Secreto',
 };
 
 export const FIELD_KIND_HINTS: Record<FieldKind, string> = {
@@ -51,6 +52,7 @@ export const FIELD_KIND_HINTS: Record<FieldKind, string> = {
   phone: 'Um número de telefone.',
   rating: 'Uma nota de 1 até o máximo que você escolher.',
   people: 'Uma ou mais pessoas que trabalham nesta lista.',
+  secret: 'Uma senha ou chave: guardada cifrada, revelada só com o código do autenticador.',
 };
 
 export const CURRENCIES: readonly { value: string; label: string }[] = [
@@ -78,6 +80,7 @@ const FIELD_PROBLEMS: Record<FieldValueProblem, string> = {
   duplicate_label: 'O mesmo marcador foi escolhido duas vezes.',
   too_many_people: 'Pessoas demais em um campo só (até 20).',
   duplicate_person: 'A mesma pessoa foi escolhida duas vezes.',
+  kept_apart: 'Um valor secreto é guardado à parte. Use o botão do próprio campo.',
 };
 
 export const describeFieldProblem = (problem: unknown): string =>

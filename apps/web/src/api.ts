@@ -191,6 +191,8 @@ export interface Item {
   stageSince: string;
   /** Values of the list's custom fields, by field id. A field with no value is absent. */
   fields: Record<string, FieldValue>;
+  /** Secret fields that hold a value. The values come only through revealSecret. */
+  secrets: string[];
   /** Set only for an item in the trash. */
   trashedAt: string | null;
   trashedBy: string | null;
@@ -421,6 +423,12 @@ export const api = {
       `/api/items/${itemId}/history${before === undefined ? '' : `?before=${before}`}`,
     ),
 
+  /** Keeps a secret, or clears it with null. */
+  setSecret: (itemId: string, fieldId: string, value: string | null) =>
+    request<{ set: boolean }>('PUT', `/api/items/${itemId}/secrets/${fieldId}`, { value }),
+  /** Asks for the authenticator code when it is not recent; every reveal is on the record. */
+  revealSecret: (itemId: string, fieldId: string) =>
+    request<{ value: string }>('POST', `/api/items/${itemId}/secrets/${fieldId}/reveal`),
   attachments: (itemId: string, options: { trash?: boolean } = {}) =>
     request<Attachment[]>(
       'GET',

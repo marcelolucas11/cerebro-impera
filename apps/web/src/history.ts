@@ -78,6 +78,16 @@ export function describeChange(change: ItemChange, context: HistoryContext): Cha
     case 'field': {
       const field = change.fieldId === null ? undefined : context.fieldOf(change.fieldId);
       if (!field) return { sentence: `${who} alterou um campo` };
+      // A secret is never written down, not even here: only that it changed.
+      if (field.kind === 'secret') {
+        if (change.old === null || change.old === undefined) {
+          return { sentence: `${who} guardou um valor em ${field.name}` };
+        }
+        if (change.new === null || change.new === undefined) {
+          return { sentence: `${who} apagou o valor de ${field.name}` };
+        }
+        return { sentence: `${who} trocou o valor de ${field.name}` };
+      }
       const show = (value: unknown): string =>
         value === null || value === undefined
           ? ''

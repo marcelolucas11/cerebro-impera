@@ -27,6 +27,7 @@ import {
   setCapabilitiesSchema,
   setupSchema,
   setupTotpSchema,
+  setSecretSchema,
   startUploadSchema,
   totpConfirmSchema,
   updateFieldSchema,
@@ -53,6 +54,7 @@ import * as grants from './modules/grants.js';
 import * as history from './modules/history.js';
 import * as oversight from './modules/oversight.js';
 import * as people from './modules/people.js';
+import * as secrets from './modules/secrets.js';
 import * as stages from './modules/stages.js';
 import * as structure from './modules/structure.js';
 
@@ -292,6 +294,23 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     const query = parse(itemHistoryQuerySchema, request.query);
     return signedIn(request, (tx, actor) => history.itemHistory(tx, actor, id, query));
+  });
+
+  // ---- Secret fields ---------------------------------------------------------------
+  const fieldParam = (request: FastifyRequest): string =>
+    parse(idSchema, (request.params as { fieldId?: unknown }).fieldId);
+  app.put('/api/items/:id/secrets/:fieldId', (request) => {
+    const id = paramId(request);
+    const fieldId = fieldParam(request);
+    const body = parse(setSecretSchema, request.body);
+    return signedIn(request, (tx, actor) =>
+      secrets.setSecret(deps, tx, actor, id, fieldId, body.value),
+    );
+  });
+  app.post('/api/items/:id/secrets/:fieldId/reveal', (request) => {
+    const id = paramId(request);
+    const fieldId = fieldParam(request);
+    return signedIn(request, (tx, actor) => secrets.revealSecret(deps, tx, actor, id, fieldId));
   });
 
   // ---- Attachments -----------------------------------------------------------------

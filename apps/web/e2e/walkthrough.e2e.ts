@@ -587,6 +587,55 @@ test('files go with the item: sent from the phone, shown in place, downloaded as
   await expect(changes).toContainText('Ana Souza tirou o anexo “roteiro.txt” da lixeira');
 });
 
+const PANEL_PASSWORD = 'painel-de-teste-7 com espaço'; // gitleaks:allow (senha fictícia de teste)
+
+test('a secret is kept sealed: filled in by who edits, revealed only by who may, after the code', async () => {
+  await owner.getByRole('button', { name: 'Editar campos' }).click();
+  await owner.getByLabel('Nome do novo campo').fill('Senha do painel');
+  await owner.getByLabel('Tipo do novo campo').selectOption({ label: 'Secreto' });
+  await owner.getByRole('button', { name: 'Adicionar campo' }).click();
+  await expect(owner.getByRole('button', { name: 'Arquivar campo Senha do painel' })).toBeVisible();
+  await owner.getByRole('button', { name: 'Fechar edição dos campos' }).click();
+
+  // Ana works on the item: she keeps the password there, and cannot read it back.
+  await ana.reload();
+  await heading(ana, 'Tarefas');
+  await ana.getByRole('button', { name: 'Subir campanha do cliente', exact: true }).click();
+  const hers = ana.locator('.item-rows > li').filter({ hasText: 'Subir campanha do cliente' });
+  await hers.getByRole('button', { name: 'Preencher Senha do painel' }).click();
+  await hers.getByLabel('Novo valor de Senha do painel').fill(PANEL_PASSWORD);
+  await hers.getByRole('button', { name: 'Guardar Senha do painel' }).click();
+  await expect(hers.getByText('Valor guardado, escondido')).toBeVisible();
+  await expect(hers.getByRole('button', { name: /^Revelar/ })).toHaveCount(0);
+  await expect(hers.getByRole('button', { name: /^Copiar/ })).toHaveCount(0);
+  await expect(ana.locator('main')).not.toContainText(PANEL_PASSWORD);
+  await shot(ana, 'campo-secreto');
+
+  // The owner may reveal; with her confirmation no longer recent, the code comes first.
+  await sql(
+    "UPDATE auth.sessions SET step_up_at = now() - interval '1 hour' WHERE user_id = (SELECT id FROM app.users WHERE email = 'olivia@exemplo.test')",
+  );
+  await owner.reload();
+  await heading(owner, 'Tarefas');
+  await owner.getByRole('button', { name: 'Subir campanha do cliente', exact: true }).click();
+  const item = owner.locator('.item-rows > li').filter({ hasText: 'Subir campanha do cliente' });
+  await item.getByRole('button', { name: 'Revelar Senha do painel' }).click();
+  const dialog = owner.getByRole('dialog');
+  await dialog.getByLabel('Código de 6 dígitos').fill(await authenticatorCode(ownerKey));
+  await dialog.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(item.locator('.secret-field .exact')).toHaveText(PANEL_PASSWORD);
+  await shot(owner, 'campo-secreto-revelado');
+  await item.getByRole('button', { name: 'Esconder Senha do painel' }).click();
+  await expect(item.getByText('Valor guardado, escondido')).toBeVisible();
+
+  // The history says it was kept, and nothing more.
+  await item.getByRole('button', { name: 'Ver o que mudou neste item' }).click();
+  await expect(item.locator('.changes')).toContainText(
+    'Ana Souza guardou um valor em Senha do painel',
+  );
+  await expect(owner.locator('main')).not.toContainText(PANEL_PASSWORD);
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');
@@ -601,6 +650,7 @@ test('everything is on the record, and the record is intact', async () => {
     'Aparelho aprovado',
     'Acesso concedido',
     'Lista sensível aberta',
+    'Valor secreto revelado',
   ]) {
     await expect(record, entry).toContainText(entry);
   }

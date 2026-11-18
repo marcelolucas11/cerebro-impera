@@ -4,6 +4,8 @@ import {
   defaultFieldConfig,
   fieldConfigProblem,
   fieldValueProblem,
+  MAX_SECRET_LENGTH,
+  secretValueProblem,
   type FieldConfig,
 } from '../src/index.js';
 
@@ -196,5 +198,19 @@ describe('the value of a field', () => {
     // Having had an option that no longer exists at all does not bring it back.
     const other = '55555555-5555-4555-8555-555555555555';
     expect(fieldValueProblem('select', choices, other, other)).toBe('unknown_option');
+  });
+});
+
+describe('secret values', () => {
+  it('never travel among the ordinary values', () => {
+    expect(fieldValueProblem('secret', {}, 'senha')).toBe('kept_apart');
+  });
+
+  it('are kept exactly as typed, spaces included, up to the limit', () => {
+    expect(secretValueProblem('  com espaços  ')).toBeNull();
+    expect(secretValueProblem('€'.repeat(MAX_SECRET_LENGTH))).toBeNull();
+    expect(secretValueProblem('')).toBe('empty');
+    expect(secretValueProblem('x'.repeat(MAX_SECRET_LENGTH + 1))).toBe('too_long');
+    expect(secretValueProblem(42)).toBe('wrong_type');
   });
 });
