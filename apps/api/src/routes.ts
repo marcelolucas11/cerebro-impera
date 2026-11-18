@@ -72,6 +72,7 @@ import * as searching from './modules/search.js';
 import * as secrets from './modules/secrets.js';
 import * as views from './modules/views.js';
 import * as automations from './modules/automations.js';
+import { installManifest } from './http/manifest.js';
 import * as reports from './modules/reports.js';
 import * as summary from './modules/summary.js';
 import * as home from './modules/home.js';
@@ -102,6 +103,18 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.get('/api/health', async () => {
     await deps.pools.app.query('SELECT 1');
     return { status: 'ok' };
+  });
+
+  // ---- Installing the app -----------------------------------------------------
+  // The page's manifest carries the installation's name, which the sign-in page already
+  // shows to anyone: nothing else about the installation goes in it.
+  app.get('/manifest.webmanifest', async (_request, reply) => {
+    const { instanceName } = await auth.setupStatus(deps);
+    void reply.headers({
+      'content-type': 'application/manifest+json; charset=utf-8',
+      'cache-control': 'no-cache',
+    });
+    return installManifest(instanceName);
   });
 
   // ---- First-run setup -----------------------------------------------------

@@ -885,6 +885,21 @@ estão atrasados; e, por pessoa, concluídos, em aberto e atrasados dos itens co
   daquele momento. Item na lixeira não conta.
 - **E-mail:** fica para quando o mantenedor decidir o servidor de e-mail. Rever com o mantenedor.
 
+## D61 — Instalável, abre sem conexão, e o service worker nunca guarda dados
+
+**Decisão.** O aplicativo pode ser instalado (manifesto com o nome da instalação, ícones) e abre
+sem conexão. O service worker guarda só a página e os arquivos com impressão digital; nunca toca
+em `/api/`. Abrir uma tela pede primeiro à rede, para uma correção de segurança chegar no próximo
+acesso. Desenho completo da Fase 7 em [`docs/design/pwa.md`](design/pwa.md).
+
+- **Sem dependência nova:** o service worker é construído pelo próprio Vite, depois da página,
+  com a lista de arquivos escrita dentro.
+- **Manifesto pela API:** leva o nome da instalação, que a tela de entrada já mostra; nada mais.
+- **Sem conexão:** a página diz isso e tenta de novo sozinha; com o aplicativo aberto, uma faixa
+  avisa que nada é salvo até a conexão voltar.
+- Os dados offline (cifrados, com expiração e apagamento remoto) são a próxima parte, como no
+  desenho.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

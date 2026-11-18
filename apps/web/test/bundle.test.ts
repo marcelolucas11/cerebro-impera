@@ -23,12 +23,11 @@ describe('the built page', () => {
       expect(attributes).toMatch(/\bsrc="\/assets\/[^"]+\.js"/);
       expect(body.trim()).toBe('');
     }
-    const links = [...page.matchAll(/<link\b[^>]*\bhref="([^"]+)"/g)].map(
-      (match) => match[1] ?? '',
-    );
-    for (const href of links) expect(href).toMatch(/^\/assets\//);
+    // Besides /assets/, only the install icons (also in the bundle) and the manifest, which
+    // the API writes with the installation's name.
     for (const [, reference = ''] of page.matchAll(/\b(?:src|href)="([^"]+)"/g)) {
-      expect(reference.startsWith('/assets/'), reference).toBe(true);
+      if (reference === '/manifest.webmanifest') continue;
+      expect(/^\/(?:assets|icons)\//.test(reference), reference).toBe(true);
       expect(existsSync(join(dist, reference)), reference).toBe(true);
     }
   });
@@ -54,5 +53,18 @@ describe('the built page', () => {
       expect(css, name).not.toMatch(/url\(\s*["']?(?:https?:|\/\/|data:)/i);
       expect(css, name).not.toMatch(/@import/i);
     }
+  });
+
+  it('has a service worker that keeps only the page and its files, and never the API', () => {
+    const worker = readFileSync(join(dist, 'sw.js'), 'utf8');
+    const kept = [...worker.matchAll(/`(\/assets\/[^`]+)`/g)].map((match) => match[1] ?? '');
+    expect(kept.sort()).toEqual(
+      readdirSync(join(dist, 'assets'))
+        .map((name) => `/assets/${name}`)
+        .sort(),
+    );
+    expect(worker).toContain('`/index.html`');
+    expect(worker).not.toMatch(/https?:\/\//i);
+    expect(worker).not.toMatch(/\bimportScripts\b|\beval\(|new Function/);
   });
 });
