@@ -386,6 +386,23 @@ permissão de leitura direta, toda revelação passa pelo banco e fica registrad
 tiver uma falha. _Rever com o mantenedor:_ um alerta para os Donos quando alguém revela muitos
 segredos em pouco tempo (hoje fica só no registro).
 
+## D35 — Campo de arquivos: aponta para anexos do próprio item
+
+**Decisão.** Um tipo de campo "arquivos" que diz qual anexo é qual ("contrato assinado", "nota
+fiscal"). Os arquivos continuam sendo os anexos do item, com todas as regras deles (antivírus,
+cifragem, lixeira, quem baixa); o campo guarda só a lista de quais anexos, até 20.
+
+- Só pode nomear anexos do mesmo item, que já terminaram de chegar e não estão na lixeira. O
+  banco confere em qualquer caminho, até para o dono do banco.
+- O que já estava nomeado pode ficar, mesmo depois de o anexo ir para a lixeira (como uma opção
+  arquivada); só não pode ser nomeado de novo enquanto estiver lá.
+- Ao mudar de lista, o valor vai junto só com os anexos que ainda estão no item; se não sobrar
+  nenhum, o valor fica para trás em vez de impedir a mudança.
+
+**Por quê.** Um segundo lugar para guardar arquivos dobraria as regras de acesso, antivírus e
+lixeira. Apontar para os anexos mantém uma regra só e deixa o campo útil para filtrar e ordenar
+nas visões da Fase 3.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |
@@ -395,9 +412,7 @@ segredos em pouco tempo (hoje fica só no registro).
 | Restrição de login por país                           | Opcional; depende de base de geolocalização, a decidir na fase de implantação.                               |
 | Alertas por e-mail e push                             | Os alertas já existem e são listados para os Donos; o envio entra com notificações (Fase 4).                 |
 | Checagem de senha vazada                              | Opcional; a política atual recusa senhas curtas, comuns ou com dados da pessoa.                              |
-| Campo de arquivo                                      | Entra junto com os anexos (Fase 2).                                                                          |
 | Pré-visualização de PDF                               | O leitor de PDF do navegador não roda sob `sandbox`; por ora PDF só baixa (ver `docs/design/anexos.md`).     |
-| Campo secreto                                         | Fatia própria da Fase 2: valor cifrado, revelação com 2º fator e registrada.                                 |
 | Campos por espaço ou pasta                            | Ver D23: campos por lista com cópia que preserva a origem cobrem o uso; herança fica para depois.            |
 | Nome de etapa de outra lista no "tempo em cada etapa" | Item que passou por outra lista mostra o nome da etapa onde esteve lá. Revisar junto com as visões (Fase 3). |
 | Colunas configuráveis na lista                        | Hoje os quatro primeiros campos; a escolha por pessoa entra com as visões salvas (Fase 3).                   |

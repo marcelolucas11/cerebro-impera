@@ -35,6 +35,7 @@ export const FIELD_KIND_NAMES: Record<FieldKind, string> = {
   rating: 'Nota',
   people: 'Pessoas',
   secret: 'Secreto',
+  files: 'Arquivos',
 };
 
 export const FIELD_KIND_HINTS: Record<FieldKind, string> = {
@@ -53,6 +54,7 @@ export const FIELD_KIND_HINTS: Record<FieldKind, string> = {
   rating: 'Uma nota de 1 até o máximo que você escolher.',
   people: 'Uma ou mais pessoas que trabalham nesta lista.',
   secret: 'Uma senha ou chave: guardada cifrada, revelada só com o código do autenticador.',
+  files: 'Um ou mais anexos do item: o contrato, a nota fiscal.',
 };
 
 export const CURRENCIES: readonly { value: string; label: string }[] = [
@@ -81,6 +83,9 @@ const FIELD_PROBLEMS: Record<FieldValueProblem, string> = {
   too_many_people: 'Pessoas demais em um campo só (até 20).',
   duplicate_person: 'A mesma pessoa foi escolhida duas vezes.',
   kept_apart: 'Um valor secreto é guardado à parte. Use o botão do próprio campo.',
+  too_many_files: 'Arquivos demais em um campo só (até 20).',
+  duplicate_file: 'O mesmo arquivo foi escolhido duas vezes.',
+  unknown_file: 'Esse arquivo não está mais entre os anexos do item. Recarregue e escolha de novo.',
 };
 
 export const describeFieldProblem = (problem: unknown): string =>
@@ -104,7 +109,9 @@ export const OPTION_COLORS: readonly string[] = [
 export function hasValue(field: FieldLike, value: FieldValue | undefined): boolean {
   if (field.kind === 'checkbox') return value === true;
   if (field.kind === 'select' || field.kind === 'labels') return optionsOf(field, value).length > 0;
-  if (field.kind === 'people') return Array.isArray(value) && value.length > 0;
+  if (field.kind === 'people' || field.kind === 'files') {
+    return Array.isArray(value) && value.length > 0;
+  }
   return showValue(field, value) !== '';
 }
 
@@ -137,6 +144,7 @@ export function draftOf(field: FieldLike, value: FieldValue | undefined): FieldD
       return value === true;
     case 'labels':
     case 'people':
+    case 'files':
       return Array.isArray(value) ? [...value] : [];
     case 'number':
       return typeof value === 'number' ? plainNumber.format(value) : '';
@@ -192,6 +200,7 @@ export function valueOf(
       break;
     case 'labels':
     case 'people':
+    case 'files':
       value = Array.isArray(draft) && draft.length > 0 ? draft : null;
       break;
     case 'number':
@@ -314,6 +323,9 @@ export function showValue(
       if (nameOf) return value.map(nameOf).join(', ');
       return value.length === 1 ? '1 pessoa' : `${value.length} pessoas`;
     }
+    case 'files':
+      if (!Array.isArray(value)) return '';
+      return value.length === 1 ? '1 arquivo' : `${value.length} arquivos`;
     case 'select':
     case 'labels':
       return optionsOf(field, value)

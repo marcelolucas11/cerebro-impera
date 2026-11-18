@@ -20,6 +20,7 @@ export const FIELD_KINDS = [
   'rating',
   'people',
   'secret',
+  'files',
 ] as const;
 export type FieldKind = (typeof FIELD_KINDS)[number];
 
@@ -44,7 +45,7 @@ export interface FieldConfig {
  * `money` as a whole number of cents; `date` as YYYY-MM-DD; `datetime` as a UTC
  * instant; `select` as an option id; `labels` as a list of option ids;
  * `checkbox` as true or false; `rating` as a whole number from 1 to the maximum;
- * `people` as a list of user ids.
+ * `people` as a list of user ids, `files` as a list of attachment ids of the same item.
  */
 export type FieldValue = string | number | boolean | string[];
 
@@ -52,6 +53,7 @@ export const MAX_FIELDS_PER_LIST = 60;
 export const MAX_FIELD_OPTIONS = 100;
 export const MAX_LABELS_PER_VALUE = 50;
 export const MAX_PEOPLE_PER_VALUE = 20;
+export const MAX_FILES_PER_VALUE = 20;
 export const DEFAULT_OPTION_COLOR = '#9ba6b8';
 
 const TEXT_LIMITS: Partial<Record<FieldKind, number>> = {
@@ -156,7 +158,10 @@ export type FieldValueProblem =
   | 'duplicate_label'
   | 'too_many_people'
   | 'duplicate_person'
-  | 'kept_apart';
+  | 'kept_apart'
+  | 'too_many_files'
+  | 'duplicate_file'
+  | 'unknown_file';
 
 function isRealDate(value: string): boolean {
   const match = DATE_PATTERN.exec(value);
@@ -245,6 +250,15 @@ export function fieldValueProblem(
       if (value.length === 0) return 'empty';
       if (value.length > MAX_PEOPLE_PER_VALUE) return 'too_many_people';
       return new Set(value).size === value.length ? null : 'duplicate_person';
+    }
+    case 'files': {
+      // Whether each one is an attachment of the item is the database's to check.
+      if (!Array.isArray(value) || !value.every((id) => typeof id === 'string' && UUID.test(id))) {
+        return 'wrong_type';
+      }
+      if (value.length === 0) return 'empty';
+      if (value.length > MAX_FILES_PER_VALUE) return 'too_many_files';
+      return new Set(value).size === value.length ? null : 'duplicate_file';
     }
     case 'secret':
       // Never among the ordinary values: see secretValueProblem.
