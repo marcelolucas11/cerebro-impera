@@ -18,6 +18,7 @@ export const FIELD_KINDS = [
   'email',
   'phone',
   'rating',
+  'people',
 ] as const;
 export type FieldKind = (typeof FIELD_KINDS)[number];
 
@@ -41,13 +42,15 @@ export interface FieldConfig {
  * How each kind is stored: text kinds as a string; `number` as a number;
  * `money` as a whole number of cents; `date` as YYYY-MM-DD; `datetime` as a UTC
  * instant; `select` as an option id; `labels` as a list of option ids;
- * `checkbox` as true or false; `rating` as a whole number from 1 to the maximum.
+ * `checkbox` as true or false; `rating` as a whole number from 1 to the maximum;
+ * `people` as a list of user ids.
  */
 export type FieldValue = string | number | boolean | string[];
 
 export const MAX_FIELDS_PER_LIST = 60;
 export const MAX_FIELD_OPTIONS = 100;
 export const MAX_LABELS_PER_VALUE = 50;
+export const MAX_PEOPLE_PER_VALUE = 20;
 export const DEFAULT_OPTION_COLOR = '#9ba6b8';
 
 const TEXT_LIMITS: Partial<Record<FieldKind, number>> = {
@@ -149,7 +152,9 @@ export type FieldValueProblem =
   | 'not_whole'
   | 'unknown_option'
   | 'too_many_labels'
-  | 'duplicate_label';
+  | 'duplicate_label'
+  | 'too_many_people'
+  | 'duplicate_person';
 
 function isRealDate(value: string): boolean {
   const match = DATE_PATTERN.exec(value);
@@ -229,6 +234,15 @@ export function fieldValueProblem(
     case 'select': {
       if (typeof value !== 'string') return 'wrong_type';
       return selectableIds(config, previous).has(value) ? null : 'unknown_option';
+    }
+    case 'people': {
+      // Whether each person may be named in a given list is the database's to check.
+      if (!Array.isArray(value) || !value.every((id) => typeof id === 'string' && UUID.test(id))) {
+        return 'wrong_type';
+      }
+      if (value.length === 0) return 'empty';
+      if (value.length > MAX_PEOPLE_PER_VALUE) return 'too_many_people';
+      return new Set(value).size === value.length ? null : 'duplicate_person';
     }
     case 'labels': {
       if (!Array.isArray(value) || !value.every((id) => typeof id === 'string')) {

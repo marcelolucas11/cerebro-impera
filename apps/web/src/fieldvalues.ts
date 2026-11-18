@@ -33,6 +33,7 @@ export const FIELD_KIND_NAMES: Record<FieldKind, string> = {
   email: 'E-mail',
   phone: 'Telefone',
   rating: 'Nota',
+  people: 'Pessoas',
 };
 
 export const FIELD_KIND_HINTS: Record<FieldKind, string> = {
@@ -49,6 +50,7 @@ export const FIELD_KIND_HINTS: Record<FieldKind, string> = {
   email: 'Um endereço de e-mail.',
   phone: 'Um número de telefone.',
   rating: 'Uma nota de 1 até o máximo que você escolher.',
+  people: 'Uma ou mais pessoas que trabalham nesta lista.',
 };
 
 export const CURRENCIES: readonly { value: string; label: string }[] = [
@@ -74,6 +76,8 @@ const FIELD_PROBLEMS: Record<FieldValueProblem, string> = {
   unknown_option: 'Essa opção não está mais disponível. Escolha outra.',
   too_many_labels: 'Marcadores demais em um item só.',
   duplicate_label: 'O mesmo marcador foi escolhido duas vezes.',
+  too_many_people: 'Pessoas demais em um campo só (até 20).',
+  duplicate_person: 'A mesma pessoa foi escolhida duas vezes.',
 };
 
 export const describeFieldProblem = (problem: unknown): string =>
@@ -97,6 +101,7 @@ export const OPTION_COLORS: readonly string[] = [
 export function hasValue(field: FieldLike, value: FieldValue | undefined): boolean {
   if (field.kind === 'checkbox') return value === true;
   if (field.kind === 'select' || field.kind === 'labels') return optionsOf(field, value).length > 0;
+  if (field.kind === 'people') return Array.isArray(value) && value.length > 0;
   return showValue(field, value) !== '';
 }
 
@@ -128,6 +133,7 @@ export function draftOf(field: FieldLike, value: FieldValue | undefined): FieldD
     case 'checkbox':
       return value === true;
     case 'labels':
+    case 'people':
       return Array.isArray(value) ? [...value] : [];
     case 'number':
       return typeof value === 'number' ? plainNumber.format(value) : '';
@@ -182,6 +188,7 @@ export function valueOf(
       value = draft === true ? true : null;
       break;
     case 'labels':
+    case 'people':
       value = Array.isArray(draft) && draft.length > 0 ? draft : null;
       break;
     case 'number':
@@ -270,8 +277,15 @@ export function optionsOf(
   });
 }
 
-/** A stored value as a person reads it. Empty when there is nothing to show. */
-export function showValue(field: FieldLike, value: FieldValue | undefined): string {
+/**
+ * A stored value as a person reads it. Empty when there is nothing to show.
+ * `nameOf` names the people of a people field; without it they are counted.
+ */
+export function showValue(
+  field: FieldLike,
+  value: FieldValue | undefined,
+  nameOf?: (userId: string) => string,
+): string {
   if (value === undefined) return field.kind === 'checkbox' ? 'Não' : '';
   switch (field.kind) {
     case 'checkbox':
@@ -291,6 +305,11 @@ export function showValue(field: FieldLike, value: FieldValue | undefined): stri
       if (typeof value !== 'string') return '';
       const date = new Date(value);
       return Number.isNaN(date.getTime()) ? '' : instant.format(date);
+    }
+    case 'people': {
+      if (!Array.isArray(value)) return '';
+      if (nameOf) return value.map(nameOf).join(', ');
+      return value.length === 1 ? '1 pessoa' : `${value.length} pessoas`;
     }
     case 'select':
     case 'labels':

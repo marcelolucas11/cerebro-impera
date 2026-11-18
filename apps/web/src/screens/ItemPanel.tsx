@@ -111,6 +111,8 @@ export function ItemPanel({
                   onChange={(next) => {
                     setDrafts((current) => ({ ...current, [field.id]: next }));
                   }}
+                  workers={workers}
+                  nameOf={nameOf}
                 />
               ))}
             </div>
@@ -133,7 +135,7 @@ export function ItemPanel({
                 <div key={field.id}>
                   <dt>{field.name}</dt>
                   <dd>
-                    <FieldValueView field={field} value={item.fields[field.id]} />
+                    <FieldValueView field={field} value={item.fields[field.id]} nameOf={nameOf} />
                   </dd>
                 </div>
               ))}
