@@ -692,8 +692,22 @@ tr[aria-selected='true'] > * {
   gap: 0.5rem;
 }
 
-.stage-group h2 {
+.stage-group h2,
+.trash h2 {
   font-size: var(--corpo);
+}
+
+/* The trash closes the list, set apart by a rule: out of the way, never out of reach. */
+.trash {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--linha);
+}
+
+.trash .stage-toggle {
+  color: var(--texto-suave);
 }
 
 .stage-toggle {

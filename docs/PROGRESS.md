@@ -7,24 +7,24 @@
 
 **Fase 2 — Estrutura, em andamento.** A Fase 1 (fundação e segurança) está pronta, com o percurso
 em navegador real rodando no CI. Da Fase 2 já existem as etapas por lista, o tempo em cada etapa e
-a tela de lista agrupada por etapa, os campos personalizados e o histórico de cada item. Falta o que está em "Próximo passo".
+a tela de lista agrupada por etapa, os campos personalizados, o histórico de cada item e a lixeira. Falta o que está em "Próximo passo".
 
-| Fase                                                              | Situação                                                            |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------- |
-| 0. Preparação do repositório (proteções no GitHub)                | depende do mantenedor, ver "Pendências"                             |
-| 1. Fundação e segurança                                           | pronta, salvo os restos listados abaixo                             |
-| **2. Estrutura (etapas, campos personalizados, anexos, lixeira)** | **em andamento: etapas, tela de lista, campos e histórico prontos** |
-| 3. Visões (lista, quadro, calendário, tabela, linha do tempo)     | a fazer                                                             |
-| 4. Tarefas e colaboração                                          | a fazer                                                             |
-| 5. Automações                                                     | a fazer                                                             |
-| 6. Painéis e relatórios                                           | a fazer                                                             |
-| 7. PWA e offline                                                  | a fazer                                                             |
-| 8. Atualizador assinado                                           | a fazer                                                             |
-| 9. Backup e restauração                                           | a fazer                                                             |
-| 10. White label, assistente visual e formulários                  | a fazer                                                             |
-| 11. Blindagem (revisão independente)                              | a fazer                                                             |
-| 12. Implantação                                                   | só com autorização do mantenedor                                    |
-| 13. Migração de dados                                             | só com autorização do mantenedor                                    |
+| Fase                                                              | Situação                                                                     |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 0. Preparação do repositório (proteções no GitHub)                | depende do mantenedor, ver "Pendências"                                      |
+| 1. Fundação e segurança                                           | pronta, salvo os restos listados abaixo                                      |
+| **2. Estrutura (etapas, campos personalizados, anexos, lixeira)** | **em andamento: etapas, tela de lista, campos, histórico e lixeira prontos** |
+| 3. Visões (lista, quadro, calendário, tabela, linha do tempo)     | a fazer                                                                      |
+| 4. Tarefas e colaboração                                          | a fazer                                                                      |
+| 5. Automações                                                     | a fazer                                                                      |
+| 6. Painéis e relatórios                                           | a fazer                                                                      |
+| 7. PWA e offline                                                  | a fazer                                                                      |
+| 8. Atualizador assinado                                           | a fazer                                                                      |
+| 9. Backup e restauração                                           | a fazer                                                                      |
+| 10. White label, assistente visual e formulários                  | a fazer                                                                      |
+| 11. Blindagem (revisão independente)                              | a fazer                                                                      |
+| 12. Implantação                                                   | só com autorização do mantenedor                                             |
+| 13. Migração de dados                                             | só com autorização do mantenedor                                             |
 
 ## Feito na Fase 1
 
@@ -93,7 +93,13 @@ a tela de lista agrupada por etapa, os campos personalizados e o histórico de c
 - Tela: "Histórico" no painel do item, em frases ("Ana Souza preencheu Valor: R$ 250,00"), das
   mais novas para as mais antigas, de 50 em 50.
 
-### O que os testes provam (211 testes)
+- Lixeira (`0013_trash.sql`): quem pode editar um item pode mandá-lo para a lixeira e trazê-lo de
+  volta. Na lixeira, o item sai de todas as listas e contagens, nada nele muda, e ele volta como
+  estava. Depois de 30 dias é removido de vez com tudo o que tinha; o prazo está escrito só no
+  banco, e nem o dono do banco antecipa a data sem desligar a proteção. A remoção roda ao iniciar e
+  a cada hora, e fica no registro de auditoria.
+
+### O que os testes provam (223 testes)
 
 | Arquivo                                    | O que garante                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -105,9 +111,10 @@ a tela de lista agrupada por etapa, os campos personalizados e o histórico de c
 | `apps/api/test/stages.test.ts` (21)        | pela API e direto no banco: item sempre em uma etapa da própria lista; lista nunca sem etapa; só quem gerencia altera etapas; funcionário move só o que é dele; o histórico de etapas não pode ser escrito nem apagado pela aplicação; etapa em uso não some sem destino; item criado por quem só vê os seus nasce atribuído a quem criou                                                                                                                                               |
 | `apps/api/test/fields.test.ts` (30)        | pela API e direto no banco: só quem gerencia a lista muda os campos; valores seguem o item (lidos por quem o vê, escritos por quem o edita, e por mais ninguém); valor que não cabe no tipo é recusado nas duas camadas, e as duas concordam; tipo, lista e origem de um campo não mudam; opção e campo são arquivados, nunca apagados; valor de campo arquivado ou de lista que o item deixou fica fora de alcance; cópia só pode se dizer "o mesmo campo" de um campo que a pessoa vê |
 | `apps/api/test/history.test.ts` (12)       | pela API e direto no banco: toda mudança entra no histórico com autor, antes e depois, por qualquer caminho; salvar sem mudar nada não acrescenta linha; ninguém escreve, corrige ou apaga o histórico, nem um Dono, nem o dono do banco; funcionário lê só a história dos próprios itens; o passado de um campo arquivado ou deixado em outra lista não é lido                                                                                                                         |
+| `apps/api/test/trash.test.ts` (11)         | pela API e direto no banco: item na lixeira some da lista de todos e aparece só na lixeira de quem o via; só quem edita manda e traz de volta; nada nele nem no que pende dele muda; a data e quem mandou são escritas pelo banco; ninguém remove item, só a limpeza depois de 30 dias, que leva tudo junto e fica na auditoria                                                                                                                                                         |
 | `apps/api/test/scale.test.ts` (2)          | uma lista de 500 itens com 8 campos abre em bem menos de um segundo para Dono, gestor e funcionário, e continua mostrando a cada um só o que é seu                                                                                                                                                                                                                                                                                                                                      |
 | `apps/api/test/web.test.ts` (9)            | a página vem com a política que proíbe código embutido e de outras origens; nenhum arquivo de fora da pasta, oculto ou de tipo desconhecido é servido; endereços da API nunca respondem com a página; a API continua recusando outras origens                                                                                                                                                                                                                                           |
-| `apps/web/test/*.test.ts` (32)             | a página compilada só carrega arquivos próprios, sem nada embutido; mensagens de erro nunca mostram detalhe técnico; durações e datas escritas por extenso; números, dinheiro e datas lidos e digitados como se escreve em português; um valor guardado só vira link se o endereço for seguro de abrir; cada linha do histórico vira uma frase, sem nomear pessoa ou lista que quem lê não pode ver                                                                                     |
+| `apps/web/test/*.test.ts` (33)             | a página compilada só carrega arquivos próprios, sem nada embutido; mensagens de erro nunca mostram detalhe técnico; durações e datas escritas por extenso; números, dinheiro e datas lidos e digitados como se escreve em português; um valor guardado só vira link se o endereço for seguro de abrir; cada linha do histórico vira uma frase, sem nomear pessoa ou lista que quem lê não pode ver                                                                                     |
 
 **Percurso em navegador real** (`apps/web/e2e`, 13 passos, job "Percurso em navegador real" no CI):
 um Dono no computador e uma funcionária no celular, contra uma instalação criada do zero pelos
@@ -118,7 +125,7 @@ aprovação que exige o 2º fator de novo; funcionária sem nenhum dado nem tela
 uma lista liberada e só ela visível; itens criados e movidos entre etapas pelas duas pessoas, cada
 uma vendo só o que pode; campos criados pelo Dono, preenchidos pelas duas pessoas, com valor
 inválido barrado antes de enviar e campo arquivado e restaurado sem perder nada; histórico do item
-lido em frases; lista sensível
+lido em frases; item mandado para a lixeira e restaurado como estava; lista sensível
 fechada até o código; registro de auditoria íntegro; suspensão que derruba a sessão
 na hora; e nenhuma violação da política de segurança da página do começo ao fim. Esse percurso já pegou
 três defeitos reais, todos corrigidos e cobertos por teste: a tela de pessoas mostrava situação
@@ -153,7 +160,7 @@ pnpm check
 
 ## Próximo passo exato
 
-1. **Fase 2 — Estrutura, o que falta, nesta ordem:** lixeira com prazo, anexos, campo secreto (cifrado, com revelação
+1. **Fase 2 — Estrutura, o que falta, nesta ordem:** anexos, campo secreto (cifrado, com revelação
    registrada), campo de arquivo (junto com anexos), campo de pessoa (junto com a lista de pessoas
    para delegar), mover item entre listas levando os campos de mesma origem, e modelos de etapas
    reutilizáveis. Sempre nesta ordem: migração e API com testes nas duas camadas, depois a tela e

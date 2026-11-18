@@ -2,10 +2,11 @@ import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { PasswordHasher } from './crypto/password.js';
 import { Vault } from './crypto/vault.js';
-import { closePools, createPools } from './db.js';
+import { closePools, createPools, inTransaction } from './db.js';
 import type { Deps } from './deps.js';
 import { migrate } from './migrate.js';
 import { ensureSetupToken } from './modules/auth.js';
+import { purgeTrash } from './modules/structure.js';
 import { initSecrets, readSecrets } from './secrets.js';
 
 function say(message: string): void {
@@ -59,7 +60,23 @@ async function commandServe(): Promise<void> {
     app.log.warn(`first-run setup is pending; the setup token is in ${config.setupTokenFile}`);
   }
 
+  // What has been in the trash for longer than allowed is removed for good: once
+  // at start and then every hour. The database decides what is old enough.
+  const purge = (): void => {
+    inTransaction(pools.app, purgeTrash)
+      .then((purged) => {
+        if (purged > 0) app.log.info({ purged }, 'items removed from the trash for good');
+      })
+      .catch((error: unknown) => {
+        app.log.error({ err: error }, 'emptying the trash failed; it will be tried again');
+      });
+  };
+  purge();
+  const purgeTimer = setInterval(purge, 60 * 60 * 1000);
+  purgeTimer.unref();
+
   const shutdown = (): void => {
+    clearInterval(purgeTimer);
     void app
       .close()
       .then(() => closePools(pools))

@@ -66,6 +66,11 @@ describe('a line of an item’s history', () => {
     expect(later).toEqual({ sentence: 'Você alterou a descrição', before: 'Texto antigo' });
   });
 
+  it('says when an item went to the trash and came back', () => {
+    expect(say({ what: 'trashed', actor: ANA })).toBe('Ana mandou o item para a lixeira');
+    expect(say({ what: 'restored' })).toBe('Você tirou o item da lixeira');
+  });
+
   it('names only the lists this person can open', () => {
     expect(say({ what: 'list', old: 'tarefas', new: 'escondida' })).toBe(
       'Você moveu o item de Tarefas para outra lista',

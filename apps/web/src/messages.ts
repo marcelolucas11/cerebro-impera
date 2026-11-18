@@ -48,6 +48,7 @@ const BY_CODE: Record<string, string> = {
     'Opções não são apagadas, só arquivadas: assim os itens que já a usam continuam certos.',
   rating_scale_is_fixed: 'A escala de uma nota não muda depois de criada. Crie outro campo.',
   invalid_list: 'Escolha outra lista.',
+  not_in_trash: 'Este item já saiu da lixeira.',
   setup_closed:
     'Token de instalação incorreto, ou a instalação já foi concluída. O token está no arquivo setup-token do servidor.',
   invalid_invite: 'Este convite não vale mais. Peça um novo a quem administra o sistema.',

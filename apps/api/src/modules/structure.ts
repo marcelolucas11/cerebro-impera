@@ -11,7 +11,7 @@ import {
 } from '@cerebro/shared';
 import { requireOwner, type Actor } from '../actor.js';
 import { one, rows, run, sql, type Tx } from '../db.js';
-import { badRequest, forbidden, notFound, stepUpRequired } from '../http/errors.js';
+import { badRequest, conflict, forbidden, notFound, stepUpRequired } from '../http/errors.js';
 import { accessToList, accessToScope, loadOwnGrants, type ListInfo } from './access.js';
 import { writeFieldValues } from './field-values.js';
 
@@ -176,6 +176,9 @@ export interface ItemView {
   stageSince: Date;
   /** Values of the list's custom fields, by field id. A field with no value is absent. */
   fields: Record<string, FieldValue>;
+  /** When the item was sent to the trash, and by whom; null for an item in use. */
+  trashedAt: Date | null;
+  trashedBy: string | null;
 }
 
 interface ItemRow {
@@ -190,6 +193,8 @@ interface ItemRow {
   stage_id: string;
   stage_since: Date;
   fields: Record<string, FieldValue>;
+  deleted_at: Date | null;
+  deleted_by: string | null;
 }
 
 function toItem(row: ItemRow): ItemView {
@@ -205,11 +210,13 @@ function toItem(row: ItemRow): ItemView {
     stageId: row.stage_id,
     stageSince: row.stage_since,
     fields: row.fields,
+    trashedAt: row.deleted_at,
+    trashedBy: row.deleted_by,
   };
 }
 
 const ITEM_COLUMNS = `i.id, i.list_id, i.title, i.description, i.created_by, i.created_at, i.updated_at,
-  i.stage_id, i.stage_since,
+  i.stage_id, i.stage_since, i.deleted_at, i.deleted_by,
   coalesce((SELECT array_agg(ia.user_id ORDER BY ia.assigned_at)
             FROM app.item_assignees ia WHERE ia.item_id = i.id), '{}'::uuid[]) AS assignees,
   coalesce((SELECT jsonb_object_agg(v.field_id, v.value)
@@ -234,7 +241,7 @@ export async function listItems(tx: Tx, actor: Actor, listId: string): Promise<I
   const seesAll = access.itemScope === 'all';
   const found = await rows<ItemRow>(tx, {
     text: `SELECT ${ITEM_COLUMNS} FROM app.items i
-           WHERE i.list_id = $1
+           WHERE i.list_id = $1 AND i.deleted_at IS NULL
              AND ($2::boolean OR i.created_by = $3 OR EXISTS (
                SELECT 1 FROM app.item_assignees mine
                WHERE mine.item_id = i.id AND mine.user_id = $3))
@@ -298,12 +305,16 @@ export async function openItem(
   actor: Actor,
   itemId: string,
   minimum: AccessLevel,
+  options: { inTrash?: boolean } = {},
 ): Promise<{ item: ItemView; access: ResolvedAccess }> {
   const item = await getItem(tx, itemId);
   if (!item) throw notFound();
+  // An item in the trash exists only for the trash; anywhere else it is gone.
+  if (item.trashedAt !== null && options.inTrash !== true) throw notFound();
   const { access } = await openList(tx, actor, item.listId, minimum);
   const theirs = item.createdBy === actor.userId || item.assignees.includes(actor.userId);
   if (access.itemScope !== 'all' && !theirs) throw notFound();
+  if (item.trashedAt === null && options.inTrash === true) throw conflict('not_in_trash');
   return { item, access };
 }
 
@@ -370,4 +381,49 @@ export async function setAssignees(
   const updated = await getItem(tx, itemId);
   if (!updated) throw notFound();
   return updated;
+}
+
+/** How long an item stays in the trash before it is removed for good. Enforced by the database. */
+export const TRASH_DAYS = 30;
+
+/** Sends an item to the trash. Whoever may edit it may do so; it can be brought back for 30 days. */
+export async function trashItem(tx: Tx, actor: Actor, itemId: string): Promise<void> {
+  await openItem(tx, actor, itemId, 'edit');
+  const changed = await run(tx, sql`UPDATE app.items SET deleted_at = now() WHERE id = ${itemId}`);
+  if (changed !== 1) throw forbidden();
+}
+
+/** Brings an item back from the trash, as it was, to the list and stage it left. */
+export async function restoreItem(tx: Tx, actor: Actor, itemId: string): Promise<ItemView> {
+  await openItem(tx, actor, itemId, 'edit', { inTrash: true });
+  const changed = await run(tx, sql`UPDATE app.items SET deleted_at = NULL WHERE id = ${itemId}`);
+  if (changed !== 1) throw forbidden();
+  const item = await getItem(tx, itemId);
+  if (!item) throw notFound();
+  return item;
+}
+
+/** The items of a list in the trash, as far as the caller can see them, most recent first. */
+export async function listTrash(tx: Tx, actor: Actor, listId: string): Promise<ItemView[]> {
+  const { list, access } = await openList(tx, actor, listId, 'view');
+  const found = await rows<ItemRow>(tx, {
+    text: `SELECT ${ITEM_COLUMNS} FROM app.items i
+           WHERE i.list_id = $1 AND i.deleted_at IS NOT NULL
+             AND ($2::boolean OR i.created_by = $3 OR EXISTS (
+               SELECT 1 FROM app.item_assignees mine
+               WHERE mine.item_id = i.id AND mine.user_id = $3))
+           ORDER BY i.deleted_at DESC, i.id
+           LIMIT 500`,
+    values: [listId, access.itemScope === 'all', actor.userId],
+  });
+  if (list.isSensitive) {
+    await run(tx, sql`SELECT audit.record('list.sensitive_viewed', 'list', ${listId})`);
+  }
+  return found.map(toItem);
+}
+
+/** Removes for good what has been in the trash for longer than the database allows. */
+export async function purgeTrash(db: Tx): Promise<number> {
+  const result = await one<{ purged: number }>(db, sql`SELECT app.purge_trash() AS purged`);
+  return result?.purged ?? 0;
 }
