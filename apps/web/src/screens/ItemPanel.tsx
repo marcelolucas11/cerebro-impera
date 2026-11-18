@@ -1,10 +1,23 @@
 import { hasCapability, type FieldValue } from '@cerebro/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useId, useState, type ReactNode } from 'react';
-import { api, type CustomField, type Item, type ItemChange, type ItemComment } from '../api.js';
+import {
+  api,
+  type CustomField,
+  type Item,
+  type ItemChange,
+  type ItemComment,
+  type Recurrence,
+} from '../api.js';
 import { draftOf, sameValue, valueOf, type FieldDraft } from '../fieldvalues.js';
 import { isoDay } from '../calendar.js';
-import { formatDay, PRIORITY_NAMES, priorityLabel } from '../due.js';
+import {
+  formatDay,
+  PRIORITY_NAMES,
+  priorityLabel,
+  RECURRENCE_CHOICES,
+  recurrenceText,
+} from '../due.js';
 import { describeChange } from '../history.js';
 import { mentionsIn, splitMentions, type Named } from '../mentions.js';
 import { formatDuration, formatWhen } from '../labels.js';
@@ -192,6 +205,7 @@ export function ItemPanel({
                 </p>
               ) : null}
             </div>
+            <RepeatChoice item={item} />
           </div>
           {parsed.length > 0 ? (
             <div className="item-fields">
@@ -224,7 +238,10 @@ export function ItemPanel({
       ) : (
         <>
           <p className="item-description">{item.description || 'Sem descrição.'}</p>
-          {item.priority !== null || item.startDate !== null || item.dueDate !== null ? (
+          {item.priority !== null ||
+          item.startDate !== null ||
+          item.dueDate !== null ||
+          item.recurrence !== null ? (
             <dl className="item-facts">
               {item.priority !== null ? (
                 <div>
@@ -242,6 +259,12 @@ export function ItemPanel({
                 <div>
                   <dt>Prazo</dt>
                   <dd>{formatDay(item.dueDate, isoDay(new Date()))}</dd>
+                </div>
+              ) : null}
+              {item.recurrence !== null ? (
+                <div>
+                  <dt>Repete</dt>
+                  <dd>{recurrenceText(item.recurrence)}</dd>
                 </div>
               ) : null}
             </dl>
@@ -609,6 +632,61 @@ function removalSentence(
   return byAuthor
     ? `${author} apagou o próprio comentário em ${when}.`
     : `Comentário de ${author} apagado por ${nameOf(comment.removedBy)} em ${when}.`;
+}
+
+const ruleKey = (rule: Recurrence): string => `${rule.unit}:${String(rule.every)}`;
+
+/**
+ * Whether, and how often, the item comes back once finished. Saved as soon as
+ * it is chosen: the next one is made when this one reaches a finished stage.
+ */
+function RepeatChoice({ item }: { item: Item }): ReactNode {
+  const queryClient = useQueryClient();
+  const choose = useAction(
+    useCallback(
+      async (key: string) => {
+        const [unit, every] = key.split(':');
+        if (key === '') await api.clearRecurrence(item.id);
+        else {
+          await api.setRecurrence(item.id, {
+            unit: unit as Recurrence['unit'],
+            every: Number(every),
+          });
+        }
+        await queryClient.invalidateQueries({ queryKey: ['items', item.listId] });
+      },
+      [item.id, item.listId, queryClient],
+    ),
+  );
+  const current = item.recurrence;
+  const choices = [
+    ...RECURRENCE_CHOICES,
+    // A rule set some other way stays on offer, as it is.
+    ...(current !== null && !RECURRENCE_CHOICES.some((rule) => ruleKey(rule) === ruleKey(current))
+      ? [current]
+      : []),
+  ];
+  return (
+    <div>
+      <Select
+        label="Repetir"
+        value={current === null ? '' : ruleKey(current)}
+        disabled={choose.busy}
+        onChange={choose.run}
+        options={[
+          { value: '', label: 'Não repete' },
+          ...choices.map((rule) => ({
+            value: ruleKey(rule),
+            label: capitalize(recurrenceText(rule)),
+          })),
+        ]}
+      />
+      {current !== null ? (
+        <p className="field-note">Ao terminar, o próximo é criado com o prazo adiante.</p>
+      ) : null}
+      {choose.error ? <Notice tone="error">{choose.error}</Notice> : null}
+    </div>
+  );
 }
 
 /** The item's checklist: lines ticked by whoever edits the item, read by whoever sees it. */

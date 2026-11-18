@@ -970,6 +970,54 @@ test('a comment mentions only people who see the item, and they see their name s
   await shot(ana, 'mencao-celular');
 });
 
+test('a recurring item comes back, a step later, when it is finished', async () => {
+  const dayFrom = (offset: number): string => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    return [date.getFullYear(), date.getMonth() + 1, date.getDate()]
+      .map((part) => String(part).padStart(2, '0'))
+      .join('-');
+  };
+  const short = (day: string): string => `${day.slice(8, 10)}/${day.slice(5, 7)}`;
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  await owner
+    .getByRole('button', { name: /^Adicionar item em/ })
+    .first()
+    .click();
+  await owner.getByLabel(/^Novo item em/).fill('Pagar fornecedor');
+  await owner.getByRole('button', { name: 'Adicionar', exact: true }).click();
+  const rows = owner.locator('.item-rows > li').filter({ hasText: 'Pagar fornecedor' });
+  await expect(rows).toHaveCount(1);
+  await rows.first().getByRole('button', { name: 'Pagar fornecedor', exact: true }).click();
+  const panel = rows.first().locator('.item-panel');
+  await panel.getByLabel('Prazo').fill(dayFrom(0));
+  await panel.getByRole('button', { name: 'Salvar item' }).click();
+  await expect(panel.getByRole('button', { name: 'Salvar item' })).toBeDisabled();
+  await panel.getByLabel('Repetir').selectOption({ label: 'Toda semana' });
+  await expect(rows.first().locator('.item-row .item-marks')).toContainText('Repete toda semana');
+
+  // Finished, it comes back in the first stage, due a week later, still repeating.
+  await rows.first().getByLabel('Etapa de Pagar fornecedor').selectOption({ label: 'Feito' });
+  await expect(rows).toHaveCount(2);
+  const next = rows.filter({ hasText: 'Repete toda semana' });
+  await expect(next).toHaveCount(1);
+  await expect(next.locator('.item-marks').first()).toContainText(`Prazo ${short(dayFrom(7))}`);
+  await shot(owner, 'recorrencia');
+
+  // Both go to the trash, one at a time, so the list is as it was.
+  for (const left of [2, 1]) {
+    await expect(rows).toHaveCount(left);
+    const row = rows.first();
+    if ((await row.locator('.item-panel').count()) === 0) {
+      await row.getByRole('button', { name: 'Pagar fornecedor', exact: true }).click();
+    }
+    await row.getByRole('button', { name: 'Mandar para a lixeira Pagar fornecedor' }).click();
+  }
+  await expect(rows).toHaveCount(0);
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');

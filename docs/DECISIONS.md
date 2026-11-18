@@ -650,6 +650,28 @@ As menções com @ entram na próxima fatia, junto do que decide quem pode ser m
 - Na tela, "Mencionar alguém" oferece só quem vê o item (e não quem escreve); a menção aparece em
   destaque no texto. O aviso para quem foi mencionado chega com as notificações (próxima fatia).
 
+## D50 — Recorrência ao terminar, feita pelo banco
+
+**Decisão.** Um item pode repetir a cada N dias, semanas, meses ou anos (1 a 99)
+(`0032_recurrence.sql`). Quem edita o item define ou tira a regra.
+
+- **O próximo nasce quando o item chega a uma etapa de concluído ou encerrado**, vindo de uma
+  etapa aberta, na mesma lista, fora da lixeira. Quem faz é o banco, então vale para qualquer
+  caminho: lista, quadro, edição em massa, API.
+- O próximo leva título, descrição, prioridade, responsáveis (que ainda podem trabalhar na lista),
+  valores de campo (o que não couber mais fica para trás; arquivos não vão, porque os anexos são do
+  item anterior) e a checklist desmarcada. Entra na primeira etapa.
+- **Datas:** um passo depois do último prazo; terminado atrasado, somam-se passos inteiros até cair
+  hoje ou depois; sem prazo, um passo depois de hoje. O início anda junto. "Hoje" é o dia do
+  servidor.
+- A regra passa para o novo item: terminar o anterior de novo não cria mais nada.
+- Subtarefa repete debaixo do mesmo pai quando quem terminou ainda pode editar o pai; senão, sai
+  solta.
+- O histórico guarda quem mudou a regra e, no novo item, de qual ele veio.
+
+**Fica para depois:** repetir por agenda, sem depender de terminar (o ClickUp oferece as duas);
+repetir também as subtarefas de um pai recorrente.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

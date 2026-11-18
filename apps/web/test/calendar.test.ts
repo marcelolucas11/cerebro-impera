@@ -35,6 +35,7 @@ const item = (id: string, fields: Item['fields']): Item => ({
   parentId: null,
   checks: { done: 0, total: 0 },
   comments: 0,
+  recurrence: null,
   trashedAt: null,
   trashedBy: null,
 });
