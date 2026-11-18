@@ -750,6 +750,29 @@ comentar. Até 50 regras por lista.
   atrasado), ações de definir campo, prazo relativo, mover de lista e criar item ou subtarefa, e as
   regras de quem pode mover para cada etapa.
 
+## D54 — Limite de requisições por sessão, em toda rota
+
+**Decisão.** Toda rota da API passa por um limite de requisições por minuto
+(`@fastify/rate-limit`): 1 200 por padrão (20 por segundo, sustentados por um minuto), ajustável por `CEREBRO_REQUESTS_PER_MINUTE` (60 a
+100 000). Acima disso, a API responde 429 `too_many_requests` com quanto esperar, e a página diz
+"Muitas ações em pouco tempo. Espere … e tente de novo."
+
+- **Contado por sessão**, por um resumo do token (nunca o token), e por endereço antes de entrar:
+  um escritório inteiro atrás de um mesmo endereço não divide uma cota só. As tentativas de
+  entrada continuam com o bloqueio progressivo próprio (por conta e por endereço).
+- **O fluxo de tempo real abre no máximo 20 vezes por minuto** por sessão, além do limite de 5
+  abertos ao mesmo tempo. Recusado, a página tenta de novo em 15 s, dobrando até 5 min, e lê tudo
+  de novo quando volta.
+- **Por que 1 200:** cada ação na página pede de novo o que mudou, e o tempo real faz o mesmo a cada
+  mudança de um colega; o percurso em navegador, mais rápido do que qualquer pessoa, passou de 600
+  num minuto. Um script sem freio passa longe de 1 200.
+- **Por quê agora:** o CodeQL apontou a rota do tempo real como sem limite (alerta alto, CWE-770).
+  Valia para todas: um script com uma sessão válida conseguia fazer requisições sem parar. O
+  limite fica na memória do processo, o que basta para uma instância só (Fase 12).
+- **Dependência nova:** `@fastify/rate-limit` 11.2.2 (equipe do Fastify, publicada há mais de 3
+  dias), com `toad-cache`, `ip-address`, `@lukeed/ms` e `fastify-plugin` (já usado). Nenhum script
+  de instalação.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

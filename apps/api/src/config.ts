@@ -23,6 +23,11 @@ export interface Config {
   listen: { host: string; port: number };
   /** True when running behind a reverse proxy that sets X-Forwarded-For. */
   trustProxy: boolean;
+  /**
+   * Requests one session (or, before signing in, one address) may make per
+   * minute. Beyond it the API answers 429 until the minute passes.
+   */
+  requestsPerMinute: number;
   db: DbConfig;
   masterKey: Buffer;
   argon2: Argon2Params;
@@ -50,6 +55,17 @@ export function parseAntivirus(raw: string | undefined): Config['antivirus'] {
 
 /** OWASP-recommended range for argon2id; raise it if the server can afford it. */
 export const DEFAULT_ARGON2: Argon2Params = { memoryCost: 65_536, timeCost: 3, parallelism: 1 };
+
+/** Enough for heavy use of the page; a script hammering the API is stopped. */
+export const DEFAULT_REQUESTS_PER_MINUTE = 1200;
+
+export function parseRequestsPerMinute(raw: string | undefined): number {
+  const value = raw === undefined || raw === '' ? DEFAULT_REQUESTS_PER_MINUTE : Number(raw);
+  if (!Number.isInteger(value) || value < 60 || value > 100_000) {
+    throw new Error('CEREBRO_REQUESTS_PER_MINUTE must be a whole number from 60 to 100000');
+  }
+  return value;
+}
 
 /** 2 GB unless the installation says otherwise; never above 1 TB. */
 function maxAttachmentBytes(raw: string | undefined): number {
@@ -100,6 +116,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     publicOrigin: parsePublicOrigin(required(env, 'CEREBRO_PUBLIC_ORIGIN'), mode),
     listen: { host: env.CEREBRO_HOST ?? '127.0.0.1', port },
     trustProxy: env.CEREBRO_TRUST_PROXY === 'true',
+    requestsPerMinute: parseRequestsPerMinute(env.CEREBRO_REQUESTS_PER_MINUTE),
     db: {
       host: required(env, 'CEREBRO_DB_HOST'),
       port: dbPort,

@@ -98,6 +98,8 @@ export function parseAnnouncement(payload: string | undefined): Announcement | n
 export const MAX_LISTENERS_PER_PERSON = 5;
 /** How often an open page is reminded the stream is alive, and the session checked again. */
 export const LIVE_HEARTBEAT_MS = 25_000;
+/** Streams one session may open per minute: a page reconnecting now and then, never a loop. */
+export const LIVE_OPENS_PER_MINUTE = 20;
 
 /**
  * One connection to the database, opened when the first page listens and

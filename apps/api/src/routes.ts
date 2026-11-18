@@ -74,7 +74,13 @@ import * as automations from './modules/automations.js';
 import * as checklist from './modules/checklist.js';
 import * as comments from './modules/comments.js';
 import * as notifications from './modules/notifications.js';
-import { LIVE_HEARTBEAT_MS, LiveHub, MAX_LISTENERS_PER_PERSON, type Listener } from './live.js';
+import {
+  LIVE_HEARTBEAT_MS,
+  LIVE_OPENS_PER_MINUTE,
+  LiveHub,
+  MAX_LISTENERS_PER_PERSON,
+  type Listener,
+} from './live.js';
 import * as stages from './modules/stages.js';
 import * as structure from './modules/structure.js';
 
@@ -340,56 +346,61 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // heartbeat, and the stream ends when it is no longer valid.
   const hub = new LiveHub(deps.pools.app);
   app.addHook('onClose', () => hub.close());
-  app.get('/api/events', async (request, reply) => {
-    const first = await signedIn(request, (tx, actor) => structure.liveAccess(tx, actor));
-    if (hub.countFor(first.userId) >= MAX_LISTENERS_PER_PERSON) throw conflict('too_many_streams');
-    reply.hijack();
-    const stream = reply.raw;
-    stream.writeHead(200, {
-      'Content-Type': 'text/event-stream; charset=utf-8',
-      'Cache-Control': 'no-store',
-      'X-Content-Type-Options': 'nosniff',
-      // Proxies must pass each event on as it comes.
-      'X-Accel-Buffering': 'no',
-    });
-    let lists = first.lists;
-    let open = true;
-    const stop = (): void => {
-      if (!open) return;
-      open = false;
-      clearInterval(heartbeat);
-      hub.remove(listener);
-      stream.end();
-    };
-    const check = async (): Promise<void> => {
-      try {
-        lists = (await signedIn(request, (tx, actor) => structure.liveAccess(tx, actor))).lists;
-      } catch {
-        stop();
-      }
-    };
-    const listener: Listener = {
-      userId: first.userId,
-      get lists() {
-        return lists;
-      },
-      send(event) {
-        if (open) stream.write(`data: ${JSON.stringify(event)}\n\n`);
-      },
-      refresh() {
+  app.get(
+    '/api/events',
+    { config: { rateLimit: { max: LIVE_OPENS_PER_MINUTE, timeWindow: 60_000 } } },
+    async (request, reply) => {
+      const first = await signedIn(request, (tx, actor) => structure.liveAccess(tx, actor));
+      if (hub.countFor(first.userId) >= MAX_LISTENERS_PER_PERSON)
+        throw conflict('too_many_streams');
+      reply.hijack();
+      const stream = reply.raw;
+      stream.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+        // Proxies must pass each event on as it comes.
+        'X-Accel-Buffering': 'no',
+      });
+      let lists = first.lists;
+      let open = true;
+      const stop = (): void => {
+        if (!open) return;
+        open = false;
+        clearInterval(heartbeat);
+        hub.remove(listener);
+        stream.end();
+      };
+      const check = async (): Promise<void> => {
+        try {
+          lists = (await signedIn(request, (tx, actor) => structure.liveAccess(tx, actor))).lists;
+        } catch {
+          stop();
+        }
+      };
+      const listener: Listener = {
+        userId: first.userId,
+        get lists() {
+          return lists;
+        },
+        send(event) {
+          if (open) stream.write(`data: ${JSON.stringify(event)}\n\n`);
+        },
+        refresh() {
+          void check();
+        },
+      };
+      const heartbeat = setInterval(() => {
+        if (open) stream.write(': ping\n\n');
         void check();
-      },
-    };
-    const heartbeat = setInterval(() => {
-      if (open) stream.write(': ping\n\n');
-      void check();
-    }, LIVE_HEARTBEAT_MS);
-    heartbeat.unref();
-    request.raw.on('close', stop);
-    stream.write('retry: 5000\n\n');
-    await hub.add(listener);
-    stream.write('event: ready\ndata: {}\n\n');
-  });
+      }, LIVE_HEARTBEAT_MS);
+      heartbeat.unref();
+      request.raw.on('close', stop);
+      stream.write('retry: 5000\n\n');
+      await hub.add(listener);
+      stream.write('event: ready\ndata: {}\n\n');
+    },
+  );
 
   // ---- Notifications ---------------------------------------------------------------
   app.get('/api/notifications', (request) => {

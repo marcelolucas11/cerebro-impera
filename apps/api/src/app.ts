@@ -1,11 +1,26 @@
 import cookie from '@fastify/cookie';
-import Fastify, { type FastifyInstance } from 'fastify';
+import rateLimit from '@fastify/rate-limit';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
+import { digest } from './crypto/tokens.js';
+import { readToken, SESSION_COOKIE } from './http/cookies.js';
 import type { Deps } from './deps.js';
-import { forbidden, fromDatabaseError, HttpError } from './http/errors.js';
+import { forbidden, fromDatabaseError, HttpError, tooManyRequests } from './http/errors.js';
 import { isApiPath, loadBundle, pathOf, serveFromBundle } from './http/web.js';
 import { registerRoutes } from './routes.js';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/**
+ * Whose requests are counted together: a session, by a digest of its token
+ * (never the token itself), or the address before anyone signs in. Counting by
+ * session keeps a whole office behind one address from sharing one allowance.
+ */
+function rateKey(request: FastifyRequest): string {
+  const token = readToken(request, SESSION_COOKIE);
+  return token === undefined
+    ? `ip:${request.ip}`
+    : `session:${digest(token).toString('base64url')}`;
+}
 
 /** Sent with every response unless the handler already chose something more specific. */
 const DEFAULT_HEADERS: Record<string, string> = {
@@ -42,6 +57,16 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
   // plain HTML form (which cannot send JSON) can never reach a handler.
   app.removeContentTypeParser('text/plain');
   await app.register(cookie);
+
+  // Every route is limited; routes may ask for a tighter limit of their own.
+  await app.register(rateLimit, {
+    global: true,
+    max: config.requestsPerMinute,
+    timeWindow: 60_000,
+    keyGenerator: rateKey,
+    errorResponseBuilder: (_request, context) =>
+      tooManyRequests(Math.max(1, Math.ceil(context.ttl / 1000))),
+  });
 
   /*
    * Cross-origin gate. Other applications live on sibling subdomains of the
