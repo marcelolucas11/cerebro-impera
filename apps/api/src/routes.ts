@@ -12,6 +12,7 @@ import {
   deleteStageSchema,
   deviceDecisionSchema,
   idSchema,
+  itemHistoryQuerySchema,
   listFieldsQuerySchema,
   loginSchema,
   reorderFieldsSchema,
@@ -37,6 +38,7 @@ import { parse } from './http/request.js';
 import * as auth from './modules/auth.js';
 import * as fields from './modules/fields.js';
 import * as grants from './modules/grants.js';
+import * as history from './modules/history.js';
 import * as oversight from './modules/oversight.js';
 import * as people from './modules/people.js';
 import * as stages from './modules/stages.js';
@@ -238,6 +240,12 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.get('/api/items/:id/stage-history', (request) => {
     const id = paramId(request);
     return signedIn(request, (tx, actor) => stages.itemStageHistory(tx, actor, id));
+  });
+
+  app.get('/api/items/:id/history', (request) => {
+    const id = paramId(request);
+    const query = parse(itemHistoryQuerySchema, request.query);
+    return signedIn(request, (tx, actor) => history.itemHistory(tx, actor, id, query));
   });
 
   // ---- Custom fields -------------------------------------------------------------

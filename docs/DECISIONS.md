@@ -253,6 +253,19 @@ itens e 160 mil valores no banco. O JIT só acrescentava um atraso fixo de 0,2 s
 maiores. As regras antigas e as novas foram conferidas pelos mesmos testes e por enfraquecimento
 proposital de cada condição.
 
+## D26 — O histórico do item é escrito pelo banco e só lido pela aplicação
+
+**Decisão.** Cada mudança em um item (criação, título, descrição, etapa, lista, responsáveis e
+valores de campos) vira uma linha gravada por gatilho, com autor, valor de antes e de depois. A
+aplicação tem só leitura. Gatilhos recusam alterar ou apagar uma linha, inclusive para o dono do
+banco; as linhas só somem junto com o item, quando ele for removido de vez (ver lixeira). Quem lê o
+item lê a história inteira, inclusive o que aconteceu antes de ele chegar à pessoa. O passado de um
+campo segue a regra do campo: arquivado ou deixado em outra lista, não é lido.
+
+**Por quê.** Delegar com segurança exige saber quem mudou o quê, sem depender de cada tela lembrar
+de registrar, e sem que alguém com acesso amplo apague o próprio rastro. O registro de auditoria
+já cobre ações de segurança; este cobre o trabalho do dia a dia e é lido por quem trabalha no item.
+
 ## Adiado, com motivo
 
 | Item                           | Situação                                                                                          |
