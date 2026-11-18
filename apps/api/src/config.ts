@@ -57,7 +57,7 @@ export function parseAntivirus(raw: string | undefined): Config['antivirus'] {
 export const DEFAULT_ARGON2: Argon2Params = { memoryCost: 65_536, timeCost: 3, parallelism: 1 };
 
 /** Enough for heavy use of the page; a script hammering the API is stopped. */
-export const DEFAULT_REQUESTS_PER_MINUTE = 600;
+export const DEFAULT_REQUESTS_PER_MINUTE = 1200;
 
 export function parseRequestsPerMinute(raw: string | undefined): number {
   const value = raw === undefined || raw === '' ? DEFAULT_REQUESTS_PER_MINUTE : Number(raw);
