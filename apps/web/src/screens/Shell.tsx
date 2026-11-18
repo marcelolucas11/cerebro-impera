@@ -3,6 +3,7 @@ import { useCallback, useEffect, type ReactNode } from 'react';
 import { api } from '../api.js';
 import { describeError, ROLE_NAMES } from '../messages.js';
 import { useLiveUpdates } from '../live.js';
+import { useOnline } from '../online.js';
 import { Link, listIdFrom, listViewFrom, usePath } from '../router.js';
 import { onSignedOut as listenForSignOut } from '../session.js';
 import { StepUpProvider } from '../stepup.js';
@@ -24,6 +25,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
   const path = usePath();
   const me = useQuery({ queryKey: ['me'], queryFn: api.me, retry: false });
   const unread = useUnreadNotifications();
+  const online = useOnline();
   useLiveUpdates();
 
   useEffect(
@@ -116,6 +118,12 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
           </div>
         </header>
         <main className={listId !== undefined ? 'shell-main shell-main-wide' : 'shell-main'}>
+          {online ? null : (
+            <Notice tone="info">
+              Sem conexão. O que está na tela pode estar desatualizado, e nada é salvo até a conexão
+              voltar.
+            </Notice>
+          )}
           {signOut.error ? <Notice tone="error">{signOut.error}</Notice> : null}
           {listId !== undefined ? (
             <ListScreen

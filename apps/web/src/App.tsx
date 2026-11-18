@@ -10,7 +10,7 @@ import { Button, Notice } from './ui/kit.js';
 
 type Stage =
   | { name: 'loading' }
-  | { name: 'unreachable'; message: string }
+  | { name: 'unreachable'; message: string; offline: boolean }
   | { name: 'setup' }
   | { name: 'invite'; token: string }
   | { name: 'sign-in'; notice?: string | undefined }
@@ -55,19 +55,39 @@ export function App(): ReactNode {
   const [stage, setStage] = useState<Stage>({ name: 'loading' });
   const [instanceName, setInstanceName] = useState('');
 
-  const start = useCallback(() => {
-    setStage({ name: 'loading' });
+  const attempt = useCallback(() => {
     whereToStart().then(
       (result) => {
         setInstanceName(result.instanceName);
         setStage(result.stage);
       },
       (error: unknown) => {
-        setStage({ name: 'unreachable', message: describeError(error) });
+        setStage({
+          name: 'unreachable',
+          message: describeError(error),
+          offline: error instanceof ApiError && error.code === 'network',
+        });
       },
     );
   }, []);
+  const start = useCallback(() => {
+    setStage({ name: 'loading' });
+    attempt();
+  }, [attempt]);
   useEffect(start, [start]);
+
+  // Opened without a connection (the page itself is kept by the browser), it tries again
+  // by itself: when the browser says the connection is back, and every few seconds.
+  const waiting = stage.name === 'unreachable' && stage.offline;
+  useEffect(() => {
+    if (!waiting) return undefined;
+    const timer = setInterval(attempt, 5_000);
+    window.addEventListener('online', attempt);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('online', attempt);
+    };
+  }, [waiting, attempt]);
 
   const toSignIn = useCallback((notice?: string) => {
     if (window.location.pathname !== '/' || window.location.hash !== '') {
@@ -90,7 +110,16 @@ export function App(): ReactNode {
     case 'loading':
       return <p className="boot">Abrindo…</p>;
     case 'unreachable':
-      return (
+      return stage.offline ? (
+        <div className="boot">
+          <Notice tone="info">
+            Sem conexão com o servidor. O aplicativo abre sozinho assim que ela voltar.
+          </Notice>
+          <Button variant="quiet" onClick={start}>
+            Tentar agora
+          </Button>
+        </div>
+      ) : (
         <div className="boot">
           <Notice tone="error">{stage.message}</Notice>
           <Button onClick={start}>Tentar de novo</Button>

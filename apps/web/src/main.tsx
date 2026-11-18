@@ -30,6 +30,14 @@ const queryClient = new QueryClient({
   },
 });
 
+// Installed or not, the page itself is kept by the browser so it opens offline. The
+// worker keeps only the page and its files, never an answer from the API.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch(() => {
+    // Without it the app works as before, online only.
+  });
+}
+
 createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

@@ -113,6 +113,34 @@ describe('the page', () => {
   });
 });
 
+describe('installing the app', () => {
+  it('has a manifest with the installation name and nothing else about it', async () => {
+    const response = await get('/manifest.webmanifest');
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toBe('application/manifest+json; charset=utf-8');
+    expect(response.headers['cache-control']).toBe('no-cache');
+    const manifest = response.json<Record<string, unknown>>();
+    expect(Object.keys(manifest).sort()).toEqual([
+      'background_color',
+      'display',
+      'icons',
+      'id',
+      'lang',
+      'name',
+      'scope',
+      'short_name',
+      'start_url',
+      'theme_color',
+    ]);
+    expect(manifest).toMatchObject({ start_url: '/', scope: '/', display: 'standalone' });
+    expect(typeof manifest.name).toBe('string');
+    expect(manifest.name).not.toBe('');
+    for (const icon of manifest.icons as { src: string }[]) {
+      expect(icon.src).toMatch(/^\/icons\/[a-z0-9-]+\.png$/);
+    }
+  });
+});
+
 describe('what the page server never does', () => {
   it('never answers with a file from outside its folder, a hidden file or an unknown kind', async () => {
     const attempts = [

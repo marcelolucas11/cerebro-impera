@@ -1354,6 +1354,41 @@ test('the weekly report counts each list and each person, against the week befor
   );
 });
 
+test('the app can be installed and opens without a connection, keeping no data', async () => {
+  await owner.getByRole('link', { name: 'Início' }).click();
+  await heading(owner, 'Início');
+  const manifest = await owner.evaluate(() =>
+    fetch('/manifest.webmanifest').then((response) => response.json() as Promise<{ name: string }>),
+  );
+  expect(manifest.name).toBe('Empresa Exemplo');
+  // The worker keeps the page and its files, and nothing from the API.
+  await owner.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+  const kept = await owner.evaluate(async () => {
+    const paths: string[] = [];
+    for (const name of await caches.keys()) {
+      for (const request of await (await caches.open(name)).keys()) {
+        paths.push(new URL(request.url).pathname);
+      }
+    }
+    return paths;
+  });
+  expect(kept).toContain('/index.html');
+  expect(kept.filter((path) => path !== '/index.html' && !path.startsWith('/assets/'))).toEqual([]);
+
+  // Without a connection the page still opens, says so, and comes back by itself.
+  const before = problems.length;
+  await ownerContext.setOffline(true);
+  await owner.reload();
+  await expect(owner.getByText('Sem conexão com o servidor.', { exact: false })).toBeVisible();
+  await shot(owner, 'sem-conexao');
+  await ownerContext.setOffline(false);
+  await heading(owner, 'Início');
+  // The refused requests while offline are the expected ones, nothing else.
+  expect(
+    problems.splice(before).filter((problem) => !/ERR_INTERNET_DISCONNECTED/.test(problem)),
+  ).toEqual([]);
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');
