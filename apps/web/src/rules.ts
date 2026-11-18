@@ -1,3 +1,4 @@
+import type { FieldValue } from '@cerebro/shared';
 import type { AutomationRun, RuleAction, RuleCondition, RuleTrigger, RunOutcome } from './api.js';
 import { PRIORITY_NAMES } from './due.js';
 
@@ -12,6 +13,8 @@ export interface RuleContext {
   personName: (id: string) => string | undefined;
   fieldName: (id: string) => string | undefined;
   optionName: (fieldId: string, optionId: string) => string | undefined;
+  /** A value of a field as people read it; undefined when the field is not known here. */
+  valueText?: (fieldId: string, value: FieldValue) => string | undefined;
 }
 
 /** "A", "A e B", "A, B e C". */
@@ -27,8 +30,29 @@ const person = (id: string, context: RuleContext): string =>
 const priority = (value: number | null): string =>
   value === null ? '' : (PRIORITY_NAMES[value] ?? String(value));
 
+const fieldName = (id: string, context: RuleContext): string =>
+  context.fieldName(id) ?? 'um campo arquivado';
+
+/** "Quando Conferido é marcado", "Quando Fornecedor passa a ser Alfa", "Quando Fornecedor muda". */
+function fieldTriggerText(
+  field: string,
+  is: string | boolean | undefined,
+  context: RuleContext,
+): string {
+  const name = fieldName(field, context);
+  if (is === undefined) return `Quando ${name} muda`;
+  if (typeof is === 'boolean') return `Quando ${name} é ${is ? 'marcado' : 'desmarcado'}`;
+  return `Quando ${name} passa a ser ${context.optionName(field, is) ?? 'uma opção arquivada'}`;
+}
+
 export function triggerText(trigger: RuleTrigger, context: RuleContext): string {
   if (trigger.on === 'created') return 'Quando um item é criado';
+  if (trigger.on === 'field') return fieldTriggerText(trigger.field, trigger.is, context);
+  if (trigger.on === 'assigned') {
+    return trigger.to === undefined
+      ? 'Quando alguém recebe um item'
+      : `Quando ${person(trigger.to, context)} recebe um item`;
+  }
   const { to, from } = trigger;
   if (to !== undefined && from !== undefined) {
     return `Quando um item sai de ${stage(from, context)} e entra em ${stage(to, context)}`;
@@ -77,7 +101,27 @@ export function actionText(action: RuleAction, context: RuleContext): string {
       return `avisar ${joined(action.to.map((id) => person(id, context)))}`;
     case 'comment':
       return `comentar ${quoted(action.text)}`;
+    case 'field': {
+      const name = fieldName(action.field, context);
+      if (action.value === null) return `limpar ${name}`;
+      if (action.value === true) return `marcar ${name}`;
+      const shown = context.valueText?.(action.field, action.value);
+      return shown === undefined || shown === ''
+        ? `preencher ${name}`
+        : `preencher ${name} com ${quoted(shown)}`;
+    }
+    case 'due':
+      return action.in === null ? 'tirar o prazo' : `pôr o prazo para ${daysAhead(action.in)}`;
+    case 'subtask':
+      return `criar a subtarefa ${quoted(action.title)}`;
   }
+}
+
+/** "hoje", "amanhã", "daqui a 3 dias". */
+export function daysAhead(days: number): string {
+  if (days === 0) return 'hoje';
+  if (days === 1) return 'amanhã';
+  return `daqui a ${String(days)} dias`;
 }
 
 export function ruleSentence(
@@ -123,10 +167,17 @@ export interface ConditionDraft {
   value: string;
 }
 export type ActionKind = RuleAction['do'];
+/**
+ * `value`: a stage, a priority, a person, a text, a number of days or 'none'.
+ * For a field: `field` is the field, and `fieldValue` what to put in it (null
+ * clears it; undefined while what was typed does not fit the field).
+ */
 export interface ActionDraft {
   kind: ActionKind;
   value: string;
   people: string[];
+  field?: string;
+  fieldValue?: FieldValue | null | undefined;
 }
 
 const NONE = 'none';
@@ -185,6 +236,19 @@ export function actionOf(draft: ActionDraft): RuleAction | undefined {
       return draft.people.length === 0 ? undefined : { do: 'notify', to: [...draft.people] };
     case 'comment':
       return draft.value.trim() === '' ? undefined : { do: 'comment', text: draft.value.trim() };
+    case 'field':
+      return draft.field === undefined || draft.field === '' || draft.fieldValue === undefined
+        ? undefined
+        : { do: 'field', field: draft.field, value: draft.fieldValue };
+    case 'due': {
+      if (draft.value === NONE) return { do: 'due', in: null };
+      const days = Number(draft.value);
+      return draft.value !== '' && Number.isInteger(days) && days >= 0 && days <= 365
+        ? { do: 'due', in: days }
+        : undefined;
+    }
+    case 'subtask':
+      return draft.value.trim() === '' ? undefined : { do: 'subtask', title: draft.value.trim() };
   }
 }
 
@@ -199,27 +263,71 @@ export function actionDraft(action: RuleAction): ActionDraft {
       return { kind: 'notify', value: '', people: [...action.to] };
     case 'comment':
       return { kind: 'comment', value: action.text, people: [] };
+    case 'field':
+      return {
+        kind: 'field',
+        value: '',
+        people: [],
+        field: action.field,
+        fieldValue: action.value,
+      };
+    case 'due':
+      return { kind: 'due', value: action.in === null ? NONE : String(action.in), people: [] };
+    case 'subtask':
+      return { kind: 'subtask', value: action.title, people: [] };
   }
 }
 
-/** The trigger as the form edits it: when, and the stages it names ('' for any). */
+/**
+ * The trigger as the form edits it ('' for any): the stages it names; the
+ * field and the value it changes to ('true'/'false' for a checkbox); or the
+ * person handed the item, kept in `to`.
+ */
 export interface TriggerDraft {
-  on: 'created' | 'stage';
+  on: RuleTrigger['on'];
   to: string;
   from: string;
+  field: string;
+  is: string;
 }
 
-export function triggerOf(draft: TriggerDraft): RuleTrigger {
-  if (draft.on === 'created') return { on: 'created' };
-  return {
-    on: 'stage',
-    ...(draft.to === '' ? {} : { to: draft.to }),
-    ...(draft.from === '' ? {} : { from: draft.from }),
-  };
+/** The trigger a draft stands for; undefined while it is incomplete. */
+export function triggerOf(draft: TriggerDraft): RuleTrigger | undefined {
+  switch (draft.on) {
+    case 'created':
+      return { on: 'created' };
+    case 'stage':
+      return {
+        on: 'stage',
+        ...(draft.to === '' ? {} : { to: draft.to }),
+        ...(draft.from === '' ? {} : { from: draft.from }),
+      };
+    case 'field': {
+      if (draft.field === '') return undefined;
+      if (draft.is === '') return { on: 'field', field: draft.field };
+      const is = draft.is === 'true' ? true : draft.is === 'false' ? false : draft.is;
+      return { on: 'field', field: draft.field, is };
+    }
+    case 'assigned':
+      return draft.to === '' ? { on: 'assigned' } : { on: 'assigned', to: draft.to };
+  }
 }
 
 export function triggerDraft(trigger: RuleTrigger): TriggerDraft {
-  return trigger.on === 'created'
-    ? { on: 'created', to: '', from: '' }
-    : { on: 'stage', to: trigger.to ?? '', from: trigger.from ?? '' };
+  const empty = { to: '', from: '', field: '', is: '' };
+  switch (trigger.on) {
+    case 'created':
+      return { ...empty, on: 'created' };
+    case 'stage':
+      return { ...empty, on: 'stage', to: trigger.to ?? '', from: trigger.from ?? '' };
+    case 'field':
+      return {
+        ...empty,
+        on: 'field',
+        field: trigger.field,
+        is: trigger.is === undefined ? '' : String(trigger.is),
+      };
+    case 'assigned':
+      return { ...empty, on: 'assigned', to: trigger.to ?? '' };
+  }
 }

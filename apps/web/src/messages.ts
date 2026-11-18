@@ -60,6 +60,7 @@ const BY_CODE: Record<string, string> = {
   unknown_field: 'Um dos campos da regra não é desta lista, foi arquivado ou não tem essa opção.',
   unknown_person: 'Uma das pessoas da regra não existe mais.',
   cannot_notify_person: 'Uma das pessoas a avisar não vê esta lista.',
+  invalid_value: 'O valor de um campo da regra não cabe nele. Confira as opções e o formato.',
   too_many_automations: 'Esta lista já tem 50 regras, o máximo. Apague uma para criar outra.',
   sensitive_list: 'Listas sensíveis não têm regras: nelas, tudo é feito por uma pessoa.',
   bad_trigger: 'A regra precisa dizer quando age.',

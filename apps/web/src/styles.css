@@ -2438,6 +2438,12 @@ audio.file-preview {
   justify-self: start;
 }
 
+.rule-fill {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .rule-people {
   display: flex;
   flex-wrap: wrap;

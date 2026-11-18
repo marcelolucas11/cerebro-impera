@@ -773,6 +773,26 @@ comentar. Até 50 regras por lista.
   dias), com `toad-cache`, `ip-address`, `@lukeed/ms` e `fastify-plugin` (já usado). Nenhum script
   de instalação.
 
+## D55 — Mais gatilhos e ações das automações
+
+**Decisão.** Além de D53 (`0036_automation_triggers.sql`):
+
+- **Quando um campo muda**, para qualquer valor ou, em campo de escolha e caixa de marcar, para um
+  valor ("passa a ser Alfa", "é desmarcado"; desmarcar e limpar contam igual). O mesmo valor de
+  novo não é mudança.
+- **Quando alguém recebe um item**, qualquer pessoa ou uma pessoa. Tirar alguém não dispara.
+- **Preencher ou limpar um campo**, conferido pelo banco contra o tipo do campo ao salvar e de
+  novo ao agir (opção arquivada depois faz a regra falhar inteira e ficar anotada). Campo secreto
+  e de arquivos ficam de fora: segredo só é escrito por quem o digitou, e arquivo vem dos anexos do
+  próprio item.
+- **Prazo daqui a N dias** (0 a 365) ou sem prazo. Se o item começa depois do novo prazo, a regra
+  falha inteira.
+- **Criar uma subtarefa**, pela pessoa que salvou a regra; nunca debaixo de uma subtarefa.
+- **O que é feito enquanto o item é criado faz parte da criação:** campos preenchidos e
+  responsáveis postos na mesma requisição disparam as regras de "item criado", não estas.
+- Ficam para o próximo passo: prazo chegando ou vencido e regras agendadas (precisam agir sem uma
+  pessoa conectada) e mover de lista.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

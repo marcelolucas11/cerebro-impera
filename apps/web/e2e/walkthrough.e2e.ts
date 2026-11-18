@@ -1138,6 +1138,72 @@ test('a rule acts on its own, with its author’s access, and says it was the ru
   await expect(rows).toHaveCount(0);
 });
 
+test('a rule started by a hand-over sets a due date, fills in a field and adds a subtask', async () => {
+  const short = (offset: number): string => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
+  };
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  await owner.getByRole('button', { name: 'Automações', exact: true }).click();
+  const rules = owner.getByRole('region', { name: 'Automações desta lista' });
+  await rules.getByRole('button', { name: 'Criar regra' }).click();
+  await rules.getByLabel('Nome da regra').fill('Recebeu, tem prazo');
+  await rules.getByLabel('O que faz a regra agir').selectOption({ label: 'Alguém recebe um item' });
+  await rules.getByLabel('Ação 1', { exact: true }).selectOption({ label: 'Pôr prazo' });
+  await rules.getByLabel('Valor da ação 1').selectOption({ label: 'Daqui a 7 dias' });
+  await rules.getByRole('button', { name: 'Adicionar ação' }).click();
+  await rules.getByLabel('Ação 2', { exact: true }).selectOption({ label: 'Preencher campo' });
+  await rules.getByLabel('Campo da ação 2').selectOption({ label: 'Fornecedor' });
+  await rules.getByLabel('Fornecedor', { exact: true }).selectOption({ label: 'Alfa' });
+  await rules.getByRole('button', { name: 'Adicionar ação' }).click();
+  await rules.getByLabel('Ação 3', { exact: true }).selectOption({ label: 'Criar subtarefa' });
+  await rules.getByLabel('Título da subtarefa da ação 3').fill('Conferir a nota fiscal');
+  await rules.getByRole('button', { name: 'Salvar regra' }).click();
+  await expect(rules.locator('.rule-sentence')).toHaveText(
+    'Quando alguém recebe um item: pôr o prazo para daqui a 7 dias, preencher Fornecedor com ' +
+      '“Alfa” e criar a subtarefa “Conferir a nota fiscal”.',
+  );
+  await shot(owner, 'automacao-ao-receber');
+
+  await owner
+    .getByRole('button', { name: /^Adicionar item em/ })
+    .first()
+    .click();
+  await owner.getByLabel(/^Novo item em/).fill('Pagar o aluguel');
+  await owner.getByRole('button', { name: 'Adicionar', exact: true }).click();
+  const rows = owner.locator('.item-rows > li').filter({ hasText: 'Pagar o aluguel' });
+  await rows.first().getByRole('button', { name: 'Pagar o aluguel', exact: true }).click();
+  const people = rows.first().getByRole('group', { name: 'Responsáveis' });
+  await people.getByRole('checkbox', { name: 'Ana Souza' }).check();
+  await people.getByRole('button', { name: 'Salvar responsáveis' }).click();
+  const lead = rows.first().locator('.item-row').first();
+  await expect(lead).toContainText(`Prazo ${short(7)}`);
+  await expect(lead).toContainText('Alfa');
+  await expect(lead).toContainText('0/1 subtarefa concluída');
+  await shot(owner, 'automacao-ao-receber-item');
+
+  // Removed, and the item with its subtask goes to the trash: the list is as it was.
+  await rules.getByRole('button', { name: 'Apagar', exact: true }).click();
+  await rules.getByRole('button', { name: 'Apagar “Recebeu, tem prazo” de vez' }).click();
+  await expect(rules.getByText('Nenhuma regra ainda.')).toBeVisible();
+  await owner.getByRole('button', { name: 'Fechar as automações' }).click();
+  await rows
+    .first()
+    .getByRole('button', { name: 'Mostrar 1 subtarefa de Pagar o aluguel' })
+    .click();
+  const nested = owner.getByRole('list', { name: 'Subtarefas de Pagar o aluguel' });
+  await nested.getByRole('button', { name: 'Conferir a nota fiscal', exact: true }).click();
+  await nested
+    .getByRole('button', { name: 'Mandar para a lixeira Conferir a nota fiscal' })
+    .click();
+  await expect(lead).not.toContainText('subtarefa');
+  await rows.first().getByRole('button', { name: 'Mandar para a lixeira Pagar o aluguel' }).click();
+  await expect(rows).toHaveCount(0);
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');
