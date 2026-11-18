@@ -697,6 +697,25 @@ para os Donos.
 instalação, da inscrição de cada aparelho e de envio para fora do servidor. Preferências por pessoa
 (o que avisar) entram junto.
 
+## D52 — Tempo real que só diz "isto mudou", nunca o quê
+
+**Decisão.** A página aberta recebe por um fluxo de eventos (`GET /api/events`) apenas qual lista e
+qual item mudaram, se os avisos da pessoa mudaram ou se o acesso dela mudou, e então pergunta de
+novo pelas rotas de sempre, com as regras de sempre (`0034_live.sql`).
+
+- **O banco anuncia só ids:** a lista, o item, e de quem o item é (quem criou e com quem está).
+  Nunca título, valor, texto de comentário ou nome. Anúncios iguais na mesma transação saem uma
+  vez.
+- **O servidor escuta uma vez e repassa por pessoa:** só para quem abre a lista; numa lista em que
+  a pessoa vê só os próprios itens, só quando o item é dela (senão saberia que o item de um colega
+  mudou); lista sensível só com o código recente.
+- A sessão é conferida de novo a cada batida (25 s) e quando o acesso da pessoa muda; deixou de
+  valer, o fluxo termina. Até 5 fluxos por pessoa.
+- Na página, mudanças que chegam juntas são lidas uma vez (300 ms). A contagem de avisos continua
+  conferida a cada minuto, caso o fluxo caia.
+- Sem dependência nova: Server-Sent Events do próprio navegador e `LISTEN/NOTIFY` do PostgreSQL. O
+  proxy reverso precisa repassar o fluxo sem guardar (ver `infra/README.md`).
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |
