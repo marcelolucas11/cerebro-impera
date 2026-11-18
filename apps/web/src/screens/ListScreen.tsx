@@ -35,6 +35,7 @@ import { BulkBar } from './BulkBar.js';
 import { ListTools } from './ListTools.js';
 import { SavedViews } from './SavedViews.js';
 import { StageEditor } from './StageEditor.js';
+import { Summary } from './Summary.js';
 import { Automations } from './Automations.js';
 
 const needsCode = (error: unknown): boolean =>
@@ -182,6 +183,9 @@ export function ListScreen({
         <Link to={listPath(listId, 'timeline', search)} current={view === 'timeline'}>
           Linha do tempo
         </Link>
+        <Link to={listPath(listId, 'summary')} current={view === 'summary'}>
+          Painel
+        </Link>
       </nav>
     </header>
   );
@@ -328,30 +332,42 @@ export function ListScreen({
           }
         />
       ) : null}
-      <SavedViews
-        listId={listId}
-        view={view}
-        search={search}
-        onApply={(saved) => {
-          const parsed = fromSearch(saved.query);
-          navigate(listPath(listId, saved.kind, saved.query));
-          reshape(parsed.filter, parsed.sort, { columns: parsed.columns, group: parsed.group });
-        }}
-      />
-      <ListTools
-        filter={filter}
-        sort={sort}
-        onChange={reshape}
-        group={view === 'list' ? shaping.group : null}
-        onGroup={(group) => {
-          reshape(filter, sort, { group });
-        }}
-        stages={stages.data}
-        fields={fields.data}
-        people={pickable}
-        shown={visible.length}
-        total={items.data.length}
-      />
+      {view === 'summary' ? (
+        <Summary
+          listId={listId}
+          stages={stages.data}
+          fields={fields.data}
+          seesAll={list.itemScope === 'all'}
+        />
+      ) : null}
+      {view === 'summary' ? null : (
+        <SavedViews
+          listId={listId}
+          view={view}
+          search={search}
+          onApply={(saved) => {
+            const parsed = fromSearch(saved.query);
+            navigate(listPath(listId, saved.kind, saved.query));
+            reshape(parsed.filter, parsed.sort, { columns: parsed.columns, group: parsed.group });
+          }}
+        />
+      )}
+      {view === 'summary' ? null : (
+        <ListTools
+          filter={filter}
+          sort={sort}
+          onChange={reshape}
+          group={view === 'list' ? shaping.group : null}
+          onGroup={(group) => {
+            reshape(filter, sort, { group });
+          }}
+          stages={stages.data}
+          fields={fields.data}
+          people={pickable}
+          shown={visible.length}
+          total={items.data.length}
+        />
+      )}
       {view === 'list' && picked.length > 0 ? (
         <BulkBar
           listId={listId}

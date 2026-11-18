@@ -32,14 +32,16 @@ export function useQueryString(): string {
 }
 
 const ID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
-const LIST_PATH = new RegExp(`^/listas/(${ID})(/quadro|/calendario|/tabela|/linha-do-tempo)?$`);
+const LIST_PATH = new RegExp(
+  `^/listas/(${ID})(/quadro|/calendario|/tabela|/linha-do-tempo|/painel)?$`,
+);
 
 /** The list an address points at, when it is the address of a list. */
 export function listIdFrom(path: string): string | undefined {
   return LIST_PATH.exec(path)?.[1];
 }
 
-export type ListView = 'list' | 'board' | 'calendar' | 'table' | 'timeline';
+export type ListView = 'list' | 'board' | 'calendar' | 'table' | 'timeline' | 'summary';
 
 /** How a list is shown: a list, or at /quadro, /calendario or /tabela. */
 export function listViewFrom(path: string): ListView {
@@ -47,6 +49,7 @@ export function listViewFrom(path: string): ListView {
   if (suffix === '/quadro') return 'board';
   if (suffix === '/calendario') return 'calendar';
   if (suffix === '/linha-do-tempo') return 'timeline';
+  if (suffix === '/painel') return 'summary';
   return suffix === '/tabela' ? 'table' : 'list';
 }
 
@@ -58,6 +61,7 @@ export function listPath(listId: string, view: ListView, query = ''): string {
     calendar: '/calendario',
     table: '/tabela',
     timeline: '/linha-do-tempo',
+    summary: '/painel',
   }[view];
   return `/listas/${listId}${suffix}${query}`;
 }

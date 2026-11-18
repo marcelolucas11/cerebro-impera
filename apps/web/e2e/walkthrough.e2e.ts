@@ -1265,6 +1265,30 @@ test('a rule can wait for the due date', async () => {
   await owner.getByRole('button', { name: 'Fechar as automações' }).click();
 });
 
+test('the numbers of a list count what each person sees', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  await owner.getByRole('link', { name: 'Painel', exact: true }).click();
+  const tiles = owner.locator('.summary-tiles');
+  await expect(tiles.locator('div').filter({ hasText: 'Itens' }).locator('dd')).toHaveText('2');
+  const stages = owner.getByRole('region', { name: 'Por etapa' });
+  await expect(stages.getByRole('row', { name: /^Fazendo/ })).toContainText('100%');
+  await expect(owner.getByRole('region', { name: 'Com quem' })).toContainText('Ana Souza');
+  await expect(owner.getByRole('region', { name: 'Por Fornecedor' })).toContainText('Alfa');
+  await shot(owner, 'painel-da-lista');
+
+  await ana.goto('/');
+  await ana.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(ana, 'Tarefas');
+  await ana.getByRole('link', { name: 'Painel', exact: true }).click();
+  await expect(ana.getByText('Os números contam só os itens que são seus.')).toBeVisible();
+  await expect(ana.getByRole('region', { name: 'Com quem' })).not.toContainText('Olívia Dona');
+  await shot(ana, 'painel-da-lista-celular');
+  await ana.getByRole('link', { name: 'Lista', exact: true }).click();
+  await owner.getByRole('link', { name: 'Lista', exact: true }).click();
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');

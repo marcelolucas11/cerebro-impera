@@ -71,6 +71,7 @@ import * as searching from './modules/search.js';
 import * as secrets from './modules/secrets.js';
 import * as views from './modules/views.js';
 import * as automations from './modules/automations.js';
+import * as summary from './modules/summary.js';
 import * as checklist from './modules/checklist.js';
 import * as comments from './modules/comments.js';
 import * as notifications from './modules/notifications.js';
@@ -473,6 +474,12 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     await signedIn(request, (tx, actor) => checklist.removeCheck(tx, actor, id));
     return { ok: true };
+  });
+
+  // ---- Numbers of a list -------------------------------------------------------------
+  app.get('/api/lists/:id/summary', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => summary.listSummary(tx, actor, id));
   });
 
   // ---- Automations -----------------------------------------------------------------

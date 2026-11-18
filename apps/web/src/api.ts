@@ -396,6 +396,16 @@ export interface RuleAudience {
   name: string;
   canWork: boolean;
 }
+/** The numbers of a list, counted over what this person sees there. */
+export interface ListSummary {
+  total: number;
+  finished: number;
+  overdue: number;
+  dueToday: number;
+  byStage: { stageId: string; count: number; averageSeconds: number | null; stays: number }[];
+  byAssignee: { userId: string | null; name: string | null; count: number }[];
+  byField: { fieldId: string; options: { optionId: string | null; count: number }[] }[];
+}
 export interface MySession {
   id: string;
   deviceId: string;
@@ -571,6 +581,7 @@ export const api = {
   updateCheck: (checkId: string, input: { text?: string; done?: boolean }) =>
     request<CheckLine>('PATCH', `/api/checklist/${checkId}`, input),
   removeCheck: (checkId: string) => request<{ ok: true }>('DELETE', `/api/checklist/${checkId}`),
+  listSummary: (listId: string) => request<ListSummary>('GET', `/api/lists/${listId}/summary`),
   automations: (listId: string) => request<Automation[]>('GET', `/api/lists/${listId}/automations`),
   ruleAudience: (listId: string) =>
     request<RuleAudience[]>('GET', `/api/lists/${listId}/automation-audience`),

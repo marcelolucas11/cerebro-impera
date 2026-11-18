@@ -829,6 +829,23 @@ a mesma da lixeira e dos lembretes, roda essas regras.
   recorrência já cobre em parte) e mover de lista por regra (precisa repetir no banco as regras
   de mudança de lista da API: subtarefas, responsáveis e campos).
 
+## D58 — Painel da lista contado como a pessoa
+
+**Decisão.** Cada lista ganha a aba **Painel** (`/listas/:id/painel`): total de itens, em aberto,
+concluídos, atrasados e que vencem hoje; quantos por etapa (com quanto tempo, em média, os itens
+ficam em cada uma, sobre as passagens que terminaram nos últimos 90 dias); com quem; e por campo
+de escolha (ex.: fornecedor). A participação de cada etapa no total responde "quanto está
+bloqueado".
+
+- **Contado como a pessoa:** a API soma com as regras de linha de quem pergunta, então quem vê só
+  os próprios itens lê os números dos próprios itens (a tela avisa). Lista sensível pede o código.
+- **Nomes:** nomes de pessoas não são legíveis em geral; uma função do banco
+  (`0039_list_summary.sql`) devolve só os nomes de quem está nos itens que a pessoa vê naquela
+  lista.
+- **Desenho:** números sempre escritos; as barras, de uma cor só (validada para o fundo escuro),
+  só ajudam a comparar. Cada bloco é uma tabela, lida por leitores de tela.
+- Painéis por pessoa (tela inicial) e o relatório periódico são os próximos passos da Fase 6.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |
