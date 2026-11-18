@@ -8,6 +8,7 @@ import {
   type AccessLevel,
   type FieldValue,
   type ItemScope,
+  type RecurrenceUnit,
   type ResolvedAccess,
   type StageDraft,
 } from '@cerebro/shared';
@@ -200,6 +201,8 @@ export interface ItemView {
   checks: { done: number; total: number };
   /** Comments on it that were not removed. */
   comments: number;
+  /** How often it comes back once finished; null when it does not. */
+  recurrence: { unit: RecurrenceUnit; every: number } | null;
   /** When the item was sent to the trash, and by whom; null for an item in use. */
   trashedAt: Date | null;
   trashedBy: string | null;
@@ -225,6 +228,7 @@ interface ItemRow {
   parent_id: string | null;
   checks: { done: number; total: number };
   comments: number;
+  recurrence: { unit: RecurrenceUnit; every: number } | null;
   deleted_at: Date | null;
   deleted_by: string | null;
 }
@@ -250,6 +254,7 @@ function toItem(row: ItemRow): ItemView {
     parentId: row.parent_id,
     checks: row.checks,
     comments: row.comments,
+    recurrence: row.recurrence,
     trashedAt: row.deleted_at,
     trashedBy: row.deleted_by,
   };
@@ -267,7 +272,9 @@ const ITEM_COLUMNS = `i.id, i.list_id, i.title, i.description, i.created_by, i.c
   (SELECT jsonb_build_object('done', count(*) FILTER (WHERE c.done), 'total', count(*))
    FROM app.item_checks c WHERE c.item_id = i.id) AS checks,
   (SELECT count(*)::int FROM app.item_comments m
-   WHERE m.item_id = i.id AND m.deleted_at IS NULL) AS comments`;
+   WHERE m.item_id = i.id AND m.deleted_at IS NULL) AS comments,
+  (SELECT jsonb_build_object('unit', r.unit, 'every', r.every)
+   FROM app.item_recurrences r WHERE r.item_id = i.id) AS recurrence`;
 
 /** Opens a list for the caller, or explains why not, without leaking its existence. */
 export async function openList(
@@ -696,4 +703,31 @@ async function assignMany(
                             ${JSON.stringify({ user_id: userId, count: changed })}::jsonb)`,
   );
   return { changed };
+}
+
+/** Makes the item come back, once finished, every so often. Whoever edits it decides. */
+export async function setRecurrence(
+  tx: Tx,
+  actor: Actor,
+  itemId: string,
+  body: { unit: RecurrenceUnit; every: number },
+): Promise<ItemView> {
+  await openItem(tx, actor, itemId, 'edit');
+  await run(
+    tx,
+    sql`INSERT INTO app.item_recurrences (item_id, unit, every)
+        VALUES (${itemId}, ${body.unit}, ${body.every})
+        ON CONFLICT (item_id) DO UPDATE SET unit = EXCLUDED.unit, every = EXCLUDED.every`,
+  );
+  const item = await getItem(tx, itemId);
+  if (!item) throw notFound();
+  return item;
+}
+
+export async function clearRecurrence(tx: Tx, actor: Actor, itemId: string): Promise<ItemView> {
+  await openItem(tx, actor, itemId, 'edit');
+  await run(tx, sql`DELETE FROM app.item_recurrences WHERE item_id = ${itemId}`);
+  const item = await getItem(tx, itemId);
+  if (!item) throw notFound();
+  return item;
 }
