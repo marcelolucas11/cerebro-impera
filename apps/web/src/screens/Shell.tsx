@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, type ReactNode } from 'react';
 import { api } from '../api.js';
 import { describeError, ROLE_NAMES } from '../messages.js';
+import { useLiveUpdates } from '../live.js';
 import { Link, listIdFrom, listViewFrom, usePath } from '../router.js';
 import { onSignedOut as listenForSignOut } from '../session.js';
 import { StepUpProvider } from '../stepup.js';
@@ -21,6 +22,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
   const path = usePath();
   const me = useQuery({ queryKey: ['me'], queryFn: api.me, retry: false });
   const unread = useUnreadNotifications();
+  useLiveUpdates();
 
   useEffect(
     () =>

@@ -697,6 +697,48 @@ para os Donos.
 instalação, da inscrição de cada aparelho e de envio para fora do servidor. Preferências por pessoa
 (o que avisar) entram junto.
 
+## D52 — Tempo real que só diz "isto mudou", nunca o quê
+
+**Decisão.** A página aberta recebe por um fluxo de eventos (`GET /api/events`) apenas qual lista e
+qual item mudaram, se os avisos da pessoa mudaram ou se o acesso dela mudou, e então pergunta de
+novo pelas rotas de sempre, com as regras de sempre (`0034_live.sql`).
+
+- **O banco anuncia só ids:** a lista, o item, e de quem o item é (quem criou e com quem está).
+  Nunca título, valor, texto de comentário ou nome. Anúncios iguais na mesma transação saem uma
+  vez.
+- **O servidor escuta uma vez e repassa por pessoa:** só para quem abre a lista; numa lista em que
+  a pessoa vê só os próprios itens, só quando o item é dela (senão saberia que o item de um colega
+  mudou); lista sensível só com o código recente.
+- A sessão é conferida de novo a cada batida (25 s) e quando o acesso da pessoa muda; deixou de
+  valer, o fluxo termina. Até 5 fluxos por pessoa.
+- Na página, mudanças que chegam juntas são lidas uma vez (300 ms). A contagem de avisos continua
+  conferida a cada minuto, caso o fluxo caia.
+- Sem dependência nova: Server-Sent Events do próprio navegador e `LISTEN/NOTIFY` do PostgreSQL. O
+  proxy reverso precisa repassar o fluxo sem guardar (ver `infra/README.md`).
+
+## D54 — Limite de requisições por sessão, em toda rota
+
+**Decisão.** Toda rota da API passa por um limite de requisições por minuto
+(`@fastify/rate-limit`): 1 200 por padrão (20 por segundo, sustentados por um minuto), ajustável por `CEREBRO_REQUESTS_PER_MINUTE` (60 a
+100 000). Acima disso, a API responde 429 `too_many_requests` com quanto esperar, e a página diz
+"Muitas ações em pouco tempo. Espere … e tente de novo."
+
+- **Contado por sessão**, por um resumo do token (nunca o token), e por endereço antes de entrar:
+  um escritório inteiro atrás de um mesmo endereço não divide uma cota só. As tentativas de
+  entrada continuam com o bloqueio progressivo próprio (por conta e por endereço).
+- **O fluxo de tempo real abre no máximo 20 vezes por minuto** por sessão, além do limite de 5
+  abertos ao mesmo tempo. Recusado, a página tenta de novo em 15 s, dobrando até 5 min, e lê tudo
+  de novo quando volta.
+- **Por que 1 200:** cada ação na página pede de novo o que mudou, e o tempo real faz o mesmo a cada
+  mudança de um colega; o percurso em navegador, mais rápido do que qualquer pessoa, passou de 600
+  num minuto. Um script sem freio passa longe de 1 200.
+- **Por quê agora:** o CodeQL apontou a rota do tempo real como sem limite (alerta alto, CWE-770).
+  Valia para todas: um script com uma sessão válida conseguia fazer requisições sem parar. O
+  limite fica na memória do processo, o que basta para uma instância só (Fase 12).
+- **Dependência nova:** `@fastify/rate-limit` 11.2.2 (equipe do Fastify, publicada há mais de 3
+  dias), com `toad-cache`, `ip-address`, `@lukeed/ms` e `fastify-plugin` (já usado). Nenhum script
+  de instalação.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

@@ -6,7 +6,7 @@ import type { FastifyInstance } from 'fastify';
 import pg from 'pg';
 import { inject } from 'vitest';
 import { buildApp } from '../../src/app.js';
-import type { Config } from '../../src/config.js';
+import { DEFAULT_REQUESTS_PER_MINUTE, type Config } from '../../src/config.js';
 import { PasswordHasher } from '../../src/crypto/password.js';
 import { totpCodeAt } from '../../src/crypto/totp.js';
 import { Vault } from '../../src/crypto/vault.js';
@@ -52,7 +52,7 @@ export const testScanner: Scanner = {
 };
 
 export async function createTestEnv(
-  options: { webRoot?: string; scanner?: Scanner | null } = {},
+  options: { webRoot?: string; scanner?: Scanner | null; requestsPerMinute?: number } = {},
 ): Promise<TestEnv> {
   const shared = inject('testDatabase');
   const adminUrl = new URL(shared.adminUrl);
@@ -75,6 +75,7 @@ export async function createTestEnv(
     publicOrigin: ORIGIN,
     listen: { host: '127.0.0.1', port: 0 },
     trustProxy: false,
+    requestsPerMinute: options.requestsPerMinute ?? DEFAULT_REQUESTS_PER_MINUTE,
     db: {
       host,
       port,

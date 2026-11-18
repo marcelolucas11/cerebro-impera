@@ -96,6 +96,10 @@ export function describeError(error: unknown): string {
       const seconds = error.details.retryAfterSeconds;
       return `Muitas tentativas. Tente de novo em ${wait(typeof seconds === 'number' ? seconds : 60)}.`;
     }
+    if (error.code === 'too_many_requests') {
+      const seconds = error.details.retryAfterSeconds;
+      return `Muitas ações em pouco tempo. Espere ${wait(typeof seconds === 'number' ? seconds : 60)} e tente de novo.`;
+    }
     if (error.code === 'weak_password') {
       const problems = Array.isArray(error.details.problems) ? error.details.problems : [];
       const first = problems.find(

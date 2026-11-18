@@ -51,6 +51,14 @@ anexos sem antivírus, e cada arquivo aparece como "não verificado pelo antiví
 | Segredos só no volume `config`                                      | nada sensível no repositório, na imagem ou em variáveis de ambiente   |
 | Limites de memória e de processos                                   | um problema aqui não derruba outros sistemas no mesmo servidor        |
 
+## Proxy reverso: atualizações em tempo real
+
+A rota `/api/events` é um fluxo de eventos que fica aberto enquanto a página está aberta. O proxy
+precisa repassar cada evento na hora, sem guardar em memória, e não pode cortar a conexão antes de
+um minuto parada (a API manda um sinal a cada 25 segundos). No Nginx: `proxy_buffering off;` e
+`proxy_read_timeout 120s;` nessa rota (a API também envia `X-Accel-Buffering: no`). O Caddy já
+repassa na hora. Sem isso a página continua funcionando, só sem atualizar sozinha.
+
 ## Guardar com cuidado
 
 O volume `config` contém a chave da instância. **Sem ela, os segundos fatores, os campos secretos

@@ -995,6 +995,36 @@ test('notices tell her what concerns her, and lead to the item', async () => {
   await expect(ana.locator('.notice-item.is-unread')).toHaveCount(0);
 });
 
+test('what changes shows up on the other open page without reloading', async () => {
+  await ana.goto('/');
+  await ana.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(ana, 'Tarefas');
+  const hers = ana.locator('.item-rows > li').filter({ hasText: 'Conferir perfis' }).first();
+  await expect(hers.locator('.item-marks').first()).toContainText('Checklist 2/2');
+
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  const row = owner.locator('.item-rows > li').filter({ hasText: 'Conferir perfis' }).first();
+  await owner.getByRole('button', { name: 'Conferir perfis', exact: true }).click();
+  await row.getByLabel('Nova linha na checklist de Conferir perfis').fill('Conferir senhas');
+  await row.getByRole('button', { name: 'Pôr na checklist' }).click();
+  // Her page, untouched, catches up by itself.
+  await expect(hers.locator('.item-marks').first()).toContainText('Checklist 2/3');
+  await shot(ana, 'tempo-real-celular');
+
+  // And a comment for her raises her count of notices, also by itself.
+  await row.getByLabel('Escrever um comentário').fill('Mais uma linha na checklist.');
+  await row.getByRole('button', { name: 'Comentar' }).click();
+  await expect(ana.getByRole('link', { name: /^Avisos/ })).toHaveAccessibleName(
+    /Avisos 1 não lido/,
+  );
+
+  // Put back as it was, for what comes next.
+  await row.getByRole('button', { name: 'Tirar da checklist: Conferir senhas' }).click();
+  await expect(hers.locator('.item-marks').first()).toContainText('Checklist 2/2');
+});
+
 test('a recurring item comes back, a step later, when it is finished', async () => {
   const dayFrom = (offset: number): string => {
     const date = new Date();
