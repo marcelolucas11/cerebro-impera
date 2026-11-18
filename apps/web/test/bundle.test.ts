@@ -13,8 +13,9 @@ const page = readFileSync(join(dist, 'index.html'), 'utf8');
 
 describe('the built page', () => {
   it('loads scripts and styles only from its own /assets/ folder', () => {
-    // Case-insensitive, and tolerant of "</script >": the browser is, so the check must be too.
-    const scripts = [...page.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)];
+    // Case-insensitive, and accepting anything before the closing ">" ("</script foo>"):
+    // the browser does, so the check must too.
+    const scripts = [...page.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)];
     expect(scripts.length).toBeGreaterThan(0);
     // Every opening tag is one of those checked here, however it is written.
     expect(page.match(/<script\b/gi)).toHaveLength(scripts.length);
