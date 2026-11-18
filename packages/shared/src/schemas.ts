@@ -384,22 +384,25 @@ export const MAX_AUTOMATION_CONDITIONS = 10;
 export const MAX_AUTOMATION_ACTIONS = 5;
 export const MAX_AUTOMATION_NOTIFY = 10;
 export const MAX_AUTOMATION_COMMENT = 2000;
+export const MAX_AUTOMATION_DUE_DAYS = 365;
 const priorityOrNone = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).nullable();
 
+/** An option of a choice field, or a checkbox ticked or not. */
+const choiceSchema = z.union([z.string().min(1).max(100), z.boolean()]);
 export const automationTriggerSchema = z.discriminatedUnion('on', [
   z.strictObject({ on: z.literal('created') }),
   z.strictObject({ on: z.literal('stage'), to: idSchema.optional(), from: idSchema.optional() }),
+  /** A field changes: to anything, or (choice and checkbox) to one value. */
+  z.strictObject({ on: z.literal('field'), field: idSchema, is: choiceSchema.optional() }),
+  /** Someone is handed the item: anyone, or one person. */
+  z.strictObject({ on: z.literal('assigned'), to: idSchema.optional() }),
 ]);
 export const automationConditionSchema = z.discriminatedUnion('if', [
   z.strictObject({ if: z.literal('stage'), is: idSchema }),
   z.strictObject({ if: z.literal('priority'), is: priorityOrNone }),
   z.strictObject({ if: z.literal('assignee'), is: idSchema.nullable() }),
   /** A choice field (the option's id) or a checkbox (ticked or not). */
-  z.strictObject({
-    if: z.literal('field'),
-    field: idSchema,
-    is: z.union([z.string().min(1).max(100), z.boolean()]),
-  }),
+  z.strictObject({ if: z.literal('field'), field: idSchema, is: choiceSchema }),
 ]);
 export const automationActionSchema = z.discriminatedUnion('do', [
   z.strictObject({ do: z.literal('stage'), to: idSchema }),
@@ -417,6 +420,14 @@ export const automationActionSchema = z.discriminatedUnion('do', [
     do: z.literal('comment'),
     text: z.string().trim().min(1).max(MAX_AUTOMATION_COMMENT),
   }),
+  /** Fills in a field (checked against its kind by the database), or clears it with null. */
+  z.strictObject({ do: z.literal('field'), field: idSchema, value: fieldValueSchema.nullable() }),
+  /** The due date that many days from the day the rule acts; null clears it. */
+  z.strictObject({
+    do: z.literal('due'),
+    in: z.number().int().min(0).max(MAX_AUTOMATION_DUE_DAYS).nullable(),
+  }),
+  z.strictObject({ do: z.literal('subtask'), title: titleSchema }),
 ]);
 export type AutomationTrigger = z.infer<typeof automationTriggerSchema>;
 export type AutomationCondition = z.infer<typeof automationConditionSchema>;

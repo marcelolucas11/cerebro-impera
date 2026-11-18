@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RuleAction, RuleCondition } from '../src/api.js';
+import type { RuleAction, RuleCondition, RuleTrigger } from '../src/api.js';
 import {
   actionDraft,
   actionOf,
@@ -122,6 +122,12 @@ describe('what the rule form edits', () => {
       { do: 'assign', to: 'ana' },
       { do: 'notify', to: ['ana', 'bruno'] },
       { do: 'comment', text: 'Olhe isto.' },
+      { do: 'field', field: 'fornecedor', value: 'alfa' },
+      { do: 'field', field: 'conferido', value: null },
+      { do: 'due', in: 0 },
+      { do: 'due', in: 30 },
+      { do: 'due', in: null },
+      { do: 'subtask', title: 'Conferir' },
     ];
     for (const action of all) expect(actionOf(actionDraft(action))).toEqual(action);
     expect(actionOf({ kind: 'notify', value: '', people: [] })).toBeUndefined();
@@ -133,17 +139,84 @@ describe('what the rule form edits', () => {
     expect(actionOf({ kind: 'assign', value: '', people: [] })).toBeUndefined();
     expect(actionOf({ kind: 'stage', value: '', people: [] })).toBeUndefined();
     expect(actionOf({ kind: 'priority', value: '', people: [] })).toBeUndefined();
+    // A field not chosen, or a value that does not fit it yet.
+    expect(actionOf({ kind: 'field', value: '', people: [], field: '' })).toBeUndefined();
+    expect(
+      actionOf({ kind: 'field', value: '', people: [], field: 'valor', fieldValue: undefined }),
+    ).toBeUndefined();
+    for (const days of ['', '-1', '366', '1.5', 'x']) {
+      expect(actionOf({ kind: 'due', value: days, people: [] }), days).toBeUndefined();
+    }
+    expect(actionOf({ kind: 'subtask', value: '  Revisar  ', people: [] })).toEqual({
+      do: 'subtask',
+      title: 'Revisar',
+    });
+    expect(actionOf({ kind: 'subtask', value: ' ', people: [] })).toBeUndefined();
   });
 
-  it('names only the stages chosen in a trigger', () => {
-    expect(triggerOf({ on: 'created', to: 'feito', from: '' })).toEqual({ on: 'created' });
-    expect(triggerOf({ on: 'stage', to: 'feito', from: '' })).toEqual({ on: 'stage', to: 'feito' });
-    expect(triggerOf({ on: 'stage', to: '', from: '' })).toEqual({ on: 'stage' });
-    expect(triggerDraft({ on: 'stage', from: 'aberto' })).toEqual({
-      on: 'stage',
-      to: '',
-      from: 'aberto',
-    });
-    expect(triggerDraft({ on: 'created' })).toEqual({ on: 'created', to: '', from: '' });
+  it('turns every trigger into a draft and back, and refuses one without its field', () => {
+    const none = { to: '', from: '', field: '', is: '' };
+    expect(triggerOf({ ...none, on: 'created', to: 'feito' })).toEqual({ on: 'created' });
+    expect(triggerOf({ ...none, on: 'stage', to: 'feito' })).toEqual({ on: 'stage', to: 'feito' });
+    expect(triggerOf({ ...none, on: 'stage' })).toEqual({ on: 'stage' });
+    expect(triggerOf({ ...none, on: 'field' })).toBeUndefined();
+    expect(triggerOf({ ...none, on: 'assigned' })).toEqual({ on: 'assigned' });
+    const all: RuleTrigger[] = [
+      { on: 'created' },
+      { on: 'stage', from: 'aberto' },
+      { on: 'stage', to: 'feito', from: 'aberto' },
+      { on: 'field', field: 'fornecedor' },
+      { on: 'field', field: 'fornecedor', is: 'alfa' },
+      { on: 'field', field: 'conferido', is: true },
+      { on: 'field', field: 'conferido', is: false },
+      { on: 'assigned' },
+      { on: 'assigned', to: 'ana' },
+    ];
+    for (const trigger of all) expect(triggerOf(triggerDraft(trigger))).toEqual(trigger);
+  });
+});
+
+describe('the newer rules as sentences', () => {
+  const withValues: RuleContext = {
+    ...context,
+    valueText: (field, value) => (field === 'nota' ? String(value) : undefined),
+    fieldName: (id) => ({ fornecedor: 'Fornecedor', conferido: 'Conferido', nota: 'Nota' })[id],
+  };
+  it('says which field or person sets a rule off, and what it fills in', () => {
+    const say = (trigger: RuleTrigger, actions: RuleAction[]): string =>
+      ruleSentence({ trigger, conditions: [], actions }, withValues);
+    expect(say({ on: 'field', field: 'fornecedor' }, [{ do: 'due', in: 0 }])).toBe(
+      'Quando Fornecedor muda: pôr o prazo para hoje.',
+    );
+    expect(say({ on: 'field', field: 'fornecedor', is: 'alfa' }, [{ do: 'due', in: 1 }])).toBe(
+      'Quando Fornecedor passa a ser Alfa: pôr o prazo para amanhã.',
+    );
+    expect(say({ on: 'field', field: 'fornecedor', is: 'sumiu' }, [{ do: 'due', in: 3 }])).toBe(
+      'Quando Fornecedor passa a ser uma opção arquivada: pôr o prazo para daqui a 3 dias.',
+    );
+    expect(say({ on: 'field', field: 'conferido', is: true }, [{ do: 'due', in: null }])).toBe(
+      'Quando Conferido é marcado: tirar o prazo.',
+    );
+    expect(
+      say({ on: 'field', field: 'conferido', is: false }, [
+        { do: 'field', field: 'conferido', value: true },
+      ]),
+    ).toBe('Quando Conferido é desmarcado: marcar Conferido.');
+    expect(
+      say({ on: 'assigned' }, [
+        { do: 'field', field: 'nota', value: 'Ver contrato' },
+        { do: 'field', field: 'fornecedor', value: null },
+        { do: 'field', field: 'fornecedor', value: 'alfa' },
+      ]),
+    ).toBe(
+      'Quando alguém recebe um item: preencher Nota com “Ver contrato”, limpar Fornecedor e ' +
+        'preencher Fornecedor.',
+    );
+    expect(say({ on: 'assigned', to: 'ana' }, [{ do: 'subtask', title: 'Ligar' }])).toBe(
+      'Quando Ana recebe um item: criar a subtarefa “Ligar”.',
+    );
+    expect(say({ on: 'field', field: 'velho' }, [{ do: 'due', in: 2 }])).toBe(
+      'Quando um campo arquivado muda: pôr o prazo para daqui a 2 dias.',
+    );
   });
 });

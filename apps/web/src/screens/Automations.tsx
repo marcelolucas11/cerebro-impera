@@ -15,12 +15,14 @@ import {
   type Stage,
 } from '../api.js';
 import { PRIORITY_NAMES } from '../due.js';
+import { draftOf, showValue, valueOf, type FieldDraft } from '../fieldvalues.js';
 import { formatWhen } from '../labels.js';
 import { describeError } from '../messages.js';
 import {
   actionDraft,
   actionOf,
   conditionDraft,
+  daysAhead,
   conditionOf,
   OUTCOME_NAMES,
   ruleSentence,
@@ -34,6 +36,7 @@ import {
   type TriggerDraft,
 } from '../rules.js';
 import { Button, Field, Form, Notice, Select, useAction } from '../ui/kit.js';
+import { FieldInput } from './FieldInput.js';
 
 /*
  * Rules of a list: when an item is created or enters a stage, and what holds,
@@ -55,7 +58,29 @@ const ACTION_CHOICES: { value: ActionKind; label: string }[] = [
   { value: 'assign', label: 'Passar para' },
   { value: 'notify', label: 'Avisar' },
   { value: 'comment', label: 'Comentar' },
+  { value: 'field', label: 'Preencher campo' },
+  { value: 'due', label: 'Pôr prazo' },
+  { value: 'subtask', label: 'Criar subtarefa' },
 ];
+const DUE_CHOICES = [0, 1, 2, 3, 5, 7, 10, 14, 15, 21, 30, 45, 60, 90];
+const dueChoices = (current: string): { value: string; label: string }[] => {
+  const days = new Set(DUE_CHOICES);
+  const typed = Number(current);
+  if (current !== '' && current !== 'none' && Number.isInteger(typed)) days.add(typed);
+  return [
+    { value: 'none', label: 'Tirar o prazo' },
+    ...[...days]
+      .sort((a, b) => a - b)
+      .map((day) => {
+        const text = daysAhead(day);
+        return { value: String(day), label: text.charAt(0).toUpperCase() + text.slice(1) };
+      }),
+  ];
+};
+
+/** Fields a rule may fill in: in use, and not a secret or files (only a person writes those). */
+const fillable = (fields: CustomField[]): CustomField[] =>
+  fields.filter((field) => !field.archived && field.kind !== 'secret' && field.kind !== 'files');
 
 /** Fields a rule may ask about: choices and checkboxes in use. */
 const askable = (fields: CustomField[]): CustomField[] =>
@@ -102,6 +127,12 @@ export function Automations({
         fields
           .find((field) => field.id === fieldId)
           ?.config.options?.find((option) => option.id === optionId)?.name,
+      valueText: (fieldId, value) => {
+        const field = fields.find((one) => one.id === fieldId);
+        return field === undefined
+          ? undefined
+          : showValue(field, value, (id) => people.find((person) => person.id === id)?.name ?? '');
+      },
     }),
     [stages, people, fields],
   );
@@ -110,9 +141,9 @@ export function Automations({
     <section className="panel" aria-label="Automações desta lista">
       <h2>Automações desta lista</h2>
       <p className="lead">
-        Uma regra age sozinha quando um item é criado ou entra numa etapa. Ela age com o acesso de
-        quem a salvou por último, nunca com mais, e não desfaz o que a pessoa fez: quando não
-        consegue agir, fica anotado no registro da regra.
+        Uma regra age sozinha quando um item é criado, muda de etapa, tem um campo alterado ou é
+        passado para alguém. Ela age com o acesso de quem a salvou por último, nunca com mais, e não
+        desfaz o que a pessoa fez: quando não consegue agir, fica anotado no registro da regra.
       </p>
       {isSensitive ? (
         <Notice tone="info">
@@ -353,7 +384,7 @@ function RuleForm({
 }): ReactNode {
   const [name, setName] = useState(initial?.name ?? '');
   const [trigger, setTrigger] = useState<TriggerDraft>(
-    initial ? triggerDraft(initial.trigger) : { on: 'stage', to: '', from: '' },
+    initial ? triggerDraft(initial.trigger) : { on: 'stage', to: '', from: '', field: '', is: '' },
   );
   const [conditions, setConditions] = useState<ConditionDraft[]>(
     initial ? initial.conditions.map(conditionDraft) : [],
@@ -370,10 +401,15 @@ function RuleForm({
   const save = useAction(
     useCallback(async () => {
       setProblem(null);
+      const builtTrigger = triggerOf(trigger);
       const builtConditions = conditions.map(conditionOf);
       const builtActions = actions.map(actionOf);
       if (name.trim() === '') {
         setProblem('Dê um nome à regra.');
+        return;
+      }
+      if (builtTrigger === undefined) {
+        setProblem('Escolha o campo que faz a regra agir.');
         return;
       }
       if (builtConditions.some((one) => one === undefined)) {
@@ -382,18 +418,33 @@ function RuleForm({
       }
       if (builtActions.length === 0 || builtActions.some((one) => one === undefined)) {
         setProblem(
-          'Complete as ações: cada uma precisa de uma etapa, pessoa, prioridade ou texto.',
+          'Complete as ações: cada uma precisa de uma etapa, pessoa, prioridade, prazo, texto ou valor que caiba no campo.',
         );
         return;
       }
       await onSave({
         name: name.trim(),
-        trigger: triggerOf(trigger),
+        trigger: builtTrigger,
         conditions: builtConditions.flatMap((one) => (one === undefined ? [] : [one])),
         actions: builtActions.flatMap((one) => (one === undefined ? [] : [one])),
       });
     }, [name, trigger, conditions, actions, onSave]),
   );
+
+  // A field any change of which may start the rule, and the values it can change to.
+  const watchable = fields.filter((field) => !field.archived);
+  const watched = watchable.find((field) => field.id === trigger.field);
+  const changesTo =
+    watched?.kind === 'checkbox'
+      ? [
+          { value: 'true', label: 'Marcado' },
+          { value: 'false', label: 'Desmarcado' },
+        ]
+      : watched?.kind === 'select'
+        ? (watched.config.options ?? [])
+            .filter((option) => option.archived !== true)
+            .map((option) => ({ value: option.id, label: option.name }))
+        : [];
 
   const conditionKinds = [
     { value: 'stage', label: 'A etapa é' },
@@ -444,11 +495,51 @@ function RuleForm({
             options={[
               { value: 'stage', label: 'Um item muda de etapa' },
               { value: 'created', label: 'Um item é criado' },
+              { value: 'field', label: 'Um campo muda' },
+              { value: 'assigned', label: 'Alguém recebe um item' },
             ]}
             onChange={(on) => {
-              setTrigger({ ...trigger, on });
+              setTrigger({ on, to: '', from: '', field: '', is: '' });
             }}
           />
+          {trigger.on === 'field' ? (
+            <div className="rule-row">
+              <Select
+                label="Campo"
+                value={trigger.field}
+                options={withEmpty(
+                  watchable.map((field) => ({ value: field.id, label: field.name })),
+                  trigger.field,
+                )}
+                onChange={(field) => {
+                  setTrigger({ ...trigger, field, is: '' });
+                }}
+              />
+              {changesTo.length > 0 ? (
+                <Select
+                  label="Passa a ser"
+                  value={trigger.is}
+                  options={[{ value: '', label: 'Qualquer valor' }, ...changesTo]}
+                  onChange={(is) => {
+                    setTrigger({ ...trigger, is });
+                  }}
+                />
+              ) : null}
+            </div>
+          ) : null}
+          {trigger.on === 'assigned' ? (
+            <Select
+              label="Quem recebe"
+              value={trigger.to}
+              options={[
+                { value: '', label: 'Qualquer pessoa' },
+                ...people.map((person) => ({ value: person.id, label: person.name })),
+              ]}
+              onChange={(to) => {
+                setTrigger({ ...trigger, to });
+              }}
+            />
+          ) : null}
           {trigger.on === 'stage' ? (
             <div className="rule-row">
               <Select
@@ -530,6 +621,7 @@ function RuleForm({
               action={action}
               stageChoices={stageChoices}
               people={people}
+              fields={fillable(fields)}
               canRemove={actions.length > 1}
               onChange={(next) => {
                 setActions(actions.map((one, at) => (at === index ? next : one)));
@@ -573,6 +665,7 @@ function ActionRow({
   action,
   stageChoices,
   people,
+  fields,
   canRemove,
   onChange,
   onRemove,
@@ -582,6 +675,7 @@ function ActionRow({
   action: ActionDraft;
   stageChoices: { value: string; label: string }[];
   people: RuleAudience[];
+  fields: CustomField[];
   canRemove: boolean;
   onChange: (next: ActionDraft) => void;
   onRemove: () => void;
@@ -660,6 +754,39 @@ function ActionRow({
         <p className="field-note">Só quem vê o item recebe o aviso; quem fez a mudança, não.</p>
       </fieldset>
     );
+  } else if (action.kind === 'field') {
+    value = (
+      <FieldFill
+        number={number}
+        action={action}
+        fields={fields}
+        people={people}
+        onChange={onChange}
+        withEmpty={withEmpty}
+      />
+    );
+  } else if (action.kind === 'due') {
+    value = (
+      <Select
+        label={valueLabel}
+        value={action.value}
+        options={withEmpty(dueChoices(action.value), action.value)}
+        onChange={(next) => {
+          onChange({ ...action, value: next });
+        }}
+      />
+    );
+  } else if (action.kind === 'subtask') {
+    value = (
+      <Field
+        label={`Título da subtarefa da ação ${number}`}
+        value={action.value}
+        maxLength={200}
+        onChange={(event) => {
+          onChange({ ...action, value: event.target.value });
+        }}
+      />
+    );
   } else {
     value = (
       <div className="field">
@@ -692,6 +819,75 @@ function ActionRow({
           Tirar
         </Button>
       ) : null}
+    </div>
+  );
+}
+
+/** Which field an action fills in, and with what; empty clears it. */
+function FieldFill({
+  number,
+  action,
+  fields,
+  people,
+  onChange,
+  withEmpty,
+}: {
+  number: string;
+  action: ActionDraft;
+  fields: CustomField[];
+  people: RuleAudience[];
+  onChange: (next: ActionDraft) => void;
+  withEmpty: (
+    choices: { value: string; label: string }[],
+    value: string,
+  ) => { value: string; label: string }[];
+}): ReactNode {
+  const field = fields.find((one) => one.id === action.field);
+  const [draft, setDraft] = useState<FieldDraft>(() =>
+    field === undefined ? '' : draftOf(field, action.fieldValue ?? undefined),
+  );
+  const parsed = field === undefined ? null : valueOf(field, draft, undefined);
+  const workers = people
+    .filter((person) => person.canWork)
+    .map((person) => ({ id: person.id, name: person.name }));
+  return (
+    <div className="rule-fill">
+      <Select
+        label={`Campo da ação ${number}`}
+        value={action.field ?? ''}
+        options={withEmpty(
+          fields.map((one) => ({ value: one.id, label: one.name })),
+          action.field ?? '',
+        )}
+        onChange={(id) => {
+          const chosen = fields.find((one) => one.id === id);
+          const fresh: FieldDraft = chosen === undefined ? '' : draftOf(chosen, undefined);
+          const result = chosen === undefined ? null : valueOf(chosen, fresh, undefined);
+          setDraft(fresh);
+          onChange({
+            ...action,
+            field: id,
+            fieldValue: result?.ok === true ? result.value : undefined,
+          });
+        }}
+      />
+      {field === undefined ? null : (
+        <FieldInput
+          field={field}
+          draft={draft}
+          previous={undefined}
+          error={parsed !== null && !parsed.ok ? parsed.message : null}
+          onChange={(next) => {
+            const result = valueOf(field, next, undefined);
+            setDraft(next);
+            onChange({ ...action, fieldValue: result.ok ? result.value : undefined });
+          }}
+          workers={workers}
+          nameOf={(id) => people.find((person) => person.id === id)?.name ?? 'alguém'}
+          files={[]}
+        />
+      )}
+      <p className="field-note">Deixar vazio limpa o campo.</p>
     </div>
   );
 }

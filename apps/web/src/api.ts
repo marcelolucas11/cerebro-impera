@@ -336,7 +336,11 @@ export interface CheckLine {
   createdAt: string;
 }
 /** A rule of a list: when, if, then. */
-export type RuleTrigger = { on: 'created' } | { on: 'stage'; to?: string; from?: string };
+export type RuleTrigger =
+  | { on: 'created' }
+  | { on: 'stage'; to?: string; from?: string }
+  | { on: 'field'; field: string; is?: string | boolean }
+  | { on: 'assigned'; to?: string };
 export type RuleCondition =
   | { if: 'stage'; is: string }
   | { if: 'priority'; is: 1 | 2 | 3 | 4 | null }
@@ -347,7 +351,10 @@ export type RuleAction =
   | { do: 'priority'; to: 1 | 2 | 3 | 4 | null }
   | { do: 'assign'; to: string }
   | { do: 'notify'; to: string[] }
-  | { do: 'comment'; text: string };
+  | { do: 'comment'; text: string }
+  | { do: 'field'; field: string; value: FieldValue | null }
+  | { do: 'due'; in: number | null }
+  | { do: 'subtask'; title: string };
 export type RunOutcome = 'done' | 'skipped' | 'failed';
 export interface Automation {
   id: string;
