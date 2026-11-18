@@ -346,6 +346,8 @@ export const api = {
     ),
   stageHistory: (itemId: string) =>
     request<StageStay[]>('GET', `/api/items/${itemId}/stage-history`),
+  moveItem: (id: string, input: { listId: string; stageId?: string }) =>
+    request<Item>('POST', `/api/items/${id}/move`, input),
   trashItem: (id: string) => request<{ ok: true }>('POST', `/api/items/${id}/trash`),
   restoreItem: (id: string) => request<Item>('POST', `/api/items/${id}/restore`),
   trash: (listId: string) => request<Item[]>('GET', `/api/lists/${listId}/trash`),

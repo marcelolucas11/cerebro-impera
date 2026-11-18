@@ -282,6 +282,18 @@ Com o prazo só no banco, nenhuma falha da aplicação apaga algo antes da hora.
 Rodrigo:_ hoje um funcionário pode mandar para a lixeira os próprios itens (como no ClickUp). Fica
 registrado no histórico e o Dono vê e restaura; se preferir, dá para exigir "gerenciar" na lista.
 
+## D28 — Ao mudar de lista, vai junto só o que significa o mesmo do outro lado
+
+**Decisão.** Mover um item exige poder editá-lo onde está e poder editar na lista de destino. Um
+valor vai junto quando a outra lista tem o mesmo campo (cópia de mesma origem e mesmo tipo), o
+campo está em uso nas duas, e o valor significa o mesmo lá: a opção existe lá, e dinheiro está na
+mesma moeda. O resto fica guardado no item, invisível, e volta se o item voltar. A regra está num
+gatilho do banco, então vale para qualquer caminho. Responsáveis continuam os mesmos; quem não
+tem acesso à lista de destino deixa de ver o item.
+
+**Por quê.** Converter moeda ou adivinhar a opção equivalente seria inventar dado. Guardar o que
+não cabe, em vez de apagar, deixa a mudança de lista sem perda.
+
 ## Adiado, com motivo
 
 | Item                           | Situação                                                                                          |

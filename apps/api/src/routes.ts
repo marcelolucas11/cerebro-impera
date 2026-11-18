@@ -15,6 +15,7 @@ import {
   itemHistoryQuerySchema,
   listFieldsQuerySchema,
   loginSchema,
+  moveItemSchema,
   reorderFieldsSchema,
   reorderStagesSchema,
   secondFactorSchema,
@@ -242,6 +243,11 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return signedIn(request, (tx, actor) => stages.itemStageHistory(tx, actor, id));
   });
 
+  app.post('/api/items/:id/move', (request) => {
+    const id = paramId(request);
+    const body = parse(moveItemSchema, request.body);
+    return signedIn(request, (tx, actor) => structure.moveItem(tx, actor, id, body));
+  });
   app.post('/api/items/:id/trash', async (request) => {
     const id = paramId(request);
     await signedIn(request, (tx, actor) => structure.trashItem(tx, actor, id));

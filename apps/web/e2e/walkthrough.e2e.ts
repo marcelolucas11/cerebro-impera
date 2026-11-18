@@ -428,6 +428,29 @@ test('a list records what the team needs about each item, and each person sees o
   );
   await owner.getByRole('button', { name: 'Lixeira' }).click();
 
+  // Moved to another list, the item leaves this one; what only this list records waits for it.
+  await owner.getByRole('button', { name: 'Subir campanha do cliente', exact: true }).click();
+  const traveller = row(owner, 'Subir campanha do cliente').locator('.item-panel');
+  await traveller
+    .getByLabel('Lista de destino de Subir campanha do cliente')
+    .selectOption({ label: 'Operação › Dinheiro' });
+  await traveller.getByRole('button', { name: 'Mover item' }).click();
+  await expect(owner.locator('.item-rows').getByText('Subir campanha do cliente')).toHaveCount(0);
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Dinheiro' }).click();
+  await owner.getByRole('button', { name: 'Subir campanha do cliente', exact: true }).click();
+  await row(owner, 'Subir campanha do cliente')
+    .getByLabel('Lista de destino de Subir campanha do cliente')
+    .selectOption({ label: 'Operação › Tarefas' });
+  await row(owner, 'Subir campanha do cliente').getByRole('button', { name: 'Mover item' }).click();
+  await expect(owner.locator('.item-rows').getByText('Subir campanha do cliente')).toHaveCount(0);
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  await expect(row(owner, 'Subir campanha do cliente').locator('.item-row')).toContainText(
+    '1.499,90',
+  );
+
   // Archiving a field hides it and what was filled in; restoring brings both back.
   await owner.getByRole('button', { name: 'Editar campos' }).click();
   await owner.getByRole('button', { name: 'Arquivar campo Painel' }).click();

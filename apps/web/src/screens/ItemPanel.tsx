@@ -6,7 +6,8 @@ import { draftOf, sameValue, valueOf, type FieldDraft } from '../fieldvalues.js'
 import { describeChange } from '../history.js';
 import { formatDuration, formatWhen } from '../labels.js';
 import { describeError } from '../messages.js';
-import { Button, Field, Form, Notice, useAction } from '../ui/kit.js';
+import { useGuard } from '../stepup.js';
+import { Button, Field, Form, Notice, Select, useAction } from '../ui/kit.js';
 import { FieldInput, FieldValueView } from './FieldInput.js';
 
 /** One item opened in place: what it says, what its list records about it, and every stage it has been through. */
@@ -160,6 +161,7 @@ export function ItemPanel({
           })}
         </ol>
       </div>
+      {canEdit ? <MoveToList item={item} /> : null}
       {canEdit ? <SendToTrash item={item} /> : null}
       <ItemHistory
         // What the item is now is part of the key: a change made here shows up at once.
@@ -275,6 +277,52 @@ function SendToTrash({ item }: { item: Item }): ReactNode {
       </Button>
       <p className="field-note">Fica 30 dias na lixeira da lista, de onde pode voltar como está.</p>
       {send.error ? <Notice tone="error">{send.error}</Notice> : null}
+    </div>
+  );
+}
+
+/** Moves the item to another list this person may edit in, onto that list's first stage. */
+function MoveToList({ item }: { item: Item }): ReactNode {
+  const queryClient = useQueryClient();
+  const guard = useGuard();
+  const tree = useQuery({ queryKey: ['tree'], queryFn: api.tree });
+  const spaceOf = (spaceId: string): string | undefined =>
+    tree.data?.spaces.find((space) => space.id === spaceId)?.name;
+  const destinations = (tree.data?.lists ?? [])
+    .filter((list) => list.id !== item.listId && (list.level === 'edit' || list.level === 'manage'))
+    .map((list) => ({
+      value: list.id,
+      label: [spaceOf(list.spaceId), list.name].filter((part) => part !== undefined).join(' › '),
+    }));
+  const [to, setTo] = useState('');
+  const move = useAction(
+    useCallback(async () => {
+      // Into a sensitive list, the authenticator code is asked first.
+      await guard(() => api.moveItem(item.id, { listId: to }));
+      await queryClient.invalidateQueries({ queryKey: ['items', item.listId] });
+      await queryClient.invalidateQueries({ queryKey: ['items', to] });
+    }, [guard, item.id, item.listId, to, queryClient]),
+  );
+  if (destinations.length === 0) return null;
+  return (
+    <div className="subsection">
+      <h3>Mover para outra lista</h3>
+      <div className="move-to">
+        <Select
+          label={`Lista de destino de ${item.title}`}
+          value={to}
+          onChange={setTo}
+          options={[{ value: '', label: 'Escolha a lista' }, ...destinations]}
+        />
+        <Button variant="quiet" busy={move.busy} disabled={to === ''} onClick={move.run}>
+          Mover item
+        </Button>
+      </div>
+      <p className="field-note">
+        O item entra na primeira etapa da outra lista. Campos que as duas listas têm em comum vão
+        junto; os demais ficam guardados aqui e voltam se o item voltar.
+      </p>
+      {move.error ? <Notice tone="error">{move.error}</Notice> : null}
     </div>
   );
 }
