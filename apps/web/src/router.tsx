@@ -27,11 +27,18 @@ export function usePath(): string {
 }
 
 const ID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
-const LIST_PATH = new RegExp(`^/listas/(${ID})$`);
+const LIST_PATH = new RegExp(`^/listas/(${ID})(/quadro)?$`);
 
 /** The list an address points at, when it is the address of a list. */
 export function listIdFrom(path: string): string | undefined {
   return LIST_PATH.exec(path)?.[1];
+}
+
+export type ListView = 'list' | 'board';
+
+/** How a list is shown: as a list, or at /quadro as a board. */
+export function listViewFrom(path: string): ListView {
+  return LIST_PATH.exec(path)?.[2] === undefined ? 'list' : 'board';
 }
 
 export function Link({

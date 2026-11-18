@@ -403,6 +403,25 @@ cifragem, lixeira, quem baixa); o campo guarda só a lista de quais anexos, até
 lixeira. Apontar para os anexos mantém uma regra só e deixa o campo útil para filtrar e ordenar
 nas visões da Fase 3.
 
+## D36 — Quadro: arrastar sem biblioteca, menu de etapa para o teclado
+
+**Decisão.** A primeira visão da Fase 3 é o quadro (kanban): uma coluna por etapa, um cartão por
+item, em `/listas/:id/quadro`, ao lado da visão em lista.
+
+- Arrastar usa os eventos de ponteiro do próprio navegador (mouse, dedo e caneta), pela alça do
+  cartão, sem dependência nova. A alça não rola a tela; o resto do quadro rola de lado no celular,
+  e perto da borda o quadro rola sozinho enquanto o cartão é arrastado.
+- O cartão muda de coluna na hora e volta se o servidor recusar (a mesma regra de quem pode mover
+  vale aqui: funcionário só move o que é dele).
+- Teclado e leitor de tela movem pelo menu de etapa de cada cartão; a mudança é anunciada.
+- Dentro de cada coluna, quem está há mais tempo na etapa vem primeiro. Ordenar à mão dentro da
+  coluna fica para depois (precisa de uma posição guardada por item).
+- Abrir um cartão mostra o item inteiro numa janela sobre o quadro, com o mesmo painel da lista.
+
+**Por quê.** Bibliotecas de arrastar e soltar trazem dezenas de dependências para algo que o
+navegador já faz; os eventos de ponteiro funcionam igual em computador, iPad e celular. O menu de
+etapa garante que ninguém dependa de arrastar.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

@@ -4,10 +4,12 @@ import { api, ApiError, type CustomField, type Item, type Me, type Stage } from 
 import { hasValue } from '../fieldvalues.js';
 import { formatDuration } from '../labels.js';
 import { describeError } from '../messages.js';
-import { Link } from '../router.js';
+import { Link, type ListView } from '../router.js';
 import { useGuard } from '../stepup.js';
-import { Button, Field, Form, Notice, useAction } from '../ui/kit.js';
+import { Button, Notice, useAction } from '../ui/kit.js';
 import { FIELD_COLUMNS, FieldEditor } from './FieldEditor.js';
+import { AddItem } from './AddItem.js';
+import { Board } from './Board.js';
 import { FieldValueView } from './FieldInput.js';
 import { ItemPanel } from './ItemPanel.js';
 import { StageEditor } from './StageEditor.js';
@@ -18,10 +20,12 @@ const needsCode = (error: unknown): boolean =>
 /** A list, read the way the team works it: grouped by the stage each item is in. */
 export function ListScreen({
   listId,
+  view,
   me,
   canSeePeople,
 }: {
   listId: string;
+  view: ListView;
   me: Me['user'];
   canSeePeople: boolean;
 }): ReactNode {
@@ -105,6 +109,14 @@ export function ListScreen({
       {list.itemScope === 'assigned' ? (
         <p className="muted">Você vê aqui só os itens que são seus.</p>
       ) : null}
+      <nav className="view-switch" aria-label="Ver como">
+        <Link to={`/listas/${listId}`} current={view === 'list'}>
+          Lista
+        </Link>
+        <Link to={`/listas/${listId}/quadro`} current={view === 'board'}>
+          Quadro
+        </Link>
+      </nav>
     </header>
   );
 
@@ -183,20 +195,34 @@ export function ListScreen({
       {editing === 'fields' ? (
         <FieldEditor listId={listId} fields={fields.data} otherLists={otherLists} />
       ) : null}
-      {stages.data.map((stage) => (
-        <StageGroup
-          key={stage.id}
-          stage={stage}
+      {view === 'board' ? (
+        <Board
+          listId={listId}
           stages={stages.data}
+          items={items.data}
           fields={fields.data}
-          columns={columns}
-          items={items.data.filter((item) => item.stageId === stage.id)}
           canEdit={canEdit}
           nameOf={nameOf}
           listNameOf={listNameOf}
           workers={handsOutWork ? (workers.data ?? []) : null}
         />
-      ))}
+      ) : null}
+      {view === 'list'
+        ? stages.data.map((stage) => (
+            <StageGroup
+              key={stage.id}
+              stage={stage}
+              stages={stages.data}
+              fields={fields.data}
+              columns={columns}
+              items={items.data.filter((item) => item.stageId === stage.id)}
+              canEdit={canEdit}
+              nameOf={nameOf}
+              listNameOf={listNameOf}
+              workers={handsOutWork ? (workers.data ?? []) : null}
+            />
+          ))
+        : null}
       <Trash listId={listId} canEdit={canEdit} nameOf={nameOf} />
     </>
   );
@@ -401,59 +427,6 @@ function ItemRow({
         />
       ) : null}
     </li>
-  );
-}
-
-function AddItem({ stage }: { stage: Stage }): ReactNode {
-  const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const add = useAction(
-    useCallback(async () => {
-      await api.createItem(stage.listId, { title: title.trim(), stageId: stage.id });
-      setTitle('');
-      await queryClient.invalidateQueries({ queryKey: ['items', stage.listId] });
-    }, [stage.listId, stage.id, title, queryClient]),
-  );
-  // Closed by default, so a long list stays a list and not a stack of forms.
-  if (!open) {
-    return (
-      <Button
-        variant="quiet"
-        onClick={() => {
-          setOpen(true);
-        }}
-      >
-        Adicionar item<span className="visually-hidden"> em {stage.name}</span>
-      </Button>
-    );
-  }
-  return (
-    <Form onSubmit={add.run}>
-      <div className="add-item">
-        <Field
-          label={`Novo item em ${stage.name}`}
-          value={title}
-          onChange={(event) => {
-            setTitle(event.target.value);
-          }}
-          maxLength={500}
-          autoFocus
-        />
-        <Button type="submit" busy={add.busy} disabled={title.trim() === ''}>
-          Adicionar
-        </Button>
-        <Button
-          variant="quiet"
-          onClick={() => {
-            setOpen(false);
-          }}
-        >
-          Fechar
-        </Button>
-      </div>
-      {add.error ? <Notice tone="error">{add.error}</Notice> : null}
-    </Form>
   );
 }
 
