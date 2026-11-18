@@ -143,6 +143,20 @@ describe('a line of an item’s history', () => {
     );
   });
 
+  it('tells what happened to each line of the checklist', () => {
+    expect(say({ what: 'check_added', new: 'Ligar' })).toBe('Você pôs na checklist: “Ligar”');
+    expect(say({ what: 'check_done', actor: ANA, new: 'Ligar' })).toBe(
+      'Ana marcou como feito: “Ligar”',
+    );
+    expect(say({ what: 'check_undone', new: 'Ligar' })).toBe('Você desmarcou: “Ligar”');
+    expect(say({ what: 'check_renamed', old: 'Ligar', new: 'Ligar cedo' })).toBe(
+      'Você mudou na checklist “Ligar” para “Ligar cedo”',
+    );
+    expect(say({ what: 'check_removed', old: 'Ligar cedo' })).toBe(
+      'Você tirou da checklist: “Ligar cedo”',
+    );
+  });
+
   it('says a secret changed, and never what it is', () => {
     const marker = { secret: true };
     expect(say({ what: 'field', fieldId: 'senha', new: marker })).toBe(

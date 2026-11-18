@@ -851,6 +851,40 @@ test('subtasks hang from an item, fold under it, and follow their own rules', as
   await expect(lead).not.toContainText('subtarefa');
 });
 
+test('a checklist inside the item is ticked by whoever works on it', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  const row = owner.locator('.item-rows > li').filter({ hasText: 'Conferir perfis' }).first();
+  await owner.getByRole('button', { name: 'Conferir perfis', exact: true }).click();
+  const panel = row.locator('.item-panel').first();
+  for (const line of ['Separar as contas', 'Testar os acessos']) {
+    await panel.getByLabel('Nova linha na checklist de Conferir perfis').fill(line);
+    await panel.getByRole('button', { name: 'Pôr na checklist' }).click();
+    await expect(panel.getByRole('checkbox', { name: line })).toBeVisible();
+  }
+  await panel.getByRole('checkbox', { name: 'Separar as contas' }).check();
+  const marks = row.locator('.item-row .item-marks').first();
+  await expect(marks).toContainText('Checklist 1/2');
+  await shot(owner, 'checklist');
+
+  // The employee whose item it is ticks the rest on her phone.
+  await ana.goto('/');
+  await ana.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(ana, 'Tarefas');
+  const hers = ana.locator('.item-rows > li').filter({ hasText: 'Conferir perfis' }).first();
+  await expect(hers.locator('.item-marks').first()).toContainText('Checklist 1/2');
+  await ana.getByRole('button', { name: 'Conferir perfis', exact: true }).click();
+  await hers.getByRole('checkbox', { name: 'Testar os acessos' }).check();
+  await expect(hers.locator('.item-marks').first()).toContainText('Checklist 2/2');
+  await hers.getByRole('button', { name: 'Ver o que mudou neste item' }).click();
+  await expect(hers.locator('.item-panel')).toContainText(
+    'Você marcou como feito: “Testar os acessos”',
+  );
+  expect(await ana.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await shot(ana, 'checklist-celular');
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');

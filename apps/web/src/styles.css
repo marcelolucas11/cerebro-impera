@@ -2128,3 +2128,45 @@ audio.file-preview {
   margin: 0 0 0.75rem;
   padding-left: 1.25rem;
 }
+
+/* ---- Checklist -------------------------------------------------------------- */
+
+.checklist {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.checklist li {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.checklist label {
+  display: flex;
+  gap: 0.625rem;
+  align-items: baseline;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.checklist input {
+  flex: none;
+  accent-color: var(--certo);
+}
+
+/* A ticked line stays readable: dimmer, struck through, still there. */
+.checklist .is-done span {
+  color: var(--texto-suave);
+  text-decoration: line-through;
+  text-decoration-color: var(--linha);
+}
+
+.mark.checks-done {
+  border-color: color-mix(in srgb, var(--certo) 60%, transparent);
+  color: var(--certo);
+}

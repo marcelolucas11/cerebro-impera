@@ -281,6 +281,7 @@ export function ItemPanel({
           </p>
         </div>
       ) : null}
+      <Checklist item={item} canEdit={canEdit} />
       <Subtasks item={item} everyone={everyone} canEdit={canEdit} />
       <Attachments item={item} canEdit={canEdit} nameOf={nameOf} />
       <div className="subsection">
@@ -325,6 +326,126 @@ export function ItemPanel({
         listNameOf={listNameOf}
         everyone={everyone}
       />
+    </div>
+  );
+}
+
+/** The item's checklist: lines ticked by whoever edits the item, read by whoever sees it. */
+function Checklist({ item, canEdit }: { item: Item; canEdit: boolean }): ReactNode {
+  const queryClient = useQueryClient();
+  const [text, setText] = useState('');
+  const lines = useQuery({
+    queryKey: ['checklist', item.id],
+    queryFn: () => api.checklist(item.id),
+  });
+  const refresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['checklist', item.id] });
+    await queryClient.invalidateQueries({ queryKey: ['items', item.listId] });
+  }, [item.id, item.listId, queryClient]);
+  const add = useAction(
+    useCallback(async () => {
+      await api.addCheck(item.id, text.trim());
+      setText('');
+      await refresh();
+    }, [item.id, text, refresh]),
+  );
+  // A tick shows at once, and goes back only if the server refuses it.
+  const [ticking, setTicking] = useState<ReadonlyMap<string, boolean>>(new Map());
+  const [tickError, setTickError] = useState<string | null>(null);
+  const tick = (checkId: string, done: boolean): void => {
+    setTicking((current) => new Map(current).set(checkId, done));
+    setTickError(null);
+    void api
+      .updateCheck(checkId, { done })
+      .then(refresh)
+      .catch((failure: unknown) => {
+        setTickError(describeError(failure));
+      })
+      .finally(() => {
+        setTicking((current) => {
+          const next = new Map(current);
+          next.delete(checkId);
+          return next;
+        });
+      });
+  };
+  const remove = useAction(
+    useCallback(
+      async (checkId: string) => {
+        await api.removeCheck(checkId);
+        await refresh();
+      },
+      [refresh],
+    ),
+  );
+  const found = lines.data ?? [];
+  if (found.length === 0 && !canEdit) return null;
+  const isDone = (line: { id: string; done: boolean }): boolean =>
+    ticking.get(line.id) ?? line.done;
+  const done = found.filter(isDone).length;
+  return (
+    <div className="subsection">
+      <h3>
+        Checklist
+        {found.length > 0 ? (
+          <span className="stage-count">
+            {done} de {found.length}
+          </span>
+        ) : null}
+      </h3>
+      {lines.isError ? <Notice tone="error">{describeError(lines.error)}</Notice> : null}
+      {found.length > 0 ? (
+        <ul className="checklist">
+          {found.map((line) => (
+            <li key={line.id} className={isDone(line) ? 'is-done' : undefined}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={isDone(line)}
+                  disabled={!canEdit || ticking.has(line.id)}
+                  onChange={(event) => {
+                    tick(line.id, event.target.checked);
+                  }}
+                />
+                <span>{line.text}</span>
+              </label>
+              {canEdit ? (
+                <Button
+                  variant="quiet"
+                  busy={remove.busy}
+                  onClick={() => {
+                    remove.run(line.id);
+                  }}
+                >
+                  Tirar<span className="visually-hidden"> da checklist: {line.text}</span>
+                </Button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : canEdit ? (
+        <p className="field-note">Nada na checklist ainda.</p>
+      ) : null}
+      {canEdit && found.length < 100 ? (
+        <Form onSubmit={add.run}>
+          <div className="add-item">
+            <Field
+              label={`Nova linha na checklist de ${item.title}`}
+              value={text}
+              onChange={(event) => {
+                setText(event.target.value);
+              }}
+              maxLength={500}
+            />
+            <Button type="submit" busy={add.busy} disabled={text.trim() === ''}>
+              Pôr na checklist
+            </Button>
+          </div>
+        </Form>
+      ) : null}
+      {add.error ? <Notice tone="error">{add.error}</Notice> : null}
+      {tickError !== null ? <Notice tone="error">{tickError}</Notice> : null}
+      {remove.error ? <Notice tone="error">{remove.error}</Notice> : null}
     </div>
   );
 }
