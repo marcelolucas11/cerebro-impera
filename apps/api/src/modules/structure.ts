@@ -194,6 +194,8 @@ export interface ItemView {
   /** Days, as YYYY-MM-DD; null when not set. */
   startDate: string | null;
   dueDate: string | null;
+  /** The item this one is a subtask of; null for an item of its own. */
+  parentId: string | null;
   /** When the item was sent to the trash, and by whom; null for an item in use. */
   trashedAt: Date | null;
   trashedBy: string | null;
@@ -216,6 +218,7 @@ interface ItemRow {
   priority: number | null;
   start_date: string | null;
   due_date: string | null;
+  parent_id: string | null;
   deleted_at: Date | null;
   deleted_by: string | null;
 }
@@ -238,6 +241,7 @@ function toItem(row: ItemRow): ItemView {
     priority: row.priority,
     startDate: row.start_date,
     dueDate: row.due_date,
+    parentId: row.parent_id,
     trashedAt: row.deleted_at,
     trashedBy: row.deleted_by,
   };
@@ -245,7 +249,7 @@ function toItem(row: ItemRow): ItemView {
 
 const ITEM_COLUMNS = `i.id, i.list_id, i.title, i.description, i.created_by, i.created_at, i.updated_at,
   i.stage_id, i.stage_since, i.deleted_at, i.deleted_by, i.position, i.priority,
-  i.start_date::text AS start_date, i.due_date::text AS due_date,
+  i.start_date::text AS start_date, i.due_date::text AS due_date, i.parent_id,
   coalesce((SELECT array_agg(ia.user_id ORDER BY ia.assigned_at)
             FROM app.item_assignees ia WHERE ia.item_id = i.id), '{}'::uuid[]) AS assignees,
   coalesce((SELECT jsonb_object_agg(v.field_id, v.value)
@@ -303,17 +307,23 @@ export async function createItem(
     description?: string | undefined;
     stageId?: string | undefined;
     fields?: Readonly<Record<string, FieldValue | null>> | undefined;
+    parentId?: string | undefined;
   },
 ): Promise<ItemView> {
   await openList(tx, actor, listId, 'edit');
   if (body.stageId !== undefined) await requireStageOf(tx, listId, body.stageId);
+  if (body.parentId !== undefined) {
+    // Work hangs only from an item the caller edits, of this list, that is not a subtask itself.
+    const { item: parent } = await openItem(tx, actor, body.parentId, 'edit');
+    if (parent.listId !== listId || parent.parentId !== null) throw badRequest('invalid_parent');
+  }
   const id = randomUUID();
   // Without a chosen stage, the database puts the item in the list's first one.
   await run(
     tx,
-    sql`INSERT INTO app.items (id, list_id, title, description, created_by, stage_id)
+    sql`INSERT INTO app.items (id, list_id, title, description, created_by, stage_id, parent_id)
         VALUES (${id}, ${listId}, ${body.title}, ${body.description ?? ''}, ${actor.userId},
-                ${body.stageId ?? null})`,
+                ${body.stageId ?? null}, ${body.parentId ?? null})`,
   );
   if (body.fields !== undefined) await writeFieldValues(tx, listId, id, body.fields);
   const item = await getItem(tx, id);
@@ -361,6 +371,7 @@ export async function updateItem(
     priority?: number | null | undefined;
     startDate?: string | null | undefined;
     dueDate?: string | null | undefined;
+    parentId?: null | undefined;
   },
 ): Promise<ItemView> {
   const { item: current } = await openItem(tx, actor, itemId, 'edit');
@@ -380,7 +391,8 @@ export async function updateItem(
           start_date = CASE WHEN ${body.startDate !== undefined} THEN ${body.startDate ?? null}::date
                             ELSE start_date END,
           due_date = CASE WHEN ${body.dueDate !== undefined} THEN ${body.dueDate ?? null}::date
-                          ELSE due_date END
+                          ELSE due_date END,
+          parent_id = CASE WHEN ${body.parentId === null} THEN NULL ELSE parent_id END
         WHERE id = ${itemId}`,
   );
   if (changed !== 1) throw forbidden();
@@ -448,14 +460,19 @@ export async function moveItem(
   if (body.listId === item.listId) throw badRequest('same_list');
   await openList(tx, actor, body.listId, 'edit');
   if (body.stageId !== undefined) await requireStageOf(tx, body.listId, body.stageId);
+  // Its live subtasks go along, to the first stage there; a subtask moved alone
+  // leaves its parent. One that is not the caller's to move stops the whole move
+  // (the database checks the family when the transaction ends).
   const changed = await run(
     tx,
     sql`UPDATE app.items SET
           list_id = ${body.listId},
-          stage_id = coalesce(${body.stageId ?? null}::uuid, stage_id)
-        WHERE id = ${itemId}`,
+          stage_id = CASE WHEN id = ${itemId} THEN coalesce(${body.stageId ?? null}::uuid, stage_id)
+                          ELSE stage_id END,
+          parent_id = CASE WHEN id = ${itemId} THEN NULL ELSE parent_id END
+        WHERE id = ${itemId} OR (parent_id = ${itemId} AND deleted_at IS NULL)`,
   );
-  if (changed !== 1) throw forbidden();
+  if (changed < 1) throw forbidden();
   const moved = await getItem(tx, itemId);
   // Moved somewhere the caller edits but where this item is not theirs to see.
   if (!moved) throw forbidden();
@@ -484,15 +501,44 @@ export const TRASH_DAYS = 30;
 /** Sends an item to the trash. Whoever may edit it may do so; it can be brought back for 30 days. */
 export async function trashItem(tx: Tx, actor: Actor, itemId: string): Promise<void> {
   await openItem(tx, actor, itemId, 'edit');
-  const changed = await run(tx, sql`UPDATE app.items SET deleted_at = now() WHERE id = ${itemId}`);
-  if (changed !== 1) throw forbidden();
+  // Its live subtasks go along. That makes several items at once: the same
+  // capability and fresh code as any change to several (the database agrees).
+  const subtasks = await one<{ count: number }>(
+    tx,
+    sql`SELECT count(*)::int AS count FROM app.items
+        WHERE parent_id = ${itemId} AND deleted_at IS NULL`,
+  );
+  if ((subtasks?.count ?? 0) > 0) {
+    requireCapability(actor, 'bulk_delete');
+    requireStepUp(actor);
+  }
+  const changed = await run(
+    tx,
+    sql`UPDATE app.items SET deleted_at = now()
+        WHERE id = ${itemId} OR (parent_id = ${itemId} AND deleted_at IS NULL)`,
+  );
+  if (changed < 1) throw forbidden();
 }
 
 /** Brings an item back from the trash, as it was, to the list and stage it left. */
 export async function restoreItem(tx: Tx, actor: Actor, itemId: string): Promise<ItemView> {
   await openItem(tx, actor, itemId, 'edit', { inTrash: true });
-  const changed = await run(tx, sql`UPDATE app.items SET deleted_at = NULL WHERE id = ${itemId}`);
-  if (changed !== 1) throw forbidden();
+  // The subtasks that went to the trash with it come back with it.
+  const changed = await run(
+    tx,
+    sql`UPDATE app.items SET deleted_at = NULL
+        WHERE id = ${itemId}
+           OR (parent_id = ${itemId}
+               AND deleted_at = (SELECT t.deleted_at FROM app.items t WHERE t.id = ${itemId}))`,
+  );
+  if (changed < 1) throw forbidden();
+  // A subtask whose parent is still in the trash, or now elsewhere, comes back on its own.
+  await run(
+    tx,
+    sql`UPDATE app.items SET parent_id = NULL
+        WHERE id = ${itemId} AND parent_id IS NOT NULL
+          AND NOT app.parent_usable(parent_id, list_id)`,
+  );
   const item = await getItem(tx, itemId);
   if (!item) throw notFound();
   return item;
@@ -563,15 +609,31 @@ export async function bulkChange(
   if (body.action === 'assign') return assignMany(tx, actor, listId, body.ids, body.userId);
   let changed: number;
   if (body.action === 'trash') {
-    if (body.ids.length > 1) {
+    const here = await one<{ count: number }>(
+      tx,
+      sql`SELECT count(*)::int AS count FROM app.items
+          WHERE id = ANY (${body.ids}::uuid[]) AND list_id = ${listId} AND deleted_at IS NULL`,
+    );
+    if (here?.count !== body.ids.length) throw badRequest('invalid_selection');
+    // Subtasks of what was chosen go along, and count.
+    const along = await one<{ count: number }>(
+      tx,
+      sql`SELECT count(*)::int AS count FROM app.items
+          WHERE parent_id = ANY (${body.ids}::uuid[]) AND deleted_at IS NULL
+            AND NOT id = ANY (${body.ids}::uuid[])`,
+    );
+    if (body.ids.length + (along?.count ?? 0) > 1) {
       requireCapability(actor, 'bulk_delete');
       requireStepUp(actor);
     }
-    changed = await run(
+    const trashed = await run(
       tx,
       sql`UPDATE app.items SET deleted_at = now()
-          WHERE id = ANY (${body.ids}::uuid[]) AND list_id = ${listId} AND deleted_at IS NULL`,
+          WHERE deleted_at IS NULL
+            AND ((id = ANY (${body.ids}::uuid[]) AND list_id = ${listId})
+                 OR parent_id = ANY (${body.ids}::uuid[]))`,
     );
+    return { changed: trashed };
   } else {
     const stage = await one<{ id: string }>(
       tx,
