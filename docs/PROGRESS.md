@@ -19,8 +19,9 @@ que só recebem itens de um papel para cima. A Fase 5 está completa no código;
 sem item e mover de lista por regra ficaram para depois (D57). A Fase 6 está completa no código:
 o painel de cada lista, a tela inicial de cada pessoa e o relatório semanal (o envio por e-mail
 espera a decisão do mantenedor sobre o servidor de e-mail). Na Fase 7, o aplicativo já é
-instalável, abre sem conexão e mostra, cifrado no aparelho, o que a pessoa já abriu; faltam o
-apagamento remoto e a fila de mudanças (ver `docs/design/pwa.md`).
+instalável, abre sem conexão, mostra (cifrado no aparelho) o que a pessoa já abriu e apaga isso
+quando a sessão acaba ou o aparelho é revogado; falta a fila de mudanças (ver
+`docs/design/pwa.md`).
 
 | Fase                                                              | Situação                                |
 | ----------------------------------------------------------------- | --------------------------------------- |
@@ -31,7 +32,7 @@ apagamento remoto e a fila de mudanças (ver `docs/design/pwa.md`).
 | 4. Tarefas e colaboração                                          | pronta no código                        |
 | 5. Automações                                                     | pronta no código                        |
 | 6. Painéis e relatórios                                           | pronta no código                        |
-| **7. PWA e offline**                                              | **em andamento (2 de 5)**               |
+| **7. PWA e offline**                                              | **em andamento (3 de 5)**               |
 | 8. Atualizador assinado                                           | a fazer                                 |
 | 9. Backup e restauração                                           | a fazer                                 |
 | 10. White label, assistente visual e formulários                  | a fazer                                 |
@@ -244,6 +245,8 @@ apagamento remoto e a fila de mudanças (ver `docs/design/pwa.md`).
   item e prazo, rodadas pela rotina de hora em hora com a identidade do autor só durante a regra;
   a função se recusa a rodar dentro de uma requisição.
 
+- Apagamento remoto (D63): toda resposta "sem sessão" apaga o que o aparelho guardou; revogar o
+  aparelho, encerrar a sessão, trocar a senha ou suspender a conta apagam no próximo contato.
 - Leitura offline (D62): o que a pessoa abriu, cifrado no aparelho, mostrado sem conexão com a
   hora em que foi guardado; nada de lista sensível, segredo ou anexo; apagado ao sair, ao entrar,
   quando a sessão acaba e depois de 7 dias sem o servidor.
@@ -320,7 +323,7 @@ lido em frases; item mandado para a lixeira e restaurado como estava; item levad
 de volta com os valores intactos; etapas exportadas como arquivo, modelo pronto aplicado, arquivo
 errado recusado e arquivo salvo importado; item passado para a funcionária, que o encontra na hora e não
 vê a escolha de responsáveis; campo de pessoas preenchido pela Dona e só lido pela funcionária; imagem e texto anexados pelo celular, imagem mostrada na página, texto só baixado e recebido no computador idêntico ao enviado, anexo removido e restaurado e tudo isso no histórico; senha guardada pela funcionária, que não consegue lê-la de volta, e revelada pela Dona só depois do código; campo de arquivos que oferece só os anexos do item; funcionária que passa a gerenciar o espaço cria uma lista nele, sem poder criar espaços; quadro com cartão arrastado de uma coluna para outra, que continua lá depois de recarregar, movido de volta pelo menu de etapa, aberto numa janela, e no celular só o quadro rola de lado; cartão posto à mão uma posição acima, ordem mantida depois de recarregar; lista filtrada pelo título e por valor digitado como se escreve aqui, ordenada por um campo, filtro mantido depois de recarregar e no quadro, salvo como visão com nome e trazido de volta num toque; lista agrupada por responsável e pelas opções de um campo; calendário com o item no dia de hoje, aberto numa janela, navegação entre meses e, no celular, só os dias com itens; tabela ordenada pelo clique na coluna, colunas escolhidas que voltam depois de recarregar, etapa mudada na célula; busca no alto da página que leva à lista já filtrada; linha do tempo com a barra no dia certo, semanas para a frente e de volta para hoje; dois itens selecionados movidos de etapa e passados para a funcionária de uma vez, e mandados juntos para a lixeira só depois do código; prioridade e prazo definidos no item, começo depois do prazo explicado antes de salvar, item atrasado em destaque e achado pelo filtro, mudança no histórico, e as mesmas marcas no celular da funcionária; duas subtarefas criadas pelo painel, dobradas debaixo do pai com a contagem de concluídas, invisíveis para a funcionária a quem o pai foi passado, uma solta do pai e as duas mandadas para a lixeira; checklist preenchida pela Dona e completada pela funcionária no celular, com a marca e o histórico; comentário da Dona respondido e corrigido pela funcionária no celular, sem poder mexer no da Dona, versão anterior lida e comentário apagado pela Dona; menção que oferece só quem vê o item, lida pela funcionária com o nome da Dona e o próprio em destaque; item semanal terminado que volta na primeira etapa com o prazo uma semana adiante; avisos da funcionária contados no alto da página, lidos em frases no celular, um aberto que leva ao item e todos marcados como lidos; linha de checklist e comentário da Dona que aparecem sozinhos no celular da funcionária, com a contagem de avisos; Dona troca a própria senha e continua conectada; lista sensível
-fechada até o código; regra criada pela Dona que passa o item terminado para a funcionária e comenta com o próprio nome, avisando-a, e depois pausada e apagada; tela inicial em que a Dona fixa dois painéis, troca a ordem, tira um e a ordem continua depois de recarregar, e em que a funcionária vê no celular os próprios itens agrupados pelo prazo; aplicativo instalável que, sem conexão, abre a página guardada (só a página e seus arquivos, nada da API), avisa e volta sozinho quando a conexão volta; celular que abre sem conexão a lista que já tinha aberto, guardada sem nada legível, com a hora em que foi guardada, e que depois de sair não guarda mais nada; relatório da semana com a lista e as pessoas, sem a lista sensível até o código, cabendo no celular, e sem entrada para quem não tem a permissão; registro de auditoria íntegro; suspensão que derruba a sessão
+fechada até o código; regra criada pela Dona que passa o item terminado para a funcionária e comenta com o próprio nome, avisando-a, e depois pausada e apagada; tela inicial em que a Dona fixa dois painéis, troca a ordem, tira um e a ordem continua depois de recarregar, e em que a funcionária vê no celular os próprios itens agrupados pelo prazo; aplicativo instalável que, sem conexão, abre a página guardada (só a página e seus arquivos, nada da API), avisa e volta sozinho quando a conexão volta; celular que abre sem conexão a lista que já tinha aberto, guardada sem nada legível, com a hora em que foi guardada, e que, ao ter a conta suspensa, apaga tudo no próximo contato e sem conexão já não abre nada; Dona que sai e não deixa nada guardado no aparelho; relatório da semana com a lista e as pessoas, sem a lista sensível até o código, cabendo no celular, e sem entrada para quem não tem a permissão; registro de auditoria íntegro; suspensão que derruba a sessão
 na hora; e nenhuma violação da política de segurança da página do começo ao fim. Esse percurso já pegou
 três defeitos reais, todos corrigidos e cobertos por teste: a tela de pessoas mostrava situação
 desatualizada; item criado por funcionária aparecia sem responsável e sumia para ela; e confirmar o
@@ -372,7 +375,8 @@ pnpm check
 
 ## Próximo passo exato
 
-1. **Fase 7, parte 3:** apagamento remoto por aparelho (`docs/design/pwa.md`, seção 4).
+1. **Fase 7, parte 4:** fila de mudanças offline, conferida no servidor, com conflito por campo
+   (`docs/design/pwa.md`).
 2. Itens adiados que dependem da interface: passkeys e CAPTCHA.
 3. Relatório por e-mail, quando o mantenedor decidir o servidor de e-mail (D60).
 

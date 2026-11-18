@@ -1,7 +1,7 @@
 # Aplicativo instalável e modo offline — desenho
 
-Estado: **em construção** (Fase 7). Prontos: instalar e abrir sem conexão, e ler offline o que
-o aparelho guardou, cifrado. O apagamento remoto e a fila de mudanças seguem a ordem da seção 5. Nada aqui
+Estado: **em construção** (Fase 7). Prontos: instalar e abrir sem conexão, ler offline o que o
+aparelho guardou (cifrado) e apagar à distância. A fila de mudanças segue a ordem da seção 5. Nada aqui
 é específico de uma empresa.
 
 ## 1. O que precisa valer
@@ -71,20 +71,27 @@ o aparelho guardou, cifrado. O apagamento remoto e a fila de mudanças seguem a 
   - quando um Dono manda apagar (seção 4).
     Uma resposta pedida antes de apagar e que chega depois é descartada.
 
-## 4. Apagamento remoto
+## 4. Apagamento remoto (pronto)
 
-- Um Dono (ou quem aprova aparelhos, abaixo dele na hierarquia) marca um aparelho para apagar. No
-  próximo contato, o servidor responde com a ordem e a página apaga o IndexedDB, os caches e o
-  service worker antes de qualquer outra coisa. A ordem fica no registro de auditoria, e a
-  confirmação também.
-- A sessão daquele aparelho é encerrada junto, então o cookie deixa de valer mesmo que a página
-  nunca mais abra.
+- Qualquer resposta "sem sessão" do servidor (401) apaga, antes de qualquer outra coisa, o que o
+  aparelho guardou, a chave junto. Isso acontece quando:
+  - a sessão vence;
+  - quem aprova aparelhos revoga o aparelho;
+  - a pessoa encerra aquela sessão em "Minha conta" ou troca a senha;
+  - um Dono suspende a conta.
+- Vale também ao abrir a página: um aparelho revogado apaga tudo na primeira tentativa de entrar
+  e, sem conexão, já não abre nada.
+- Revogar é a ordem de apagar: a sessão daquele aparelho acaba na hora, e o servidor nunca mais o
+  aceita sem nova aprovação. A ordem fica na auditoria (`device.revoked`).
+- **O que não dá para fazer:** um aparelho que nunca mais se conectar não recebe a ordem. Para
+  esse caso valem a expiração de 7 dias e a criptografia de disco do sistema. O servidor não
+  recebe confirmação do apagamento: o aparelho não tem mais sessão para mandá-la.
 
 ## 5. Ordem de construção
 
 1. ~~Instalar e abrir sem conexão~~ (D61).
 2. ~~Dados offline cifrados, só leitura, com expiração e apagamento ao sair ou perder a sessão~~ (D62).
-3. Apagamento remoto por aparelho.
+3. ~~Apagamento remoto por aparelho~~ (D63).
 4. Fila de mudanças offline (etapa, título, prazo, prioridade, checklist e comentário), conferida
    no servidor, com conflito por campo.
 5. Avisos no celular (push), quando o mantenedor decidir quais avisos cada pessoa recebe (D51).

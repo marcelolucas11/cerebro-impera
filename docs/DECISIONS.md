@@ -922,6 +922,20 @@ secreto, anexo, auditoria ou pessoas vai para o aparelho. Desenho em
   parte 4 da Fase 7.
 - Rever com o mantenedor: os 7 dias.
 
+## D63 — Apagar à distância é revogar o aparelho
+
+**Decisão.** Toda resposta "sem sessão" do servidor apaga o que o aparelho guardou para ler sem
+conexão, a chave junto, antes de qualquer outra coisa. Isso acontece quando a sessão vence, o
+aparelho é revogado, a sessão é encerrada em "Minha conta", a senha é trocada ou a conta é
+suspensa. Por isso revogar um aparelho (tela "Aparelhos") é a ordem de apagar, e a tela diz
+isso. Não há um botão separado de "apagar sem revogar": um aparelho que precisa ser limpo não
+deve continuar entrando.
+
+- O servidor não recebe confirmação do apagamento, porque o aparelho já não tem sessão para
+  mandá-la. A ordem fica na auditoria (`device.revoked`).
+- Aparelho que nunca mais se conecta não recebe a ordem. Para esse caso valem a expiração de 7
+  dias (D62) e a criptografia de disco do sistema.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

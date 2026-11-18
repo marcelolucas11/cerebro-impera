@@ -1,5 +1,5 @@
 import type { FieldConfig, FieldKind, FieldValue } from '@cerebro/shared';
-import { currentEra, recall, remember } from './offline/store.js';
+import { currentEra, forget, recall, remember } from './offline/store.js';
 import type { ListView } from './router.js';
 
 /** A refusal from the server, or `network` when it could not be reached. */
@@ -73,6 +73,9 @@ async function call<T>(
     data = undefined;
   }
   if (!response.ok) {
+    // No valid session (signed out, expired, revoked from another device, suspended): what
+    // this device kept for offline reading is erased before anything else.
+    if (response.status === 401) await forget();
     const error = isRecord(data) && isRecord(data.error) ? data.error : {};
     throw new ApiError(
       response.status,

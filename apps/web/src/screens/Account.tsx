@@ -96,7 +96,8 @@ function MySessions(): ReactNode {
       <h2>Onde você está conectado</h2>
       <p className="field-note">
         Cada linha é um navegador ou aplicativo com sua conta aberta. Se não reconhecer algum,
-        encerre e troque a senha.
+        encerre e troque a senha. Um aparelho encerrado apaga o que guardou para ler sem conexão
+        assim que voltar a falar com o servidor.
       </p>
       {sessions.isError ? <Notice tone="error">{describeError(sessions.error)}</Notice> : null}
       {sessions.isPending ? <p className="field-note">Abrindo…</p> : null}
