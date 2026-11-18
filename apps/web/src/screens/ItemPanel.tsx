@@ -1,7 +1,7 @@
 import { hasCapability, type FieldValue } from '@cerebro/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useId, useState, type ReactNode } from 'react';
-import { api, type CustomField, type Item, type ItemChange } from '../api.js';
+import { api, type CustomField, type Item, type ItemChange, type ItemComment } from '../api.js';
 import { draftOf, sameValue, valueOf, type FieldDraft } from '../fieldvalues.js';
 import { isoDay } from '../calendar.js';
 import { formatDay, PRIORITY_NAMES, priorityLabel } from '../due.js';
@@ -282,6 +282,7 @@ export function ItemPanel({
         </div>
       ) : null}
       <Checklist item={item} canEdit={canEdit} />
+      <Comments item={item} canEdit={canEdit} nameOf={nameOf} meId={me.data?.user.id} />
       <Subtasks item={item} everyone={everyone} canEdit={canEdit} />
       <Attachments item={item} canEdit={canEdit} nameOf={nameOf} />
       <div className="subsection">
@@ -329,6 +330,221 @@ export function ItemPanel({
     </div>
   );
 }
+
+/**
+ * Comments on the item, oldest first. Whoever edits the item writes; only the
+ * author changes what they wrote, and earlier versions can be read; the
+ * author or a manager of the list removes one.
+ */
+function Comments({
+  item,
+  canEdit,
+  nameOf,
+  meId,
+}: {
+  item: Item;
+  canEdit: boolean;
+  nameOf: (userId: string | null) => string;
+  meId: string | undefined;
+}): ReactNode {
+  const queryClient = useQueryClient();
+  const bodyId = useId();
+  const [body, setBody] = useState('');
+  const said = useQuery({ queryKey: ['comments', item.id], queryFn: () => api.comments(item.id) });
+  const refresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['comments', item.id] });
+    await queryClient.invalidateQueries({ queryKey: ['items', item.listId] });
+  }, [item.id, item.listId, queryClient]);
+  const send = useAction(
+    useCallback(async () => {
+      await api.addComment(item.id, body);
+      setBody('');
+      await refresh();
+    }, [item.id, body, refresh]),
+  );
+  const found = said.data ?? [];
+  return (
+    <div className="subsection">
+      <h3>Comentários</h3>
+      {said.isError ? <Notice tone="error">{describeError(said.error)}</Notice> : null}
+      {found.length === 0 && !said.isPending ? (
+        <p className="field-note">Nenhum comentário ainda.</p>
+      ) : null}
+      {found.length > 0 ? (
+        <ol className="comments">
+          {found.map((comment) => (
+            <CommentEntry
+              key={comment.id}
+              comment={comment}
+              mine={comment.authorId === meId}
+              nameOf={nameOf}
+              onChange={refresh}
+            />
+          ))}
+        </ol>
+      ) : null}
+      {canEdit ? (
+        <Form onSubmit={send.run}>
+          <div className="field">
+            <label htmlFor={bodyId}>Escrever um comentário</label>
+            <textarea
+              id={bodyId}
+              rows={3}
+              value={body}
+              maxLength={10_000}
+              onChange={(event) => {
+                setBody(event.target.value);
+              }}
+            />
+          </div>
+          {send.error ? <Notice tone="error">{send.error}</Notice> : null}
+          <Button type="submit" busy={send.busy} disabled={body.trim() === ''}>
+            Comentar
+          </Button>
+        </Form>
+      ) : null}
+    </div>
+  );
+}
+
+function CommentEntry({
+  comment,
+  mine,
+  nameOf,
+  onChange,
+}: {
+  comment: ItemComment;
+  mine: boolean;
+  nameOf: (userId: string | null) => string;
+  onChange: () => Promise<void>;
+}): ReactNode {
+  const editId = useId();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(comment.body);
+  const [showVersions, setShowVersions] = useState(false);
+  const versions = useQuery({
+    queryKey: ['comment-versions', comment.id, comment.versions],
+    queryFn: () => api.commentVersions(comment.id),
+    enabled: showVersions,
+  });
+  const save = useAction(
+    useCallback(async () => {
+      await api.editComment(comment.id, draft);
+      setEditing(false);
+      await onChange();
+    }, [comment.id, draft, onChange]),
+  );
+  const remove = useAction(
+    useCallback(async () => {
+      await api.removeComment(comment.id);
+      await onChange();
+    }, [comment.id, onChange]),
+  );
+  const author = capitalize(nameOf(comment.authorId));
+  // For screen readers: which comment a button acts on.
+  const whose = mine ? 'o seu comentário' : `o comentário de ${author}`;
+  if (comment.removedAt !== null) {
+    return (
+      <li className="comment is-removed">
+        <p className="muted">
+          Comentário de {author} apagado por {nameOf(comment.removedBy)} em{' '}
+          {formatWhen(comment.removedAt)}.
+        </p>
+      </li>
+    );
+  }
+  return (
+    <li className="comment">
+      <p className="comment-head">
+        <strong>{author}</strong>
+        <span className="muted">
+          {formatWhen(comment.createdAt)}
+          {comment.editedAt !== null ? ' · editado' : ''}
+        </span>
+      </p>
+      {editing ? (
+        <Form onSubmit={save.run}>
+          <div className="field">
+            <label htmlFor={editId}>Mudar o comentário</label>
+            <textarea
+              id={editId}
+              rows={3}
+              value={draft}
+              maxLength={10_000}
+              onChange={(event) => {
+                setDraft(event.target.value);
+              }}
+            />
+          </div>
+          {save.error ? <Notice tone="error">{save.error}</Notice> : null}
+          <div className="comment-actions">
+            <Button
+              type="submit"
+              busy={save.busy}
+              disabled={draft.trim() === '' || draft === comment.body}
+            >
+              Salvar comentário
+            </Button>
+            <Button
+              variant="quiet"
+              onClick={() => {
+                setDraft(comment.body);
+                setEditing(false);
+              }}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </Form>
+      ) : (
+        <p className="comment-body">{comment.body}</p>
+      )}
+      {!editing && (comment.canEdit || comment.canRemove || comment.versions > 0) ? (
+        <div className="comment-actions">
+          {comment.canEdit ? (
+            <Button
+              variant="quiet"
+              onClick={() => {
+                setEditing(true);
+              }}
+            >
+              Editar<span className="visually-hidden"> {whose}</span>
+            </Button>
+          ) : null}
+          {comment.canRemove ? (
+            <Button variant="quiet" busy={remove.busy} onClick={remove.run}>
+              Apagar<span className="visually-hidden"> {whose}</span>
+            </Button>
+          ) : null}
+          {comment.versions > 0 ? (
+            <Button
+              variant="quiet"
+              aria-expanded={showVersions}
+              onClick={() => {
+                setShowVersions(!showVersions);
+              }}
+            >
+              {showVersions ? 'Esconder versões anteriores' : 'Ver versões anteriores'}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {remove.error ? <Notice tone="error">{remove.error}</Notice> : null}
+      {showVersions ? (
+        <ol className="comment-versions">
+          {(versions.data ?? []).map((version, index) => (
+            <li key={index}>
+              <span className="muted">Até {formatWhen(version.replacedAt)}:</span>
+              <p className="comment-body">{version.body}</p>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </li>
+  );
+}
+
+const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
 
 /** The item's checklist: lines ticked by whoever edits the item, read by whoever sees it. */
 function Checklist({ item, canEdit }: { item: Item; canEdit: boolean }): ReactNode {

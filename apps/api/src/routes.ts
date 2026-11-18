@@ -30,6 +30,7 @@ import {
   setSecretSchema,
   bulkSchema,
   addCheckSchema,
+  commentSchema,
   updateCheckSchema,
   searchQuerySchema,
   orderItemsSchema,
@@ -65,6 +66,7 @@ import * as searching from './modules/search.js';
 import * as secrets from './modules/secrets.js';
 import * as views from './modules/views.js';
 import * as checklist from './modules/checklist.js';
+import * as comments from './modules/comments.js';
 import * as stages from './modules/stages.js';
 import * as structure from './modules/structure.js';
 
@@ -322,6 +324,30 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     const body = parse(bulkSchema, request.body);
     return signedIn(request, (tx, actor) => structure.bulkChange(tx, actor, id, body));
+  });
+
+  // ---- Comments --------------------------------------------------------------------
+  app.get('/api/items/:id/comments', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => comments.listComments(tx, actor, id));
+  });
+  app.post('/api/items/:id/comments', (request) => {
+    const id = paramId(request);
+    const body = parse(commentSchema, request.body);
+    return signedIn(request, (tx, actor) => comments.addComment(tx, actor, id, body));
+  });
+  app.patch('/api/comments/:id', (request) => {
+    const id = paramId(request);
+    const body = parse(commentSchema, request.body);
+    return signedIn(request, (tx, actor) => comments.editComment(tx, actor, id, body));
+  });
+  app.delete('/api/comments/:id', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => comments.removeComment(tx, actor, id));
+  });
+  app.get('/api/comments/:id/versions', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => comments.commentVersions(tx, actor, id));
   });
 
   // ---- Checklist -------------------------------------------------------------------

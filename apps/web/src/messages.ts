@@ -52,6 +52,7 @@ const BY_CODE: Record<string, string> = {
   not_in_trash: 'Este item já saiu da lixeira.',
   same_list: 'O item já está nesta lista.',
   too_many_checks: 'A checklist já tem 100 linhas, o máximo por item.',
+  comment_removed: 'Este comentário foi apagado e não muda mais.',
   invalid_parent:
     'A subtarefa precisa ficar debaixo de um item desta lista que não seja subtarefa.',
   dates_out_of_order: 'O prazo não pode vir antes do começo.',

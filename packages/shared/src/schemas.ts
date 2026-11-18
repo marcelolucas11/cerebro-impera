@@ -220,6 +220,12 @@ export const createItemSchema = z.strictObject({
   /** Created as a subtask of this item, of the same list. */
   parentId: idSchema.optional(),
 });
+const commentBody = z
+  .string()
+  .max(10_000)
+  .refine((value) => value.trim() !== '', 'empty comment');
+export const commentSchema = z.strictObject({ body: commentBody });
+
 /** Lines in one item's checklist, at most. */
 export const MAX_CHECKS_PER_ITEM = 100;
 const checkText = z.string().trim().min(1).max(500);

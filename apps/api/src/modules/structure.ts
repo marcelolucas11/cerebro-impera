@@ -198,6 +198,8 @@ export interface ItemView {
   parentId: string | null;
   /** How far its checklist is: lines ticked, lines in all. */
   checks: { done: number; total: number };
+  /** Comments on it that were not removed. */
+  comments: number;
   /** When the item was sent to the trash, and by whom; null for an item in use. */
   trashedAt: Date | null;
   trashedBy: string | null;
@@ -222,6 +224,7 @@ interface ItemRow {
   due_date: string | null;
   parent_id: string | null;
   checks: { done: number; total: number };
+  comments: number;
   deleted_at: Date | null;
   deleted_by: string | null;
 }
@@ -246,6 +249,7 @@ function toItem(row: ItemRow): ItemView {
     dueDate: row.due_date,
     parentId: row.parent_id,
     checks: row.checks,
+    comments: row.comments,
     trashedAt: row.deleted_at,
     trashedBy: row.deleted_by,
   };
@@ -261,7 +265,9 @@ const ITEM_COLUMNS = `i.id, i.list_id, i.title, i.description, i.created_by, i.c
   coalesce((SELECT array_agg(s.field_id ORDER BY s.field_id)
             FROM app.item_secrets s WHERE s.item_id = i.id), '{}'::uuid[]) AS secrets,
   (SELECT jsonb_build_object('done', count(*) FILTER (WHERE c.done), 'total', count(*))
-   FROM app.item_checks c WHERE c.item_id = i.id) AS checks`;
+   FROM app.item_checks c WHERE c.item_id = i.id) AS checks,
+  (SELECT count(*)::int FROM app.item_comments m
+   WHERE m.item_id = i.id AND m.deleted_at IS NULL) AS comments`;
 
 /** Opens a list for the caller, or explains why not, without leaking its existence. */
 export async function openList(

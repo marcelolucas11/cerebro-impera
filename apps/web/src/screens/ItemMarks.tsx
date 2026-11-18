@@ -36,6 +36,7 @@ export function ItemMarks({
     item.dueDate === null &&
     children.length === 0 &&
     item.checks.total === 0 &&
+    item.comments === 0 &&
     (item.parentId === null || !showParent)
   ) {
     return null;
@@ -61,6 +62,11 @@ export function ItemMarks({
       {item.checks.total > 0 ? (
         <span className={item.checks.done === item.checks.total ? 'mark checks-done' : 'mark'}>
           Checklist {item.checks.done}/{item.checks.total}
+        </span>
+      ) : null}
+      {item.comments > 0 ? (
+        <span className="mark">
+          {item.comments === 1 ? '1 comentário' : `${String(item.comments)} comentários`}
         </span>
       ) : null}
       {children.length > 0 ? (
