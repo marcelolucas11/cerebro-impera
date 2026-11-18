@@ -454,6 +454,18 @@ listas que ainda consegue abrir; nem um Dono vê as visões dos outros. Até 30 
 visão dos outros; ficam para depois. _Rever com o mantenedor:_ visões da equipe, definidas por
 quem gerencia a lista.
 
+## D39 — Calendário pelo dia local, agenda no celular
+
+**Decisão.** A terceira visão é o calendário (`/listas/:id/calendario`): cada item aparece no dia
+de um campo de data da lista (escolhido quando há mais de um). Data e hora caem no dia do fuso de
+quem olha; data simples cai no próprio dia, sem conversão. Semanas começam no domingo. No
+celular, a grade vira agenda: só os dias com itens, com o nome do dia por extenso. Filtros,
+ordem e visões salvas valem aqui também; itens sem data ficam numa lista à parte.
+
+**Por quê.** Converter uma data simples para UTC faria um vencimento "dia 20" aparecer no dia 19
+para quem está no Brasil. Arrastar um item para outro dia fica para depois (por enquanto a data
+muda no próprio item).
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

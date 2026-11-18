@@ -228,6 +228,8 @@ export const updateItemSchema = z
 /** The query part of an address as the page writes it ("?busca=…"), or nothing. */
 export const VIEW_QUERY_PATTERN = /^(\?[A-Za-z0-9%._~:=&+-]*)?$/;
 export const MAX_VIEWS_PER_LIST = 30;
+export const VIEW_KINDS = ['list', 'board', 'calendar'] as const;
+export type ViewKind = (typeof VIEW_KINDS)[number];
 const viewName = z
   .string()
   .trim()
@@ -239,13 +241,13 @@ const viewName = z
 const viewQuery = z.string().max(2000).regex(VIEW_QUERY_PATTERN);
 export const createViewSchema = z.strictObject({
   name: viewName,
-  kind: z.enum(['list', 'board']),
+  kind: z.enum(VIEW_KINDS),
   query: viewQuery,
 });
 export const updateViewSchema = z
   .strictObject({
     name: viewName.optional(),
-    kind: z.enum(['list', 'board']).optional(),
+    kind: z.enum(VIEW_KINDS).optional(),
     query: viewQuery.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'empty update');

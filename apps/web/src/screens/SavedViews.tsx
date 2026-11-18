@@ -5,6 +5,12 @@ import { describeError } from '../messages.js';
 import type { ListView } from '../router.js';
 import { Button, Field, Form, Notice, useAction } from '../ui/kit.js';
 
+const KIND_NAMES: Record<ListView, string> = {
+  list: 'lista',
+  board: 'quadro',
+  calendar: 'calendário',
+};
+
 /*
  * A person's own named views of this list: one tap brings back the way of
  * looking (list or board, filter, order). Nobody else sees them.
@@ -58,7 +64,7 @@ export function SavedViews({
               }}
             >
               {one.name}
-              <span className="saved-view-kind">{one.kind === 'board' ? 'quadro' : 'lista'}</span>
+              <span className="saved-view-kind">{KIND_NAMES[one.kind]}</span>
             </button>
           ))}
         </nav>
