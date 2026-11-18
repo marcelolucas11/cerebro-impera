@@ -633,6 +633,23 @@ uma linha em subtarefa. A API já guarda a posição de cada linha.
 
 As menções com @ entram na próxima fatia, junto do que decide quem pode ser mencionado.
 
+## D49 — Menções só de quem vê o item, e os nomes de cada item
+
+**Decisão.** Um comentário pode mencionar pessoas com @ (`0031_mentions.sql`).
+
+- **Só quem vê o item pode ser mencionado nele.** Uma menção nunca mostra um item a ninguém. Quem
+  vê é decidido pelo banco, com as mesmas regras das requisições da pessoa: Dono vê tudo; os demais
+  pela concessão mais próxima (lista, depois pasta, depois espaço), todos os itens ou só os que
+  criaram ou receberam; conta suspensa não vê nada.
+- Só o autor menciona, enquanto o comentário existe e o item não está na lixeira; até 20 por
+  comentário. Menção feita não muda nem some (editar só acrescenta), nem pelo dono do banco. Quem
+  um comentário apagado mencionava sai do alcance junto com o texto.
+- **As pessoas de um item:** quem o vê e quem escreveu, apagou ou foi mencionado nos comentários.
+  É o que a tela usa para dar nome a quem comenta; só quem vê o item recebe essa lista. Antes,
+  para um funcionário, quem comentava aparecia como "outra pessoa".
+- Na tela, "Mencionar alguém" oferece só quem vê o item (e não quem escreve); a menção aparece em
+  destaque no texto. O aviso para quem foi mencionado chega com as notificações (próxima fatia).
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

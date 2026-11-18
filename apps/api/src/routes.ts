@@ -345,6 +345,10 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     return signedIn(request, (tx, actor) => comments.removeComment(tx, actor, id));
   });
+  app.get('/api/items/:id/people', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => comments.itemPeople(tx, actor, id));
+  });
   app.get('/api/comments/:id/versions', (request) => {
     const id = paramId(request);
     return signedIn(request, (tx, actor) => comments.commentVersions(tx, actor, id));

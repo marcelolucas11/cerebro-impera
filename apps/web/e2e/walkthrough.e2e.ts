@@ -934,6 +934,42 @@ test('comments are a conversation on the item, with every change kept', async ()
   await expect(row(owner).locator('.comments')).not.toContainText('Confiro hoje');
 });
 
+test('a comment mentions only people who see the item, and they see their name set apart', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  const row = (page: Page) =>
+    page.locator('.item-rows > li').filter({ hasText: 'Conferir perfis' }).first();
+  await owner.getByRole('button', { name: 'Conferir perfis', exact: true }).click();
+  const mine = row(owner);
+  await mine.getByLabel('Escrever um comentário').fill('Pode fechar hoje,');
+  // Offered: who sees the item, and not the one writing.
+  const pick = mine.getByLabel('Mencionar alguém');
+  await expect(pick.locator('option')).toHaveText(['Escolha a pessoa', 'Ana Souza']);
+  await pick.selectOption({ label: 'Ana Souza' });
+  await expect(mine.getByLabel('Escrever um comentário')).toHaveValue(
+    'Pode fechar hoje, @Ana Souza ',
+  );
+  await mine.getByRole('button', { name: 'Comentar' }).click();
+  const said = mine.locator('.comment').filter({ hasText: 'Pode fechar hoje' });
+  await expect(said.locator('.mention')).toHaveText('@Ana Souza');
+  await shot(owner, 'mencao');
+
+  // She reads it with the owner's name, and her own set apart.
+  await ana.goto('/');
+  await ana.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(ana, 'Tarefas');
+  await ana.getByRole('button', { name: 'Conferir perfis', exact: true }).click();
+  const hers = row(ana).locator('.comment').filter({ hasText: 'Pode fechar hoje' });
+  await expect(hers.locator('.comment-head')).toContainText('Olívia Dona');
+  await expect(hers.locator('.mention')).toHaveText('@Ana Souza');
+  // What the owner removed earlier reads as hers, removed by the owner.
+  await expect(row(ana).locator('.comments')).toContainText(
+    'Seu comentário foi apagado por Olívia Dona',
+  );
+  await shot(ana, 'mencao-celular');
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');

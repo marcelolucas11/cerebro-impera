@@ -224,7 +224,17 @@ const commentBody = z
   .string()
   .max(10_000)
   .refine((value) => value.trim() !== '', 'empty comment');
-export const commentSchema = z.strictObject({ body: commentBody });
+/** People mentioned in one comment, at most. */
+export const MAX_MENTIONS_PER_COMMENT = 20;
+export const commentSchema = z.strictObject({
+  body: commentBody,
+  /** People named in the comment; each must be able to see the item. */
+  mentions: z
+    .array(idSchema)
+    .max(MAX_MENTIONS_PER_COMMENT)
+    .refine((ids) => new Set(ids).size === ids.length, 'repeated person')
+    .optional(),
+});
 
 /** Lines in one item's checklist, at most. */
 export const MAX_CHECKS_PER_ITEM = 100;
