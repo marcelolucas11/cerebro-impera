@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { api, ApiError, type SignInResult } from './api.js';
+import { api, ApiError, type SetupStatus, type SignInResult } from './api.js';
 import { describeError } from './messages.js';
+import { forget } from './offline/store.js';
 import { DevicePending } from './screens/DevicePending.js';
 import { Enroll, Invite } from './screens/Enroll.js';
 import { Setup } from './screens/Setup.js';
@@ -32,7 +33,16 @@ function inviteTokenFromAddress(): string | undefined {
 }
 
 async function whereToStart(): Promise<{ stage: Stage; instanceName: string }> {
-  const { needsSetup, instanceName } = await api.setupStatus();
+  let status: SetupStatus;
+  try {
+    status = await api.setupStatus();
+  } catch (error) {
+    // Out of reach: a device that kept the person's account opens with what it kept.
+    if (!(error instanceof ApiError) || error.code !== 'network') throw error;
+    const me = await api.me();
+    return { stage: { name: 'app' }, instanceName: me.instanceName };
+  }
+  const { needsSetup, instanceName } = status;
   if (needsSetup) return { stage: { name: 'setup' }, instanceName };
 
   const token = inviteTokenFromAddress();
@@ -96,7 +106,10 @@ export function App(): ReactNode {
     setStage({ name: 'sign-in', notice });
   }, []);
   const afterFactors = useCallback((result: SignInResult) => {
-    setStage(result.status === 'authenticated' ? { name: 'app' } : { name: 'device-pending' });
+    // Whoever signs in starts with nothing kept on this device by anyone before.
+    void forget().then(() => {
+      setStage(result.status === 'authenticated' ? { name: 'app' } : { name: 'device-pending' });
+    });
   }, []);
   const afterPassword = useCallback((next: 'totp' | 'enroll_totp') => {
     setStage(next === 'totp' ? { name: 'second-factor' } : { name: 'enroll' });
