@@ -22,9 +22,22 @@ function randomPassword(): string {
   return randomBytes(32).toString('base64url');
 }
 
+const UPDATER_KEY_FILE = 'updater-key';
+
+/**
+ * The key the API and the updater sign their requests with. Made on its own,
+ * also for installations from before the updater existed; never overwritten.
+ */
+function ensureUpdaterKey(configDir: string): void {
+  const path = join(configDir, UPDATER_KEY_FILE);
+  if (existsSync(path)) return;
+  writeFileSync(path, randomBytes(32).toString('base64'), { mode: 0o600, flag: 'wx' });
+}
+
 /** Creates the secrets on first boot; never overwrites existing ones. */
 export function initSecrets(configDir: string): { created: boolean } {
   mkdirSync(configDir, { recursive: true, mode: 0o700 });
+  ensureUpdaterKey(configDir);
   const path = join(configDir, SECRETS_FILE);
   if (existsSync(path)) return { created: false };
 

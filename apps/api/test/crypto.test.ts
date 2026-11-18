@@ -144,6 +144,20 @@ describe('instance secrets', () => {
     expect(readFileSync(join(dir, 'secrets.json'), 'utf8')).toContain(first.masterKey);
   });
 
+  it('include the updater key, made also for installations that had none, and kept', () => {
+    const dir = join(scratch, 'older');
+    initSecrets(dir);
+    const key = readFileSync(join(dir, 'updater-key'), 'utf8');
+    expect(Buffer.from(key, 'base64')).toHaveLength(32);
+    expect(statSync(join(dir, 'updater-key')).mode & 0o777).toBe(0o600);
+    initSecrets(dir);
+    expect(readFileSync(join(dir, 'updater-key'), 'utf8')).toBe(key);
+    // An installation from before the updater gets one on its next start.
+    rmSync(join(dir, 'updater-key'));
+    expect(initSecrets(dir)).toEqual({ created: false });
+    expect(Buffer.from(readFileSync(join(dir, 'updater-key'), 'utf8'), 'base64')).toHaveLength(32);
+  });
+
   it('differ on every instance', () => {
     const a = join(scratch, 'a');
     const b = join(scratch, 'b');

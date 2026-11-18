@@ -83,8 +83,22 @@ export function readReleaseEnv(content: string): { image: string; version: strin
   return { image: values.get('CEREBRO_IMAGE') ?? '', version: values.get('CEREBRO_VERSION') ?? '' };
 }
 
-export function writeReleaseEnv(image: string, version: string): string {
-  return `CEREBRO_IMAGE=${image}\nCEREBRO_VERSION=${version}\n`;
+/** The same settings with the image and version swapped; every other line kept as it was. */
+export function withRelease(content: string, image: string, version: string): string {
+  const wanted = new Map([
+    ['CEREBRO_IMAGE', image],
+    ['CEREBRO_VERSION', version],
+  ]);
+  const lines = content === '' ? [] : content.replace(/\n$/, '').split('\n');
+  const out = lines.map((line) => {
+    const name = /^([A-Z_]+)=/.exec(line.trim())?.[1];
+    if (name === undefined || !wanted.has(name)) return line;
+    const value = wanted.get(name) ?? '';
+    wanted.delete(name);
+    return `${name}=${value}`;
+  });
+  for (const [name, value] of wanted) out.push(`${name}=${value}`);
+  return `${out.join('\n')}\n`;
 }
 
 export class Engine {
@@ -274,7 +288,7 @@ export class Engine {
       await this.must(['docker', 'pull', reference], 'Não foi possível baixar a versão nova.');
       await this.ports.disk.write(
         this.settings.releaseEnv,
-        writeReleaseEnv(reference, manifest.version),
+        withRelease(previousEnv, reference, manifest.version),
       );
       job.step = 'migrate';
       await this.must(

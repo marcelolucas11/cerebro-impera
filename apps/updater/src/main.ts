@@ -181,7 +181,7 @@ async function main(): Promise<void> {
     {
       repository,
       composeFile: process.env.CEREBRO_COMPOSE_FILE ?? '/opt/cerebro/compose/compose.yaml',
-      releaseEnv: join(configDir, 'release.env'),
+      releaseEnv: process.env.CEREBRO_RELEASE_ENV ?? '/opt/cerebro/compose/.env',
       backupsDir: process.env.CEREBRO_BACKUPS_DIR ?? '/opt/cerebro/backups',
       workDir,
       healthTimeoutMs: 180_000,

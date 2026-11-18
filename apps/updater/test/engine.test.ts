@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { Engine, readReleaseEnv, type Ports, type Settings } from '../src/engine.js';
+import { Engine, readReleaseEnv, withRelease, type Ports, type Settings } from '../src/engine.js';
 import {
   MANIFEST,
   MANIFEST_BUNDLE,
@@ -280,5 +280,14 @@ describe('applying an update', () => {
       state: 'rolled_back',
       problem: 'Não foi possível baixar a versão nova.',
     });
+  });
+});
+
+describe('the settings file compose reads', () => {
+  it('gets the new image and version, and keeps every other line', () => {
+    expect(withRelease('A=1\nCEREBRO_VERSION=1.4.0\nB=2\n', 'img@sha256:x', '1.5.0')).toBe(
+      'A=1\nCEREBRO_VERSION=1.5.0\nB=2\nCEREBRO_IMAGE=img@sha256:x\n',
+    );
+    expect(withRelease('', 'img', '1.0.0')).toBe('CEREBRO_IMAGE=img\nCEREBRO_VERSION=1.0.0\n');
   });
 });
