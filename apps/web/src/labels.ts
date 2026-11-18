@@ -23,6 +23,10 @@ export const CAPABILITY_NAMES: Record<string, { name: string; detail: string }> 
     detail: 'Ver o conteúdo de campos protegidos.',
   },
   'system.config': { name: 'Configurar o sistema', detail: 'Alterar nome, marca e regras gerais.' },
+  'reports.view': {
+    name: 'Ver relatórios',
+    detail: 'Ler o relatório semanal das listas em que a pessoa vê todos os itens.',
+  },
 };
 
 export const LEVEL_NAMES: Record<AccessLevel, string> = {

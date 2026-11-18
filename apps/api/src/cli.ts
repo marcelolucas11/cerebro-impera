@@ -10,6 +10,7 @@ import { migrate } from './migrate.js';
 import { ensureSetupToken } from './modules/auth.js';
 import { purgeAttachments, resumeScans } from './modules/attachments.js';
 import { automationsDue, purgeAutomationRuns } from './modules/automations.js';
+import { makeWeeklyReport } from './modules/reports.js';
 import { purgeTrash } from './modules/structure.js';
 import { notifyDue } from './modules/notifications.js';
 import { initSecrets, readSecrets } from './secrets.js';
@@ -85,6 +86,9 @@ async function commandServe(): Promise<void> {
         if (ruled > 0) app.log.info({ ruled }, 'rules on due dates applied');
         const runs = await inTransaction(pools.app, purgeAutomationRuns);
         if (runs > 0) app.log.info({ runs }, 'old automation runs removed');
+        // Monday's first run writes the report of the week that ended.
+        const report = await inTransaction(pools.app, makeWeeklyReport);
+        if (report > 0) app.log.info('weekly report made');
         const files = await purgeAttachments(deps);
         if (files > 0) app.log.info({ files }, 'attachments removed for good');
       })
