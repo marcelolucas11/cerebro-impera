@@ -202,6 +202,8 @@ export interface Item {
   /** Days, as YYYY-MM-DD; null when not set. */
   startDate: string | null;
   dueDate: string | null;
+  /** The item this one is a subtask of; null for an item of its own. */
+  parentId: string | null;
   /** Set only for an item in the trash. */
   trashedAt: string | null;
   trashedBy: string | null;
@@ -249,7 +251,8 @@ export interface ItemChange {
     | 'attachment_restored'
     | 'priority'
     | 'start_date'
-    | 'due_date';
+    | 'due_date'
+    | 'parent';
   fieldId: string | null;
   old: unknown;
   new: unknown;
@@ -400,7 +403,7 @@ export const api = {
     ),
 
   items: (listId: string) => request<Item[]>('GET', `/api/lists/${listId}/items`),
-  createItem: (listId: string, input: { title: string; stageId?: string }) =>
+  createItem: (listId: string, input: { title: string; stageId?: string; parentId?: string }) =>
     request<Item>('POST', `/api/lists/${listId}/items`, input),
   updateItem: (
     id: string,
@@ -414,6 +417,8 @@ export const api = {
       priority?: number | null;
       startDate?: string | null;
       dueDate?: string | null;
+      /** Takes a subtask out from under its parent. */
+      parentId?: null;
     },
   ) => request<Item>('PATCH', `/api/items/${id}`, input),
   fields: (listId: string, options: { archived?: boolean } = {}) =>

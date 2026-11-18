@@ -8,6 +8,7 @@ import {
   fromSearch,
   isFiltering,
   matches,
+  nestSubtasks,
   NO_FILTER,
   plain,
   sortItems,
@@ -60,6 +61,7 @@ function item(partial: Partial<Item>): Item {
     priority: null,
     startDate: null,
     dueDate: null,
+    parentId: null,
     trashedAt: null,
     trashedBy: null,
     ...partial,
@@ -373,5 +375,20 @@ describe('grouping the list', () => {
     expect(fromSearch(toSearch(NO_FILTER, DEFAULT_SORT, null, 'who')).group).toBe('who');
     expect(fromSearch('?agrupar=<x>').group).toBe('stage');
     expect(toSearch(NO_FILTER, DEFAULT_SORT, null, 'stage')).toBe('');
+  });
+});
+
+describe('subtasks in the list', () => {
+  it('sit under their parent when it is shown, and stand alone when it is not', () => {
+    const parent = item({ title: 'Pai' });
+    const first = item({ title: 'Primeira', parentId: parent.id });
+    const second = item({ title: 'Segunda', parentId: parent.id });
+    const orphan = item({ title: 'Órfã', parentId: 'nao-visto' });
+    const lone = item({ title: 'Solta' });
+    const { top, family } = nestSubtasks([second, parent, lone, first, orphan]);
+    expect(top.map((one) => one.title)).toEqual(['Pai', 'Solta', 'Órfã']);
+    expect(family.get(parent.id)?.map((one) => one.title)).toEqual(['Segunda', 'Primeira']);
+    // Filtered out, the parent no longer holds them.
+    expect(nestSubtasks([first, lone]).top.map((one) => one.title)).toEqual(['Primeira', 'Solta']);
   });
 });

@@ -804,6 +804,53 @@ test('priority and due date show what is urgent and what is late, to whoever see
   await shot(ana, 'prioridade-prazo-celular');
 });
 
+test('subtasks hang from an item, fold under it, and follow their own rules', async () => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  const parentTitle = 'Subir campanha do cliente';
+  const row = owner.locator('.item-rows > li').filter({ hasText: parentTitle }).first();
+  await owner.getByRole('button', { name: parentTitle, exact: true }).click();
+  const panel = row.locator('.item-panel').first();
+  for (const title of ['Escrever os textos', 'Separar as imagens']) {
+    await panel.getByLabel(`Nova subtarefa de ${parentTitle}`).fill(title);
+    await panel.getByRole('button', { name: 'Adicionar subtarefa' }).click();
+    await expect(panel.locator('.subtask-names')).toContainText(title);
+  }
+  // Folded under the parent, with how many are done.
+  const lead = row.locator('.item-row').first();
+  await expect(lead).toContainText('0/2 subtarefas concluídas');
+  await expect(owner.getByRole('button', { name: 'Escrever os textos', exact: true })).toHaveCount(
+    0,
+  );
+  await row.getByRole('button', { name: `Mostrar 2 subtarefas de ${parentTitle}` }).click();
+  const nested = owner.getByRole('list', { name: `Subtarefas de ${parentTitle}` });
+  await nested.getByLabel('Etapa de Escrever os textos').selectOption({ label: 'Feito' });
+  await expect(lead).toContainText('1/2 subtarefas concluídas');
+  await shot(owner, 'subtarefas');
+
+  // The employee the parent is with does not see subtasks that are not hers.
+  await ana.goto('/');
+  await ana.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(ana, 'Tarefas');
+  await expect(ana.getByRole('button', { name: parentTitle, exact: true })).toBeVisible();
+  await expect(ana.getByText('subtarefa', { exact: false })).toHaveCount(0);
+
+  // Taken out, a subtask stands on its own; sent to the trash, it goes alone.
+  await nested.getByRole('button', { name: 'Separar as imagens', exact: true }).click();
+  await nested.getByRole('button', { name: `Tirar de dentro de “${parentTitle}”` }).click();
+  await expect(lead).toContainText('1/1 subtarefa concluída');
+  const loose = owner.locator('.item-rows > li').filter({ hasText: 'Separar as imagens' }).first();
+  await owner.getByRole('button', { name: 'Separar as imagens', exact: true }).click();
+  await loose.getByRole('button', { name: 'Mandar para a lixeira Separar as imagens' }).click();
+  await expect(owner.getByRole('button', { name: 'Separar as imagens', exact: true })).toHaveCount(
+    0,
+  );
+  await nested.getByRole('button', { name: 'Escrever os textos', exact: true }).click();
+  await nested.getByRole('button', { name: 'Mandar para a lixeira Escrever os textos' }).click();
+  await expect(lead).not.toContainText('subtarefa');
+});
+
 test('everything is on the record, and the record is intact', async () => {
   await owner.getByRole('link', { name: 'Segurança' }).click();
   await heading(owner, 'Segurança');

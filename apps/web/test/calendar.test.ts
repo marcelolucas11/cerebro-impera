@@ -32,6 +32,7 @@ const item = (id: string, fields: Item['fields']): Item => ({
   priority: null,
   startDate: null,
   dueDate: null,
+  parentId: null,
   trashedAt: null,
   trashedBy: null,
 });

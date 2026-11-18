@@ -217,6 +217,8 @@ export const createItemSchema = z.strictObject({
   description: z.string().max(50_000).optional(),
   stageId: idSchema.optional(),
   fields: fieldValuesSchema.optional(),
+  /** Created as a subtask of this item, of the same list. */
+  parentId: idSchema.optional(),
 });
 /** Priority of an item: 1 is the most urgent, 4 the least. */
 export const PRIORITIES = [1, 2, 3, 4] as const;
@@ -232,6 +234,8 @@ export const updateItemSchema = z
     priority: z.number().int().min(1).max(4).nullable().optional(),
     startDate: daySchema.nullable().optional(),
     dueDate: daySchema.nullable().optional(),
+    /** Only to take a subtask out from under its parent. */
+    parentId: z.null().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'empty update')
   .refine(

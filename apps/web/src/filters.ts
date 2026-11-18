@@ -269,6 +269,28 @@ export function sortItems(
   });
 }
 
+/**
+ * Subtasks under their parent when the parent is shown too, in the order
+ * given; a subtask whose parent is not shown (filtered out, or not the
+ * person's to see) stands on its own.
+ */
+export function nestSubtasks(items: readonly Item[]): {
+  top: Item[];
+  family: Map<string, Item[]>;
+} {
+  const shown = new Set(items.map((item) => item.id));
+  const top: Item[] = [];
+  const family = new Map<string, Item[]>();
+  for (const item of items) {
+    if (item.parentId !== null && shown.has(item.parentId)) {
+      family.set(item.parentId, [...(family.get(item.parentId) ?? []), item]);
+    } else {
+      top.push(item);
+    }
+  }
+  return { top, family };
+}
+
 // ---- In the address ---------------------------------------------------------
 
 const OPS = new Set<FieldTest['op']>([

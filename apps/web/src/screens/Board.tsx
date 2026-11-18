@@ -46,6 +46,8 @@ interface Drag {
 }
 
 export interface PanelProps {
+  /** Every item of the list the person received: subtasks and parents are found here. */
+  everyone: Item[];
   fields: CustomField[];
   canEdit: boolean;
   nameOf: (userId: string | null) => string;
@@ -327,6 +329,7 @@ function Card({
   onOpen,
   onMove,
   handle,
+  everyone,
   fields,
   canEdit,
   nameOf,
@@ -370,7 +373,7 @@ function Card({
             {item.title}
           </button>
         </div>
-        <ItemMarks item={item} stages={stages} />
+        <ItemMarks item={item} stages={stages} everyone={everyone} />
         {shown.length > 0 ? (
           <dl className="card-fields">
             {shown.map((field) => (
