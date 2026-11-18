@@ -1014,6 +1014,33 @@ repetidas. Responde em três endereços: situação, procurar e aplicar.
 - **Fica para a próxima parte:** o andamento vive na memória do atualizador. Se ele for
   reiniciado no meio de uma atualização, a página volta a mostrar só a versão em uso.
 
+## D67 — Release assinada pelo próprio fluxo, e o atualizador como perfil do compose
+
+**Decisão.** Publicar uma release (tag `v1.2.3`) dispara o `release.yml`. O fluxo espera a
+aprovação no ambiente `release` e então:
+
+- constrói as imagens da API e do atualizador;
+- publica as duas no GHCR e assina cada uma pelo digest, com cosign sem chave guardada (a
+  identidade é a do próprio fluxo, via OIDC);
+- atesta o SBOM (SPDX) na imagem da API;
+- anexa à release o manifesto `cerebro-release.json`, assinado com `cosign sign-blob`, e o SBOM.
+
+As ações de terceiros ficam fixadas por SHA, em versões publicadas há mais de 3 dias. O
+atualizador só aceita o que tiver exatamente a identidade desse fluxo.
+
+- **No servidor:** o atualizador é o perfil `updater` do `compose.yaml`. Ele é o único com o
+  socket do Docker e roda só com o que precisa: sistema de arquivos somente leitura, sem
+  capacidades, sem porta publicada, só nas redes `updates` (interna, com a API) e `edge`
+  (GitHub e GHCR).
+- **A chave:** o `init` gera a `updater-key` também em instalações antigas, sem sobrescrever.
+- **Imagem e versão em uso:** ficam no `.env` ao lado do `compose.yaml`, que o compose lê
+  sozinho. O atualizador troca só essas duas linhas.
+- **Imagem do atualizador:** cliente oficial do Docker com o compose, Node e cosign 3.1.4 com o
+  resumo conferido. O CI passa a construí-la e confere que o cosign e o compose estão lá e que
+  ela não sobe sem saber qual repositório seguir.
+- **Ainda manual:** o próprio atualizador se troca à mão, pelo digest publicado na release.
+  Rever com o mantenedor.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

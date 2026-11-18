@@ -122,6 +122,8 @@ jobs:
           persist-credentials: false
       - name: Construir a imagem da API
         run: docker build --file apps/api/Dockerfile --tag cerebro-api:local .
+      - name: Construir a imagem do atualizador
+        run: docker build --file apps/updater/Dockerfile --tag cerebro-updater:local .
       - name: Subir uma instalação do zero
         run: |
           docker compose up --detach
@@ -151,10 +153,16 @@ jobs:
 
           echo "os segredos existem só no volume de configuração, com permissão restrita"
           test "$(docker compose exec -T api stat -c '%a' /opt/cerebro/config/secrets.json)" = "600"
+          test "$(docker compose exec -T api stat -c '%a' /opt/cerebro/config/updater-key)" = "600"
           docker compose exec -T api test -s /opt/cerebro/config/setup-token
           token="$(docker compose exec -T api cat /opt/cerebro/config/setup-token)"
           if docker compose logs --no-color | grep --fixed-strings --quiet "${token}"; then exit 1; fi
           if docker compose config | grep --ignore-case --quiet 'password:'; then exit 1; fi
+
+          echo "o atualizador tem cosign e o cliente do Docker, e não sobe sem saber qual repositório seguir"
+          docker run --rm --entrypoint cosign cerebro-updater:local version > /dev/null
+          docker run --rm --entrypoint docker cerebro-updater:local compose version > /dev/null
+          if docker run --rm cerebro-updater:local 2> /dev/null; then exit 1; fi
 
           echo "o banco não está publicado para fora da rede interna"
           if docker compose port postgres 5432 2> /dev/null | grep --quiet .; then exit 1; fi

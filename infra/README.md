@@ -2,8 +2,9 @@
 
 `compose.yaml` descreve uma instalação: PostgreSQL e API, numa rede interna sem rota para fora.
 
-> A implantação guiada (proxy reverso com TLS, backup, atualizador) chega nas fases 8, 9 e 12. Por
-> enquanto isto serve para desenvolvimento e para o CI provar que a imagem sobe.
+> O atualizador está descrito abaixo. A implantação guiada (proxy reverso com TLS e backup)
+> chega nas fases 9 e 12; por enquanto isto serve para desenvolvimento e para o CI provar que a
+> imagem sobe.
 
 ## Subir localmente
 
@@ -65,3 +66,52 @@ O volume `config` contém a chave da instância. **Sem ela, os segundos fatores,
 e os anexos não podem ser lidos**, e um backup do banco sozinho não basta para restaurar: o volume
 `files` precisa ir junto.
 Ela precisa de cópia própria, em lugar separado do backup do banco.
+
+## Atualizar pelo aplicativo
+
+O atualizador é opcional e fica no perfil `updater`. Ele é o único serviço com o socket do
+Docker. Só a API fala com ele, por requisições assinadas com a chave `updater-key`, que o `init`
+gera no volume de configuração. Ele só instala versões publicadas pelo fluxo `release.yml` do
+repositório indicado e assinadas por ele. Desenho em `docs/design/atualizador.md`.
+
+1. Neste diretório, o arquivo `.env` (que o compose lê sozinho) diz a imagem e a versão em uso,
+   além das configurações da instalação. O atualizador troca só as duas primeiras linhas abaixo:
+
+   ```sh
+   CEREBRO_IMAGE=ghcr.io/<dono>/<repositório>/api@sha256:<digest da release>
+   CEREBRO_VERSION=1.2.3
+   CEREBRO_UPDATER_IMAGE=ghcr.io/<dono>/<repositório>/updater@sha256:<digest da release>
+   CEREBRO_UPDATE_REPOSITORY=<dono>/<repositório>
+   CEREBRO_UPDATER_URL=http://updater:8080
+   CEREBRO_PUBLIC_ORIGIN=https://cerebro.exemplo.com
+   ```
+
+2. Suba com o perfil:
+
+   ```sh
+   docker compose --file infra/compose.yaml --profile updater up --detach
+   ```
+
+3. A seção **Atualizações** aparece para os Donos. "Procurar atualização" lê as releases.
+   "Atualizar agora" pede o código do autenticador e faz o resto, nesta ordem:
+   - copia o banco para o volume `backups`;
+   - confere as assinaturas;
+   - troca a imagem;
+   - migra;
+   - confere a saúde;
+   - volta para a versão anterior se algo falhar.
+
+Este diretório precisa pertencer ao root (o atualizador grava o `.env`). Antes de qualquer
+mudança no servidor, faça um snapshot da VPS.
+
+### Publicar uma versão (mantenedores)
+
+1. No GitHub, crie o ambiente `release` com aprovação obrigatória de um mantenedor.
+2. Publique uma release com a tag da versão (`v1.2.3`). O fluxo `release.yml` espera a aprovação.
+   Depois disso:
+   - constrói as imagens e as publica no GHCR por digest;
+   - assina as imagens sem chave guardada;
+   - gera o SBOM;
+   - anexa à release o manifesto assinado.
+3. `infra/release/min-from` diz a versão mais antiga de onde se pode chegar à nova. Suba esse
+   número quando uma migração exigir uma versão intermediária.

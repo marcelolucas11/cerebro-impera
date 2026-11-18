@@ -23,6 +23,8 @@ x-api: &api
     # Vazio: anexos desligados até a instalação escolher. "clamd://clamav:3310" usa o
     # serviço clamav abaixo; "off" guarda os arquivos marcados como não verificados.
     CEREBRO_ANTIVIRUS: ${CEREBRO_ANTIVIRUS:-}
+    # Com o atualizador ligado (--profile updater): http://updater:8080.
+    CEREBRO_UPDATER_URL: ${CEREBRO_UPDATER_URL:-}
   volumes:
     - config:/opt/cerebro/config
   # Sistema de arquivos somente leitura, sem capacidades do kernel, sem ganho de privilégio.
@@ -116,6 +118,7 @@ services:
       - db
       - edge
       - scan
+      - updates
 
   # Opcional: antivírus dos anexos (ClamAV). Sobe com --profile antivirus e usa de 1,2 a
   # 1,5 GB de memória. Recebe arquivos só da API, pela rede "scan"; a rede "edge" serve
@@ -134,6 +137,41 @@ services:
       - scan
       - edge
 
+  # Opcional: o atualizador (--profile updater). É o único serviço com o socket do Docker.
+  # Só a API fala com ele, pela rede "updates", com requisições assinadas; ele não publica
+  # porta nenhuma e só atualiza quando um Dono pede pela página. Lê as versões do repositório
+  # em CEREBRO_UPDATE_REPOSITORY e só aceita as assinadas pelo fluxo de release dele.
+  updater:
+    image: ${CEREBRO_UPDATER_IMAGE:-cerebro-updater:local}
+    profiles: [updater]
+    restart: unless-stopped
+    environment:
+      CEREBRO_UPDATE_REPOSITORY: ${CEREBRO_UPDATE_REPOSITORY:-}
+      CEREBRO_API_HEALTH_URL: http://api:3000/api/health
+    volumes:
+      # Só lê a chave das requisições; os segredos da instância nunca são escritos aqui.
+      - config:/opt/cerebro/config:ro
+      # Este diretório: o compose.yaml e o .env com a imagem em uso, que ele troca.
+      - ./:/opt/cerebro/compose
+      - backups:/opt/cerebro/backups
+      - /var/run/docker.sock:/var/run/docker.sock
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/lib/cerebro-updater
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 128
+    networks:
+      - updates
+      - edge
+    depends_on:
+      init:
+        condition: service_completed_successfully
+
 networks:
   # Sem rota para fora: o banco não alcança a internet nem é alcançado por ela.
   db:
@@ -142,6 +180,9 @@ networks:
   scan:
     internal: true
   edge: {}
+  # Só a API e o atualizador; sem rota para fora.
+  updates:
+    internal: true
 
 volumes:
   config: {}
@@ -149,3 +190,5 @@ volumes:
   # Anexos, cifrados arquivo a arquivo. Entram no backup junto com o banco.
   files: {}
   clamav: {}
+  # Cópias do banco feitas pelo atualizador antes de cada atualização.
+  backups: {}
