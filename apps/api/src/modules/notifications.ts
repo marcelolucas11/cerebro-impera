@@ -7,7 +7,8 @@ import { one, rows, run, sql, type Tx } from '../db.js';
  * them read.
  */
 
-export type NotificationKind = 'mentioned' | 'assigned' | 'commented' | 'due_today' | 'overdue';
+export type NotificationKind =
+  'mentioned' | 'assigned' | 'commented' | 'due_today' | 'overdue' | 'automation';
 
 export interface NotificationView {
   id: number;
@@ -21,6 +22,8 @@ export interface NotificationView {
   dueOn: string | null;
   createdAt: Date;
   readAt: Date | null;
+  /** Set when a rule caused it, acting as `actorId`; the name is gone with the rule. */
+  automation: { id: string; name: string | null } | null;
 }
 
 const PAGE = 50;
@@ -34,7 +37,10 @@ export async function listNotifications(
     text: `SELECT id::int AS id, kind, item_id AS "itemId", item_title AS "itemTitle",
                   list_id AS "listId", comment_id AS "commentId", actor AS "actorId",
                   actor_name AS "actorName", due_on::text AS "dueOn", created_at AS "createdAt",
-                  read_at AS "readAt"
+                  read_at AS "readAt",
+                  CASE WHEN automation_id IS NULL THEN NULL
+                       ELSE json_build_object('id', automation_id, 'name', automation_name)
+                  END AS automation
            FROM app.my_notifications($1, $2)`,
     values: [before ?? null, PAGE],
   });

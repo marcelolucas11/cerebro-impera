@@ -70,8 +70,8 @@ export function Notifications(): ReactNode {
     <>
       <h1>Avisos</h1>
       <p className="lead">
-        Menções, itens que chegaram para você, comentários nos seus itens e prazos de hoje ou
-        atrasados.
+        Menções, itens que chegaram para você, comentários nos seus itens, prazos de hoje ou
+        atrasados e o que uma automação pediu que você visse.
       </p>
       {latest.isError ? <Notice tone="error">{describeError(latest.error)}</Notice> : null}
       {latest.isPending ? <p className="field-note">Abrindo…</p> : null}

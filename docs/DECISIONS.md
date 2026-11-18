@@ -716,6 +716,40 @@ novo pelas rotas de sempre, com as regras de sempre (`0034_live.sql`).
 - Sem dependência nova: Server-Sent Events do próprio navegador e `LISTEN/NOTIFY` do PostgreSQL. O
   proxy reverso precisa repassar o fluxo sem guardar (ver `infra/README.md`).
 
+## D53 — Automações: regras por lista que agem com o acesso de quem as salvou
+
+**Decisão.** Cada lista tem regras "quando, se, então" (`0035_automations.sql`). Quando: um item é
+criado, ou entra numa etapa (de uma etapa, para uma etapa, ou qualquer mudança). Se (todas valem,
+até 10): etapa, prioridade, responsável (ou ninguém), campo de escolha ou caixa de marcar. Então
+(até 5, em ordem): mover de etapa, mudar a prioridade, passar para alguém, avisar pessoas (até 10),
+comentar. Até 50 regras por lista.
+
+- **A regra age com o acesso de quem a salvou por último, nunca com mais.** Durante a regra, e só
+  durante ela, o banco troca quem está agindo para o autor, sem código recente do autenticador, numa
+  linha que o aplicativo não consegue escrever (`authz.request_ctx`). Todas as travas, carimbos e o
+  histórico veem o autor, e o que ele não pode, a regra não pode: item que ele não edita fica de
+  fora, lista sensível também (por isso listas sensíveis não aceitam regras). Ao terminar, a pessoa
+  volta a ser ela mesma. **Ligar, pausar ou mudar uma regra faz ela agir com o acesso de quem
+  salvou** — a tela diz isso antes de salvar.
+- **Quem vê e quem escreve:** quem gerencia a lista vê as regras e o registro; só quem também tem a
+  permissão "automações" (`automations.manage`, já existente) cria, muda ou apaga. As duas coisas são
+  conferidas pela API e pelo banco.
+- **Marcada como da regra:** o que a regra faz fica no histórico, nos comentários e nos avisos com o
+  nome dela ("A automação “X” mudou a prioridade"), e o autor continua registrado. Comentário de
+  regra não é reescrito por ninguém, só apagado como qualquer outro.
+- **Nunca impede a pessoa:** a regra que não consegue agir é desfeita por inteiro (nenhuma ação pela
+  metade) e anotada no registro como "Falhou", com o motivo; a ação da pessoa fica. Quem salvou sem
+  poder mais editar o item gera "Não agiu". Item que não cumpre as condições não é anotado.
+- **Regras que disparam regras param no terceiro nível**, contados no mesmo lugar protegido.
+- **Item criado é olhado no fim da requisição**, já com responsáveis, campos e checklist; mudança de
+  etapa é tratada na hora, depois do histórico e da recorrência. Item movido para outra lista não
+  dispara regras de etapa. Importação e manutenção (sem pessoa conectada) não disparam regras.
+- **Avisos:** só para quem vê o item, e nunca para quem causou a mudança.
+- **Registro:** 90 dias, imutável; apagado junto com a regra. A limpeza roda com a da lixeira.
+- **Fica para os próximos passos da Fase 5:** gatilhos por campo, responsável e prazo (vencendo ou
+  atrasado), ações de definir campo, prazo relativo, mover de lista e criar item ou subtarefa, e as
+  regras de quem pode mover para cada etapa.
+
 ## D54 — Limite de requisições por sessão, em toda rota
 
 **Decisão.** Toda rota da API passa por um limite de requisições por minuto

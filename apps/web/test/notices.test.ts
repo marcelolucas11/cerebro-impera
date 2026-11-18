@@ -16,6 +16,19 @@ describe('a notification as a sentence', () => {
     );
   });
 
+  it('names the rule when one did it', () => {
+    const rule = { automation: { name: 'Pronto avisa' } };
+    expect(noticeSentence({ ...base, ...rule, kind: 'automation' })).toBe(
+      'A automação “Pronto avisa” chamou você para “Postar no feed”',
+    );
+    expect(noticeSentence({ ...base, ...rule, kind: 'assigned' })).toBe(
+      'A automação “Pronto avisa” passou “Postar no feed” para você',
+    );
+    expect(noticeSentence({ ...base, automation: { name: null }, kind: 'commented' })).toBe(
+      'Uma automação apagada comentou em “Postar no feed”',
+    );
+  });
+
   it('says when something is due today or late', () => {
     expect(noticeSentence({ ...base, kind: 'due_today', actorName: null })).toBe(
       '“Postar no feed” vence hoje',

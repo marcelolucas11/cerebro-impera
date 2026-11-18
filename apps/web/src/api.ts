@@ -269,6 +269,13 @@ export interface ItemChange {
   fieldId: string | null;
   old: unknown;
   new: unknown;
+  /** Set when a rule made the change, on behalf of `actor`; the name is gone with the rule. */
+  automation: RuleMark | null;
+}
+/** Which rule did something; its name is gone once the rule is removed. */
+export interface RuleMark {
+  id: string;
+  name: string | null;
 }
 /** Every so many days, weeks, months or years. */
 export interface Recurrence {
@@ -278,7 +285,7 @@ export interface Recurrence {
 /** Something that happened that this person should know of. */
 export interface AppNotification {
   id: number;
-  kind: 'mentioned' | 'assigned' | 'commented' | 'due_today' | 'overdue';
+  kind: 'mentioned' | 'assigned' | 'commented' | 'due_today' | 'overdue' | 'automation';
   itemId: string;
   itemTitle: string;
   listId: string;
@@ -288,6 +295,8 @@ export interface AppNotification {
   dueOn: string | null;
   createdAt: string;
   readAt: string | null;
+  /** Set when a rule caused it, acting as `actorId`. */
+  automation: RuleMark | null;
 }
 /** A comment on an item, with what the person may do with it. */
 export interface ItemComment {
@@ -303,6 +312,8 @@ export interface ItemComment {
   versions: number;
   /** People mentioned in it; empty once removed. */
   mentions: string[];
+  /** Set when a rule wrote it, as `authorId`; nobody rewrites it. */
+  automation: RuleMark | null;
   canEdit: boolean;
   canRemove: boolean;
 }
@@ -323,6 +334,56 @@ export interface CheckLine {
   doneAt: string | null;
   createdBy: string;
   createdAt: string;
+}
+/** A rule of a list: when, if, then. */
+export type RuleTrigger = { on: 'created' } | { on: 'stage'; to?: string; from?: string };
+export type RuleCondition =
+  | { if: 'stage'; is: string }
+  | { if: 'priority'; is: 1 | 2 | 3 | 4 | null }
+  | { if: 'assignee'; is: string | null }
+  | { if: 'field'; field: string; is: string | boolean };
+export type RuleAction =
+  | { do: 'stage'; to: string }
+  | { do: 'priority'; to: 1 | 2 | 3 | 4 | null }
+  | { do: 'assign'; to: string }
+  | { do: 'notify'; to: string[] }
+  | { do: 'comment'; text: string };
+export type RunOutcome = 'done' | 'skipped' | 'failed';
+export interface Automation {
+  id: string;
+  listId: string;
+  name: string;
+  enabled: boolean;
+  trigger: RuleTrigger;
+  conditions: RuleCondition[];
+  actions: RuleAction[];
+  /** Whose access it acts with: whoever saved it last. */
+  runAs: string;
+  runAsName: string;
+  createdAt: string;
+  updatedAt: string;
+  lastRun: { at: string; outcome: RunOutcome } | null;
+}
+export interface AutomationInput {
+  name: string;
+  enabled?: boolean;
+  trigger: RuleTrigger;
+  conditions: RuleCondition[];
+  actions: RuleAction[];
+}
+export interface AutomationRun {
+  id: number;
+  at: string;
+  outcome: RunOutcome;
+  detail: string | null;
+  itemId: string | null;
+  itemTitle: string | null;
+}
+/** Someone a rule may tell; `canWork` also lets a rule hand them items. */
+export interface RuleAudience {
+  id: string;
+  name: string;
+  canWork: boolean;
 }
 export interface MySession {
   id: string;
@@ -497,6 +558,15 @@ export const api = {
   updateCheck: (checkId: string, input: { text?: string; done?: boolean }) =>
     request<CheckLine>('PATCH', `/api/checklist/${checkId}`, input),
   removeCheck: (checkId: string) => request<{ ok: true }>('DELETE', `/api/checklist/${checkId}`),
+  automations: (listId: string) => request<Automation[]>('GET', `/api/lists/${listId}/automations`),
+  ruleAudience: (listId: string) =>
+    request<RuleAudience[]>('GET', `/api/lists/${listId}/automation-audience`),
+  createAutomation: (listId: string, input: AutomationInput) =>
+    request<Automation>('POST', `/api/lists/${listId}/automations`, input),
+  updateAutomation: (id: string, input: Partial<AutomationInput>) =>
+    request<Automation>('PATCH', `/api/automations/${id}`, input),
+  removeAutomation: (id: string) => request<{ ok: true }>('DELETE', `/api/automations/${id}`),
+  automationRuns: (id: string) => request<AutomationRun[]>('GET', `/api/automations/${id}/runs`),
   createItem: (listId: string, input: { title: string; stageId?: string; parentId?: string }) =>
     request<Item>('POST', `/api/lists/${listId}/items`, input),
   updateItem: (
