@@ -13,6 +13,8 @@ import { Vault } from '../../src/crypto/vault.js';
 import { closePools, createPools } from '../../src/db.js';
 import type { Deps } from '../../src/deps.js';
 import { ensureSetupToken } from '../../src/modules/auth.js';
+import type { Scanner } from '../../src/files/scanner.js';
+import { FileStore } from '../../src/files/store.js';
 
 export const ORIGIN = 'https://cerebro.exemplo.test';
 
@@ -28,7 +30,30 @@ export interface TestEnv {
 }
 
 /** A private, fully migrated database plus an API instance wired to it. */
-export async function createTestEnv(options: { webRoot?: string } = {}): Promise<TestEnv> {
+/**
+ * A stand-in for the antivirus: finds the industry's harmless test signature
+ * (EICAR), the same way a real one would, and nothing else.
+ */
+// Built at run time so this source file itself never looks infected to a scanner on disk.
+export const EICAR = [
+  'X5O!P%@AP[4\\PZX54(P^)7CC)7}$',
+  'EICAR-STANDARD',
+  '-ANTIVIRUS-TEST-FILE!$H+H*',
+].join('');
+export const testScanner: Scanner = {
+  async scan(chunks) {
+    let seen = '';
+    for await (const chunk of chunks) {
+      seen = (seen + chunk.toString('latin1')).slice(-200_000);
+      if (seen.includes(EICAR)) return 'infected';
+    }
+    return 'clean';
+  },
+};
+
+export async function createTestEnv(
+  options: { webRoot?: string; scanner?: Scanner | null } = {},
+): Promise<TestEnv> {
   const shared = inject('testDatabase');
   const adminUrl = new URL(shared.adminUrl);
   const database = `${shared.template.replace(/template$/, '')}${randomBytes(6).toString('hex')}`;
@@ -62,6 +87,8 @@ export async function createTestEnv(options: { webRoot?: string } = {}): Promise
     argon2: { memoryCost: 4096, timeCost: 1, parallelism: 1 },
     setupTokenFile: join(configDir, 'setup-token'),
     webRoot: options.webRoot ?? null,
+    files: { dir: join(configDir, 'files'), maxBytes: 20 * 1024 * 1024 },
+    antivirus: { kind: 'off' },
   };
 
   const clock = {
@@ -78,6 +105,8 @@ export async function createTestEnv(options: { webRoot?: string } = {}): Promise
     vault: new Vault(config.masterKey),
     hasher: new PasswordHasher(config.argon2),
     now: () => clock.now,
+    files: new FileStore(config.files.dir),
+    scanner: options.scanner === undefined ? testScanner : options.scanner,
   };
   const app = await buildApp(deps);
   await ensureSetupToken(deps);
@@ -144,6 +173,30 @@ export class Browser {
       body: (text === '' ? undefined : JSON.parse(text)) as T,
       headers: response.headers,
     };
+  }
+
+  /** Sends and receives raw bytes: file parts going in, file content coming out. */
+  async bytes(
+    method: 'GET' | 'PUT',
+    url: string,
+    payload?: Buffer,
+    extraHeaders: Record<string, string> = {},
+  ): Promise<{ status: number; body: Buffer; headers: ApiResponse['headers'] }> {
+    const headers: Record<string, string> = {
+      'user-agent': this.userAgent,
+      ...(method === 'GET' ? {} : { origin: ORIGIN, 'content-type': 'application/octet-stream' }),
+      ...extraHeaders,
+    };
+    if (this.cookies.size > 0) {
+      headers.cookie = [...this.cookies].map(([name, value]) => `${name}=${value}`).join('; ');
+    }
+    const response = await this.#app.inject({
+      method,
+      url,
+      headers,
+      ...(payload === undefined ? {} : { payload }),
+    });
+    return { status: response.statusCode, body: response.rawPayload, headers: response.headers };
   }
 
   get<T = unknown>(url: string): Promise<ApiResponse<T>> {

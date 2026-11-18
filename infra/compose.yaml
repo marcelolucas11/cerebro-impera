@@ -18,6 +18,10 @@ x-api: &api
     CEREBRO_TRUST_PROXY: 'true'
     CEREBRO_DB_HOST: postgres
     CEREBRO_DB_NAME: cerebro
+    CEREBRO_MAX_ATTACHMENT_MB: ${CEREBRO_MAX_ATTACHMENT_MB:-2048}
+    # Vazio: anexos desligados até a instalação escolher. "clamd://clamav:3310" usa o
+    # serviço clamav abaixo; "off" guarda os arquivos marcados como não verificados.
+    CEREBRO_ANTIVIRUS: ${CEREBRO_ANTIVIRUS:-}
   volumes:
     - config:/opt/cerebro/config
   # Sistema de arquivos somente leitura, sem capacidades do kernel, sem ganho de privilégio.
@@ -88,6 +92,10 @@ services:
     <<: *api
     command: [serve]
     restart: unless-stopped
+    # Só a API monta os anexos; nenhum outro serviço os alcança.
+    volumes:
+      - config:/opt/cerebro/config
+      - files:/opt/cerebro/files
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -106,13 +114,37 @@ services:
     networks:
       - db
       - edge
+      - scan
+
+  # Opcional: antivírus dos anexos (ClamAV). Sobe com --profile antivirus e usa de 1,2 a
+  # 1,5 GB de memória. Recebe arquivos só da API, pela rede "scan"; a rede "edge" serve
+  # apenas para baixar as assinaturas novas. Não publica porta nenhuma.
+  clamav:
+    image: clamav/clamav:stable
+    profiles: [antivirus]
+    restart: unless-stopped
+    volumes:
+      - clamav:/var/lib/clamav
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: ${CEREBRO_CLAMAV_MEMORY:-2g}
+    pids_limit: 256
+    networks:
+      - scan
+      - edge
 
 networks:
   # Sem rota para fora: o banco não alcança a internet nem é alcançado por ela.
   db:
+    internal: true
+  # Só a API e o antivírus; sem rota para fora.
+  scan:
     internal: true
   edge: {}
 
 volumes:
   config: {}
   pgdata: {}
+  # Anexos, cifrados arquivo a arquivo. Entram no backup junto com o banco.
+  files: {}
+  clamav: {}

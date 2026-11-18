@@ -42,4 +42,14 @@ describe('what a person reads when a request fails', () => {
     }
     expect(describeError(new ApiError(0, 'network'))).toContain('conexão');
   });
+
+  it('tells how large a file may be when one is too large', () => {
+    const tooLarge = new ApiError(400, 'file_too_large', { maxBytes: 2 * 1024 ** 3 });
+    expect(describeError(tooLarge)).toBe(
+      'O arquivo passa do limite desta instalação, que é de 2 GB.',
+    );
+    expect(describeError(new ApiError(400, 'file_too_large'))).toBe(
+      'O arquivo passa do limite desta instalação.',
+    );
+  });
 });

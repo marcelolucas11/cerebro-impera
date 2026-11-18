@@ -7,6 +7,7 @@ import {
   MAX_FIELDS_PER_LIST,
   MAX_LABELS_PER_VALUE,
 } from './fields.js';
+import { MAX_FILE_NAME_LENGTH, safeFileName } from './files.js';
 import { PASSWORD_MAX_LENGTH } from './password.js';
 import { ROLES } from './roles.js';
 import { MAX_STAGES_PER_LIST, STAGE_FILE_KIND, STAGE_FILE_VERSION, STAGE_KINDS } from './stages.js';
@@ -223,6 +224,19 @@ export const updateItemSchema = z
     fields: fieldValuesSchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'empty update');
+export const startUploadSchema = z.strictObject({
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(MAX_FILE_NAME_LENGTH)
+    .refine((name) => safeFileName(name) === name, 'invalid file name'),
+  size: z.number().int().min(1).max(1_099_511_627_776),
+  type: z.string().max(200),
+});
+export const attachmentListQuerySchema = z.strictObject({ trash: z.enum(['1']).optional() });
+export const downloadQuerySchema = z.strictObject({ inline: z.enum(['1']).optional() });
+
 export const moveItemSchema = z.strictObject({
   listId: idSchema,
   /** Omitted: the first stage of the list it goes to. */

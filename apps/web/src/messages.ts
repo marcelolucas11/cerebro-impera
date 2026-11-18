@@ -1,6 +1,7 @@
 import type { PasswordProblem } from '@cerebro/shared';
 import { ApiError, type Role } from './api.js';
 import { describeFieldProblem } from './fieldvalues.js';
+import { formatBytes } from './labels.js';
 
 /*
  * Every sentence a person reads when something does not go through. Each one
@@ -53,6 +54,19 @@ const BY_CODE: Record<string, string> = {
   same_password: 'A nova senha precisa ser diferente da atual.',
   cannot_assign_person:
     'Essa pessoa não pode trabalhar nesta lista. Dê a ela acesso para editar antes de passar o item.',
+  attachments_not_ready:
+    'Os anexos ainda não foram ligados nesta instalação: falta escolher o antivírus no servidor.',
+  disk_full:
+    'O servidor está sem espaço para guardar esse arquivo. Avise quem administra o sistema.',
+  invalid_part: 'O envio se perdeu no caminho. Tente continuar de novo.',
+  invalid_part_size: 'O envio se perdeu no caminho. Tente continuar de novo.',
+  parts_missing: 'Ainda faltam partes do arquivo. Tente continuar o envio.',
+  upload_finished: 'Esse envio já terminou.',
+  upload_unfinished: 'Esse envio ainda não terminou. Termine ou descarte antes.',
+  attachment_scanning:
+    'O antivírus ainda está conferindo este arquivo. Tente de novo em instantes.',
+  attachment_blocked: 'O antivírus bloqueou este arquivo. Ninguém pode baixá-lo.',
+  not_same_file: 'Esse não é o mesmo arquivo do envio interrompido. Escolha o arquivo original.',
   setup_closed:
     'Token de instalação incorreto, ou a instalação já foi concluída. O token está no arquivo setup-token do servidor.',
   invalid_invite: 'Este convite não vale mais. Peça um novo a quem administra o sistema.',
@@ -80,6 +94,12 @@ export function describeError(error: unknown): string {
       return first ? PASSWORD_PROBLEMS[first] : 'Escolha uma senha mais forte.';
     }
     if (error.code === 'invalid_field_value') return describeFieldProblem(error.details.problem);
+    if (error.code === 'file_too_large') {
+      const limit = error.details.maxBytes;
+      return typeof limit === 'number'
+        ? `O arquivo passa do limite desta instalação, que é de ${formatBytes(limit)}.`
+        : 'O arquivo passa do limite desta instalação.';
+    }
     const known = BY_CODE[error.code];
     if (known !== undefined) return known;
   }

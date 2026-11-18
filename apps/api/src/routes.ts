@@ -1,6 +1,7 @@
 import {
   acceptInviteSchema,
   applyStagesSchema,
+  attachmentListQuerySchema,
   auditQuerySchema,
   changePasswordSchema,
   copyFieldsSchema,
@@ -12,6 +13,7 @@ import {
   createStageSchema,
   createUserSchema,
   deleteStageSchema,
+  downloadQuerySchema,
   deviceDecisionSchema,
   idSchema,
   itemHistoryQuerySchema,
@@ -25,6 +27,7 @@ import {
   setCapabilitiesSchema,
   setupSchema,
   setupTotpSchema,
+  startUploadSchema,
   totpConfirmSchema,
   updateFieldSchema,
   updateItemSchema,
@@ -32,12 +35,18 @@ import {
   updateUserSchema,
   upsertGrantSchema,
 } from '@cerebro/shared';
+import { Readable } from 'node:stream';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { z } from 'zod';
 import { withActor, type Actor } from './actor.js';
 import { one, sql, type Tx } from './db.js';
 import type { Deps } from './deps.js';
+import { PREVIEWABLE } from './files/sniff.js';
+import { PART_SIZE } from './files/store.js';
 import { clearCookie, SESSION_COOKIE } from './http/cookies.js';
+import { badRequest } from './http/errors.js';
 import { parse } from './http/request.js';
+import * as attachments from './modules/attachments.js';
 import * as auth from './modules/auth.js';
 import * as fields from './modules/fields.js';
 import * as grants from './modules/grants.js';
@@ -285,6 +294,96 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return signedIn(request, (tx, actor) => history.itemHistory(tx, actor, id, query));
   });
 
+  // ---- Attachments -----------------------------------------------------------------
+  app.get('/api/items/:id/attachments', (request) => {
+    const id = paramId(request);
+    const query = parse(attachmentListQuerySchema, request.query);
+    return signedIn(request, (tx, actor) =>
+      attachments.listAttachments(tx, actor, id, { inTrash: query.trash === '1' }),
+    );
+  });
+  app.get('/api/lists/:id/attachments/:attachmentId', (request) => {
+    const id = paramId(request);
+    const attachmentId = parse(
+      idSchema,
+      (request.params as { attachmentId?: unknown }).attachmentId,
+    );
+    return signedIn(request, (tx, actor) =>
+      attachments.attachmentInList(tx, actor, id, attachmentId),
+    );
+  });
+  app.post('/api/items/:id/attachments', (request) => {
+    const id = paramId(request);
+    const body = parse(startUploadSchema, request.body);
+    return signedIn(request, (tx, actor) => attachments.startUpload(deps, tx, actor, id, body));
+  });
+  // Parts arrive as raw bytes, up to one part per request, only on this route.
+  void app.register((scope, _options, done) => {
+    scope.addContentTypeParser(
+      'application/octet-stream',
+      { parseAs: 'buffer', bodyLimit: PART_SIZE },
+      (_request, body, parsed) => {
+        parsed(null, body);
+      },
+    );
+    scope.put('/api/uploads/:id/parts/:n', { bodyLimit: PART_SIZE }, (request) => {
+      const id = paramId(request);
+      const n = parse(partNumberSchema, (request.params as { n?: unknown }).n);
+      if (!Buffer.isBuffer(request.body)) throw badRequest('expected_bytes');
+      const content = request.body;
+      return signedIn(request, (tx, actor) =>
+        attachments.receivePart(deps, tx, actor, id, n, content),
+      );
+    });
+    done();
+  });
+  app.get('/api/uploads/:id', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => attachments.uploadState(deps, tx, actor, id));
+  });
+  app.post('/api/uploads/:id/finish', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) =>
+      attachments.finishUpload(deps, tx, actor, id, (error) => {
+        request.log.error({ err: error }, 'an attachment could not be checked');
+      }),
+    );
+  });
+  app.delete('/api/uploads/:id', async (request) => {
+    const id = paramId(request);
+    await signedIn(request, (tx, actor) => attachments.cancelUpload(tx, actor, id));
+    return { ok: true };
+  });
+  app.post('/api/attachments/:id/trash', async (request) => {
+    const id = paramId(request);
+    await signedIn(request, (tx, actor) => attachments.trashAttachment(tx, actor, id));
+    return { ok: true };
+  });
+  app.post('/api/attachments/:id/restore', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => attachments.restoreAttachment(tx, actor, id));
+  });
+  app.get('/api/attachments/:id/content', async (request, reply) => {
+    const id = paramId(request);
+    const query = parse(downloadQuerySchema, request.query);
+    const range = parseRange(request.headers.range);
+    const file = await signedIn(request, (tx, actor) =>
+      attachments.download(deps, tx, actor, id, range),
+    );
+    const inline = query.inline === '1' && file.type !== null && PREVIEWABLE.has(file.type);
+    void reply
+      .status(range ? 206 : 200)
+      .header('content-type', inline && file.type !== null ? file.type : 'application/octet-stream')
+      .header('content-disposition', contentDisposition(inline, file.name))
+      .header('content-length', String(file.end - file.start + 1))
+      .header('accept-ranges', 'bytes')
+      // A file is never a page: nothing in it runs, even if a browser tried.
+      .header('content-security-policy', "default-src 'none'; sandbox")
+      .header('cache-control', 'no-store');
+    if (range) void reply.header('content-range', `bytes ${file.start}-${file.end}/${file.size}`);
+    return reply.send(Readable.from(file.chunks));
+  });
+
   // ---- Custom fields -------------------------------------------------------------
   app.get('/api/lists/:id/fields', (request) => {
     const id = paramId(request);
@@ -330,4 +429,21 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     await signedIn(request, (tx, actor) => oversight.acknowledgeAlert(tx, actor, id));
     return { ok: true };
   });
+}
+
+const partNumberSchema = z.coerce.number().int().min(0).max(200_000);
+
+/** One byte range ("bytes=10-20", "bytes=10-"), or null for anything else. */
+function parseRange(header: string | undefined): { start: number; end: number } | null {
+  const match = /^bytes=(\d{1,15})-(\d{0,15})$/.exec(header ?? '');
+  if (!match) return null;
+  const start = Number(match[1]);
+  const end = match[2] === '' ? Number.MAX_SAFE_INTEGER : Number(match[2]);
+  return end >= start ? { start, end } : null;
+}
+
+/** The file's own name, safe in a header whatever characters it has. */
+function contentDisposition(inline: boolean, name: string): string {
+  const fallback = name.replace(/[^\x20-\x7e]|["\\]/g, '_');
+  return `${inline ? 'inline' : 'attachment'}; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(name)}`;
 }

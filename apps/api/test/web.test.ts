@@ -55,7 +55,14 @@ describe('the page', () => {
       }),
     );
     expect(directives.get('default-src')).toBe("'none'");
-    for (const name of ['script-src', 'style-src', 'font-src', 'img-src', 'connect-src']) {
+    for (const name of [
+      'script-src',
+      'style-src',
+      'font-src',
+      'img-src',
+      'media-src',
+      'connect-src',
+    ]) {
       expect(directives.get(name), name).toBe("'self'");
     }
     expect(directives.get('frame-ancestors')).toBe("'none'");

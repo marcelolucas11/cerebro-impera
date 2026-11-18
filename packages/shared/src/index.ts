@@ -1,6 +1,7 @@
 export * from './access.js';
 export * from './capabilities.js';
 export * from './fields.js';
+export * from './files.js';
 export * from './password.js';
 export * from './roles.js';
 export * from './schemas.js';

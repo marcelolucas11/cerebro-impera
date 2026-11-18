@@ -16,6 +16,11 @@ export interface HistoryContext {
 
 const capitalized = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
 const text = (value: unknown): string => (typeof value === 'string' ? value : '');
+const fileName = (value: unknown): string => {
+  const name =
+    typeof value === 'object' && value !== null ? (value as { name?: unknown }).name : undefined;
+  return typeof name === 'string' ? `“${name}”` : 'um arquivo';
+};
 const stageName = (value: unknown): string => {
   const name =
     typeof value === 'object' && value !== null ? (value as { name?: unknown }).name : undefined;
@@ -64,6 +69,12 @@ export function describeChange(change: ItemChange, context: HistoryContext): Cha
       return { sentence: `${who} mandou o item para a lixeira` };
     case 'restored':
       return { sentence: `${who} tirou o item da lixeira` };
+    case 'attachment_added':
+      return { sentence: `${who} anexou ${fileName(change.new)}` };
+    case 'attachment_removed':
+      return { sentence: `${who} mandou o anexo ${fileName(change.new)} para a lixeira` };
+    case 'attachment_restored':
+      return { sentence: `${who} tirou o anexo ${fileName(change.new)} da lixeira` };
     case 'field': {
       const field = change.fieldId === null ? undefined : context.fieldOf(change.fieldId);
       if (!field) return { sentence: `${who} alterou um campo` };

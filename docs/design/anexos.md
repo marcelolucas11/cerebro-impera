@@ -1,6 +1,7 @@
 # Anexos — desenho
 
-Estado: **desenho aprovado para construção**, com uma decisão pendente (antivírus, seção 6).
+Estado: **construído** (migração `0017_attachments.sql`, API, tela e passo no percurso em
+navegador), com uma decisão pendente: qual antivírus a instalação usa (seção 6).
 Este documento descreve como arquivos entram, ficam guardados e saem do sistema. Nada aqui é
 específico de uma empresa.
 
@@ -42,7 +43,11 @@ específico de uma empresa.
    partes (8 MiB).
 2. `PUT /api/uploads/:id/parts/:n` com o conteúdo bruto da parte. Cada parte é cifrada e gravada
    na hora. Repetir uma parte já recebida é permitido (a última vale).
-3. `GET /api/uploads/:id` diz quais partes já chegaram: é como o envio continua depois de cair.
+3. `GET /api/uploads/:id` diz o tamanho das partes e quais já chegaram: é como o envio continua
+   depois de cair. Na tela, uma parte que falha por falta de conexão é tentada de novo sozinha
+   (até 4 vezes, esperando 1, 2 e 4 segundos); depois disso o envio para e mostra "Continuar
+   envio". Se a página foi fechada, o envio aparece como "envio interrompido" para quem o
+   começou: escolher o mesmo arquivo (mesmo nome e tamanho) continua de onde parou.
 4. `POST /api/uploads/:id/finish` confere que todas as partes chegaram, que o tamanho bate e
    calcula o SHA-256. O anexo passa a "em verificação".
 
@@ -58,9 +63,16 @@ específico de uma empresa.
   `Content-Security-Policy: default-src 'none'; sandbox`.
 - Por padrão o arquivo vem como download (`Content-Disposition: attachment`), com o nome
   original codificado com segurança.
-- Pré-visualização na própria página só para tipos que não executam nada, e só quando o tipo
-  detectado no conteúdo bate com o informado: PNG, JPEG, WebP, GIF, PDF, MP3, M4A, OGG, WAV,
-  MP4, WebM. SVG, HTML e qualquer outro tipo sempre vêm como download.
+- Pré-visualização na própria página só para tipos que não executam nada, e sempre pelo tipo
+  detectado no conteúdo, nunca pelo nome nem pelo que o navegador informou: PNG, JPEG, WebP, GIF,
+  MP3, M4A, OGG, WAV, MP4, WebM. SVG, HTML e qualquer outro tipo sempre vêm como download.
+- **PDF vem só como download, por enquanto.** O leitor de PDF do navegador executa código próprio
+  e não funciona sob `sandbox`; afrouxar a política só para ele não vale o risco agora. Revisar
+  quando houver um leitor de PDF que rode dentro da própria página (Fase 3 ou depois).
+- Abrir a pré-visualização ou baixar passa antes por `GET /api/lists/:lista/attachments/:id`,
+  que confere o acesso pela lista. Numa lista sensível sem 2º fator recente, a resposta é "confirme
+  o código" (e a tela pede o código), em vez de "não encontrado". Essa consulta não conta como
+  download no registro de auditoria.
 - Suporte a pedidos de intervalo (`Range`) para áudio e vídeo tocarem sem baixar tudo.
 
 ## 6. Antivírus — decisão pendente
@@ -72,8 +84,11 @@ atualização das assinaturas). O arquivo é enviado ao `clamd` por fluxo depois
 - Infectado: "bloqueado". Ninguém baixa; os Donos recebem alerta; o arquivo fica 30 dias para
   conferência e depois é apagado.
 - Enquanto não foi verificado, ninguém baixa, nem quem enviou.
+- Antivírus fora do ar: o arquivo continua "em verificação" (nunca vira "limpo" por falta de
+  resposta) e é entregue de novo ao antivírus a cada hora e quando o serviço reinicia, sem
+  verificar o mesmo arquivo duas vezes ao mesmo tempo.
 
-**O que falta decidir (Rodrigo):** o ClamAV usa de 1,2 a 1,5 GB de memória. Depende da
+**O que falta decidir (mantenedor):** o ClamAV usa de 1,2 a 1,5 GB de memória. Depende da
 configuração da VPS. Alternativas, da mais segura para a menos:
 
 1. ClamAV na mesma VPS (recomendado, se houver memória livre).
@@ -81,8 +96,18 @@ configuração da VPS. Alternativas, da mais segura para a menos:
 3. Sem antivírus: anexos ficam "não verificados", com aviso ao baixar, e a instalação registra
    que o Dono escolheu esse modo.
 
-Enquanto a decisão não vem, o código é construído com o verificador como uma peça trocável e os
-testes usam um verificador falso que reconhece o arquivo de teste padrão EICAR.
+Como ficou no código, à espera da decisão: a variável `CEREBRO_ANTIVIRUS` escolhe.
+
+| Valor                 | Efeito                                                                        |
+| --------------------- | ----------------------------------------------------------------------------- |
+| vazio (padrão)        | anexos desligados: a tela explica que falta escolher o antivírus              |
+| `clamd://clamav:3310` | ClamAV; `infra/compose.yaml` traz o serviço, ligado com `--profile antivirus` |
+| `off`                 | sem antivírus: tudo fica marcado "não verificado pelo antivírus"              |
+
+Os testes usam um verificador falso que reconhece o arquivo de teste padrão EICAR; o percurso em
+navegador roda com `off`. Falta, para a opção 3: o sistema registrar que essa foi a escolha do Dono
+(entra com as configurações da instalação, Fase 10); hoje a escolha fica só na configuração do
+servidor.
 
 ## 7. Lixeira, histórico e cópias de segurança
 
