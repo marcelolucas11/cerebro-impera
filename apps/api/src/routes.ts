@@ -28,6 +28,8 @@ import {
   setupSchema,
   setupTotpSchema,
   setSecretSchema,
+  createViewSchema,
+  updateViewSchema,
   startUploadSchema,
   totpConfirmSchema,
   updateFieldSchema,
@@ -55,6 +57,7 @@ import * as history from './modules/history.js';
 import * as oversight from './modules/oversight.js';
 import * as people from './modules/people.js';
 import * as secrets from './modules/secrets.js';
+import * as views from './modules/views.js';
 import * as stages from './modules/stages.js';
 import * as structure from './modules/structure.js';
 
@@ -294,6 +297,27 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const id = paramId(request);
     const query = parse(itemHistoryQuerySchema, request.query);
     return signedIn(request, (tx, actor) => history.itemHistory(tx, actor, id, query));
+  });
+
+  // ---- Saved views -----------------------------------------------------------------
+  app.get('/api/lists/:id/views', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => views.listViews(tx, actor, id));
+  });
+  app.post('/api/lists/:id/views', (request) => {
+    const id = paramId(request);
+    const body = parse(createViewSchema, request.body);
+    return signedIn(request, (tx, actor) => views.createView(tx, actor, id, body));
+  });
+  app.patch('/api/views/:id', (request) => {
+    const id = paramId(request);
+    const body = parse(updateViewSchema, request.body);
+    return signedIn(request, (tx, actor) => views.updateView(tx, actor, id, body));
+  });
+  app.delete('/api/views/:id', async (request) => {
+    const id = paramId(request);
+    await signedIn(request, (tx, actor) => views.deleteView(tx, actor, id));
+    return { ok: true };
   });
 
   // ---- Secret fields ---------------------------------------------------------------

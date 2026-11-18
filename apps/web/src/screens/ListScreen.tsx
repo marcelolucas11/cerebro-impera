@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { api, ApiError, type CustomField, type Item, type Me, type Stage } from '../api.js';
 import { hasValue } from '../fieldvalues.js';
 import {
@@ -13,7 +13,7 @@ import {
 } from '../filters.js';
 import { formatDuration } from '../labels.js';
 import { describeError } from '../messages.js';
-import { Link, type ListView } from '../router.js';
+import { Link, navigate, type ListView } from '../router.js';
 import { useGuard } from '../stepup.js';
 import { Button, Notice, useAction } from '../ui/kit.js';
 import { FIELD_COLUMNS, FieldEditor } from './FieldEditor.js';
@@ -22,6 +22,7 @@ import { Board } from './Board.js';
 import { FieldValueView } from './FieldInput.js';
 import { ItemPanel } from './ItemPanel.js';
 import { ListTools } from './ListTools.js';
+import { SavedViews } from './SavedViews.js';
 import { StageEditor } from './StageEditor.js';
 
 const needsCode = (error: unknown): boolean =>
@@ -78,6 +79,16 @@ export function ListScreen({
     window.history.replaceState(null, '', window.location.pathname + toSearch(filter, sort));
   }, []);
   const search = toSearch(shaping.filter, shaping.sort);
+  // Back and forward bring their own filter with them.
+  useEffect(() => {
+    const follow = (): void => {
+      setShaping(fromSearch(window.location.search));
+    };
+    window.addEventListener('popstate', follow);
+    return () => {
+      window.removeEventListener('popstate', follow);
+    };
+  }, []);
 
   const unlock = useAction(
     useCallback(async () => {
@@ -231,6 +242,16 @@ export function ListScreen({
       {editing === 'fields' ? (
         <FieldEditor listId={listId} fields={fields.data} otherLists={otherLists} />
       ) : null}
+      <SavedViews
+        listId={listId}
+        view={view}
+        search={search}
+        onApply={(saved) => {
+          const parsed = fromSearch(saved.query);
+          navigate(`/listas/${listId}${saved.kind === 'board' ? '/quadro' : ''}${saved.query}`);
+          reshape(parsed.filter, parsed.sort);
+        }}
+      />
       <ListTools
         filter={filter}
         sort={sort}

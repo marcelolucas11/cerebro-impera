@@ -794,7 +794,7 @@ test('the owner changes her own password, and sees where she is signed in', asyn
   await heading(owner, 'Seus espaços');
 });
 
-test('a list is narrowed and ordered, and stays that way across a reload and the board', async () => {
+test('a list is narrowed and ordered, stays that way across a reload and the board, and is saved by name', async () => {
   await owner.getByRole('link', { name: 'Espaços' }).click();
   await owner.getByRole('link', { name: 'Tarefas' }).click();
   await heading(owner, 'Tarefas');
@@ -814,6 +814,15 @@ test('a list is narrowed and ordered, and stays that way across a reload and the
     .getByRole('link', { name: 'Quadro' })
     .click();
   await expect(owner.locator('.card .card-title')).toHaveText(['Conferir perfis']);
+  // Saved under a name, it comes back in one tap; it is hers alone.
+  await owner.getByRole('button', { name: 'Salvar esta visão' }).click();
+  await owner.getByLabel('Nome da visão').fill('Perfis no quadro');
+  await owner.getByRole('button', { name: 'Salvar visão' }).click();
+  const saved = owner.getByRole('navigation', { name: 'Suas visões salvas' });
+  await expect(saved.getByRole('button', { name: /Perfis no quadro/ })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
   await owner
     .getByRole('navigation', { name: 'Ver como' })
     .getByRole('link', { name: 'Lista' })
@@ -833,6 +842,15 @@ test('a list is narrowed and ordered, and stays that way across a reload and the
   await tools.getByRole('button', { name: 'Limpar filtros e ordem' }).click();
   await expect(titles).toHaveCount(2);
   expect(new URL(owner.url()).search).toBe('');
+
+  await saved.getByRole('button', { name: /Perfis no quadro/ }).click();
+  await expect(owner.locator('.card .card-title')).toHaveText(['Conferir perfis']);
+  expect(new URL(owner.url()).pathname).toMatch(/\/quadro$/);
+  await expect(tools.getByLabel('Buscar no título')).toHaveValue('PERFIS');
+  await shot(owner, 'visao-salva');
+  await owner.getByRole('button', { name: 'Apagar a visão “Perfis no quadro”' }).click();
+  await expect(saved).toHaveCount(0);
+  await tools.getByRole('button', { name: 'Limpar filtros e ordem' }).click();
 });
 
 test('the board shows the list by stage, and a card is dragged from one to another', async () => {

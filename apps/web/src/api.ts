@@ -261,6 +261,16 @@ export interface StageStay {
   movedBy: string | null;
 }
 
+/** A person's named way of looking at a list. `query` is the address's query part. */
+export interface SavedView {
+  id: string;
+  listId: string;
+  name: string;
+  kind: 'list' | 'board';
+  query: string;
+  updatedAt: string;
+}
+
 export type AttachmentStatus = 'uploading' | 'scanning' | 'ready' | 'blocked';
 export interface Attachment {
   id: string;
@@ -424,6 +434,10 @@ export const api = {
       `/api/items/${itemId}/history${before === undefined ? '' : `?before=${before}`}`,
     ),
 
+  views: (listId: string) => request<SavedView[]>('GET', `/api/lists/${listId}/views`),
+  createView: (listId: string, input: { name: string; kind: 'list' | 'board'; query: string }) =>
+    request<SavedView>('POST', `/api/lists/${listId}/views`, input),
+  deleteView: (id: string) => request<{ ok: true }>('DELETE', `/api/views/${id}`),
   /** Keeps a secret, or clears it with null. */
   setSecret: (itemId: string, fieldId: string, value: string | null) =>
     request<{ set: boolean }>('PUT', `/api/items/${itemId}/secrets/${fieldId}`, { value }),
