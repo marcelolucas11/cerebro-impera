@@ -1,5 +1,6 @@
 import type { FieldValue } from '@cerebro/shared';
 import type { ItemChange } from './api.js';
+import { fullDay, priorityLabel } from './due.js';
 import { showValue, type FieldLike } from './fieldvalues.js';
 
 /*
@@ -75,6 +76,24 @@ export function describeChange(change: ItemChange, context: HistoryContext): Cha
       return { sentence: `${who} mandou o anexo ${fileName(change.new)} para a lixeira` };
     case 'attachment_restored':
       return { sentence: `${who} tirou o anexo ${fileName(change.new)} da lixeira` };
+    case 'priority': {
+      const after = typeof change.new === 'number' ? priorityLabel(change.new) : null;
+      const before = typeof change.old === 'number' ? priorityLabel(change.old) : null;
+      if (after === null) return { sentence: `${who} tirou a prioridade (era ${before ?? '?'})` };
+      return before === null
+        ? { sentence: `${who} definiu a prioridade: ${after}` }
+        : { sentence: `${who} mudou a prioridade de ${before} para ${after}` };
+    }
+    case 'start_date':
+    case 'due_date': {
+      const name = change.what === 'due_date' ? 'o prazo' : 'o começo';
+      const after = typeof change.new === 'string' ? fullDay(change.new) : null;
+      const before = typeof change.old === 'string' ? fullDay(change.old) : null;
+      if (after === null) return { sentence: `${who} tirou ${name} (era ${before ?? '?'})` };
+      return before === null
+        ? { sentence: `${who} marcou ${name} para ${after}` }
+        : { sentence: `${who} mudou ${name} de ${before} para ${after}` };
+    }
     case 'field': {
       const field = change.fieldId === null ? undefined : context.fieldOf(change.fieldId);
       if (!field) return { sentence: `${who} alterou um campo` };

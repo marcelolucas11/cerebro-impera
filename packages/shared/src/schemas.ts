@@ -3,6 +3,7 @@ import { ACCESS_LEVELS, ITEM_SCOPES, SCOPE_TYPES } from './access.js';
 import { CAPABILITIES } from './capabilities.js';
 import {
   FIELD_KINDS,
+  isRealDate,
   MAX_FIELD_OPTIONS,
   MAX_FIELDS_PER_LIST,
   MAX_LABELS_PER_VALUE,
@@ -217,14 +218,29 @@ export const createItemSchema = z.strictObject({
   stageId: idSchema.optional(),
   fields: fieldValuesSchema.optional(),
 });
+/** Priority of an item: 1 is the most urgent, 4 the least. */
+export const PRIORITIES = [1, 2, 3, 4] as const;
+export type Priority = (typeof PRIORITIES)[number];
+/** A day, as YYYY-MM-DD, that exists. */
+export const daySchema = z.string().refine(isRealDate, 'not a day');
 export const updateItemSchema = z
   .strictObject({
     title: z.string().trim().min(1).max(500).optional(),
     description: z.string().max(50_000).optional(),
     stageId: idSchema.optional(),
     fields: fieldValuesSchema.optional(),
+    priority: z.number().int().min(1).max(4).nullable().optional(),
+    startDate: daySchema.nullable().optional(),
+    dueDate: daySchema.nullable().optional(),
   })
-  .refine((value) => Object.keys(value).length > 0, 'empty update');
+  .refine((value) => Object.keys(value).length > 0, 'empty update')
+  .refine(
+    (value) =>
+      typeof value.startDate !== 'string' ||
+      typeof value.dueDate !== 'string' ||
+      value.startDate <= value.dueDate,
+    'start after due',
+  );
 const selection = z
   .array(idSchema)
   .min(1)

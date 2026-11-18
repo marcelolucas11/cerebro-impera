@@ -27,6 +27,8 @@ import { Table } from './Table.js';
 import { Timeline } from './Timeline.js';
 import { FieldValueView } from './FieldInput.js';
 import { ItemPanel } from './ItemPanel.js';
+import { finishedStages, ItemMarks } from './ItemMarks.js';
+import { isoDay } from '../calendar.js';
 import { BulkBar } from './BulkBar.js';
 import { ListTools } from './ListTools.js';
 import { SavedViews } from './SavedViews.js';
@@ -211,7 +213,14 @@ export function ListScreen({
   const columns = fields.data.slice(0, FIELD_COLUMNS);
   const { filter, sort } = shaping;
   const visible = sortItems(
-    items.data.filter((item) => matches(item, filter, { me: me.id, fields: fields.data })),
+    items.data.filter((item) =>
+      matches(item, filter, {
+        me: me.id,
+        fields: fields.data,
+        today: isoDay(new Date()),
+        finished: finishedStages(stages.data),
+      }),
+    ),
     sort,
     fields.data,
   );
@@ -606,6 +615,7 @@ function ItemRow({
           >
             {item.title}
           </button>
+          <ItemMarks item={item} stages={stages} />
         </span>
         <span className="muted">
           {assignees.length === 0 ? 'Sem responsável' : `Com ${assignees.join(', ')}`}

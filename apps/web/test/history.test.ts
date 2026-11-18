@@ -111,6 +111,25 @@ describe('a line of an item’s history', () => {
     expect(say({ what: 'attachment_added', new: null })).toBe('Você anexou um arquivo');
   });
 
+  it('says how priority and dates changed, days with their year', () => {
+    expect(say({ what: 'priority', new: 2 })).toBe('Você definiu a prioridade: 2 · Alta');
+    expect(say({ what: 'priority', old: 2, new: 1 })).toBe(
+      'Você mudou a prioridade de 2 · Alta para 1 · Urgente',
+    );
+    expect(say({ what: 'priority', actor: ANA, old: 3 })).toBe(
+      'Ana tirou a prioridade (era 3 · Normal)',
+    );
+    expect(say({ what: 'due_date', new: '2026-11-20' })).toBe(
+      'Você marcou o prazo para 20/11/2026',
+    );
+    expect(say({ what: 'due_date', old: '2026-11-20', new: '2026-12-01' })).toBe(
+      'Você mudou o prazo de 20/11/2026 para 01/12/2026',
+    );
+    expect(say({ what: 'start_date', old: '2026-11-18' })).toBe(
+      'Você tirou o começo (era 18/11/2026)',
+    );
+  });
+
   it('says a secret changed, and never what it is', () => {
     const marker = { secret: true };
     expect(say({ what: 'field', fieldId: 'senha', new: marker })).toBe(

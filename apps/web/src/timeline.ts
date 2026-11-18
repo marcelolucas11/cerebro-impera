@@ -1,5 +1,5 @@
 import type { Item } from './api.js';
-import { dayOfValue } from './calendar.js';
+import { dateValue, dayOfValue } from './calendar.js';
 import type { FieldLike } from './fieldvalues.js';
 
 /*
@@ -49,8 +49,8 @@ export interface Span {
  * them, a single day. An end before the start is read the other way round.
  */
 export function spanOf(item: Item, start: FieldLike, end: FieldLike): Span | null {
-  const from = dayOfValue(start, item.fields[start.id]);
-  const to = dayOfValue(end, item.fields[end.id]);
+  const from = dayOfValue(start, dateValue(item, start));
+  const to = dayOfValue(end, dateValue(item, end));
   if (from === null && to === null) return null;
   const a = from ?? to ?? '';
   const b = to ?? from ?? '';

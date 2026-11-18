@@ -1,11 +1,13 @@
 import { useId, useState, type ReactNode } from 'react';
 import type { CustomField, Stage } from '../api.js';
+import { PRIORITY_NAMES, priorityLabel } from '../due.js';
 import { parseDecimal } from '../fieldvalues.js';
 import {
   isFiltering,
   NO_FILTER,
   DEFAULT_SORT,
   testsFor,
+  type DueFilter,
   type FieldTest,
   type Filter,
   type GroupBy,
@@ -40,6 +42,14 @@ function blankTest(op: FieldTest['op']): FieldTest {
  * The bar above a list or a board: search, who, stage, one field, and the
  * order. It only narrows what the person already sees.
  */
+const DUE_OPTIONS: { value: DueFilter; label: string }[] = [
+  { value: 'any', label: 'Qualquer prazo' },
+  { value: 'overdue', label: 'Atrasados' },
+  { value: 'today', label: 'Vencem hoje' },
+  { value: 'week', label: 'Próximos 7 dias' },
+  { value: 'none', label: 'Sem prazo' },
+];
+
 export function ListTools({
   filter,
   sort,
@@ -130,6 +140,9 @@ export function ListTools({
     { value: 'manual', label: 'Ordem do quadro' },
     { value: 'stage', label: 'Tempo na etapa' },
     { value: 'title', label: 'Título' },
+    { value: 'priority', label: 'Prioridade' },
+    { value: 'due', label: 'Prazo' },
+    { value: 'start', label: 'Início' },
     { value: 'created', label: 'Criação' },
     { value: 'updated', label: 'Última mudança' },
     ...fields
@@ -192,6 +205,7 @@ export function ListTools({
             options={[
               { value: 'stage', label: 'Etapa' },
               { value: 'who', label: 'Responsável' },
+              { value: 'priority', label: 'Prioridade' },
               ...fields
                 .filter(
                   (candidate) =>
@@ -218,6 +232,29 @@ export function ListTools({
         </Button>
       </div>
       <div className="list-tools-row">
+        <Select
+          label="Prioridade"
+          value={filter.priority}
+          onChange={(priority) => {
+            setFilter({ priority });
+          }}
+          options={[
+            { value: 'any', label: 'Qualquer prioridade' },
+            ...Object.keys(PRIORITY_NAMES).map((key) => ({
+              value: key,
+              label: priorityLabel(Number(key)) ?? key,
+            })),
+            { value: 'none', label: 'Sem prioridade' },
+          ]}
+        />
+        <Select
+          label="Prazo"
+          value={filter.due}
+          onChange={(due) => {
+            setFilter({ due });
+          }}
+          options={DUE_OPTIONS}
+        />
         <Select
           label="Filtrar por campo"
           value={field?.id ?? ''}

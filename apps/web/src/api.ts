@@ -197,6 +197,11 @@ export interface Item {
   secrets: string[];
   /** Place in its stage's column on the board; null when never placed. */
   position: number | null;
+  /** 1 (most urgent) to 4; null when not set. */
+  priority: number | null;
+  /** Days, as YYYY-MM-DD; null when not set. */
+  startDate: string | null;
+  dueDate: string | null;
   /** Set only for an item in the trash. */
   trashedAt: string | null;
   trashedBy: string | null;
@@ -241,7 +246,10 @@ export interface ItemChange {
     | 'restored'
     | 'attachment_added'
     | 'attachment_removed'
-    | 'attachment_restored';
+    | 'attachment_restored'
+    | 'priority'
+    | 'start_date'
+    | 'due_date';
   fieldId: string | null;
   old: unknown;
   new: unknown;
@@ -402,6 +410,10 @@ export const api = {
       stageId?: string;
       /** `null` clears a field. */
       fields?: Record<string, FieldValue | null>;
+      /** `null` clears each of these. */
+      priority?: number | null;
+      startDate?: string | null;
+      dueDate?: string | null;
     },
   ) => request<Item>('PATCH', `/api/items/${id}`, input),
   fields: (listId: string, options: { archived?: boolean } = {}) =>

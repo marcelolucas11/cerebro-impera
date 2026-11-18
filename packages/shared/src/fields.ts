@@ -163,7 +163,8 @@ export type FieldValueProblem =
   | 'duplicate_file'
   | 'unknown_file';
 
-function isRealDate(value: string): boolean {
+/** A calendar day written YYYY-MM-DD that exists (no 31 of February), between 1900 and 2200. */
+export function isRealDate(value: string): boolean {
   const match = DATE_PATTERN.exec(value);
   if (!match) return false;
   const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];

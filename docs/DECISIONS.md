@@ -548,6 +548,31 @@ notificações existirem (Fase 4).
 **Por quê.** Apagar muita coisa de uma vez é o estrago mais rápido que uma conta comprometida ou um
 engano pode fazer; por isso a barreira está onde o dano é grande e não no uso comum.
 
+## D45 — Prioridade, início e prazo nativos, com datas como dias
+
+**Decisão.** Todo item tem prioridade, data de início e prazo próprios, fora dos campos
+personalizados (`0027_priority_dates.sql`).
+
+- **Prioridade de 1 a 4**, 1 a mais urgente (Urgente, Alta, Normal, Baixa), ou nenhuma. São os
+  quatro níveis da ferramenta que o Cérebro substitui, então a migração passa direto. _Rever com o
+  mantenedor:_ se a escala precisar ser outra (1 a 5, 1 a 10), muda só a regra da coluna e a
+  lista de nomes.
+- **Início e prazo são dias, não horários.** "Vence dia 20" é dia 20 para todo mundo, em qualquer
+  fuso. Hora marcada continua possível com um campo de data e hora. O começo nunca vem depois do
+  prazo: a API e o banco recusam.
+- **Atrasado** é o item com prazo antes de hoje (no fuso de quem olha) que não está numa etapa de
+  "concluído" ou "encerrado".
+- Quem edita o item define os três; o histórico do item registra cada mudança, escrito pelo banco.
+- Na tela: marcas ao lado do título na lista e no quadro (só as duas prioridades mais altas e o
+  que está atrasado ou vence hoje ganham cor); filtro por prioridade e por prazo (atrasados, vencem
+  hoje, próximos 7 dias, sem prazo); ordem e agrupamento por prioridade; colunas na tabela.
+- O calendário passa a abrir pelo prazo, e a linha do tempo vai do início ao prazo do próprio
+  item; os campos de data da lista continuam disponíveis nos dois.
+
+**Cliente, local e marcadores** ficam como campos personalizados (texto, escolha única,
+marcadores), que já filtram, ordenam e agrupam. _Rever com o mantenedor_ se algum deles precisar
+de regra própria (por exemplo, cliente ligado a outro cadastro).
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

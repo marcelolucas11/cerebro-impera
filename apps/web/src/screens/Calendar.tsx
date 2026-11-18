@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import type { Item } from '../api.js';
 import {
+  dateSources,
   isoDay,
   itemsByDay,
   monthGrid,
@@ -23,13 +24,12 @@ const dayName = (day: string): string => {
 };
 
 /*
- * The list as a month: each item on the day of one of its date fields. On a
- * phone the grid becomes an agenda, only the days that have something.
+ * The list as a month: each item on its due date, or on its start or one of
+ * its date fields. On a phone the grid becomes an agenda, only the days that
+ * have something.
  */
 export function Calendar({ items, ...panel }: PanelProps & { items: Item[] }): ReactNode {
-  const dateFields = panel.fields.filter(
-    (field) => field.kind === 'date' || field.kind === 'datetime',
-  );
+  const dateFields = dateSources(panel.fields);
   const [fieldId, setFieldId] = useState(dateFields[0]?.id ?? '');
   const field = dateFields.find((candidate) => candidate.id === fieldId) ?? dateFields[0];
   const today = isoDay(new Date());

@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import type { Item, Stage } from '../api.js';
-import { isoDay } from '../calendar.js';
+import { dateSources, DUE_SOURCE, isoDay, START_SOURCE } from '../calendar.js';
 import { addDays, barIn, spanOf, weekStart, windowDays } from '../timeline.js';
 import { Button, Select } from '../ui/kit.js';
 import { ItemDialog, type PanelProps } from './Board.js';
@@ -24,11 +24,10 @@ export function Timeline({
   items,
   ...panel
 }: PanelProps & { stages: Stage[]; items: Item[] }): ReactNode {
-  const dateFields = panel.fields.filter(
-    (field) => field.kind === 'date' || field.kind === 'datetime',
-  );
-  const [startId, setStartId] = useState(dateFields[0]?.id ?? '');
-  const [endId, setEndId] = useState(dateFields[1]?.id ?? dateFields[0]?.id ?? '');
+  const dateFields = dateSources(panel.fields);
+  // By default, from the item's own start to its due date.
+  const [startId, setStartId] = useState(START_SOURCE.id);
+  const [endId, setEndId] = useState(DUE_SOURCE.id);
   const today = isoDay(new Date());
   const [first, setFirst] = useState(addDays(weekStart(today), -7));
   const [openId, setOpenId] = useState<string | null>(null);

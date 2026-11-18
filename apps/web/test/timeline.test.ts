@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Item } from '../src/api.js';
 import type { FieldLike } from '../src/fieldvalues.js';
+import { DUE_SOURCE, START_SOURCE } from '../src/calendar.js';
 import { addDays, barIn, daysBetween, spanOf, weekStart, windowDays } from '../src/timeline.js';
 
-const start: FieldLike = { id: 'inicio', name: 'Início', kind: 'date', config: {} };
+const start: FieldLike = { id: 'comeca', name: 'Começa', kind: 'date', config: {} };
 const end: FieldLike = { id: 'fim', name: 'Fim', kind: 'date', config: {} };
 const item = (fields: Item['fields']): Item => ({
   id: 'x',
@@ -19,6 +20,9 @@ const item = (fields: Item['fields']): Item => ({
   fields,
   secrets: [],
   position: null,
+  priority: null,
+  startDate: null,
+  dueDate: null,
   trashedAt: null,
   trashedBy: null,
 });
@@ -43,7 +47,7 @@ describe('days on the timeline', () => {
 
 describe('an item’s bar', () => {
   it('runs from its start to its end, or marks a single day', () => {
-    expect(spanOf(item({ inicio: '2026-11-17', fim: '2026-11-20' }), start, end)).toEqual({
+    expect(spanOf(item({ comeca: '2026-11-17', fim: '2026-11-20' }), start, end)).toEqual({
       start: '2026-11-17',
       end: '2026-11-20',
     });
@@ -51,11 +55,23 @@ describe('an item’s bar', () => {
       start: '2026-11-20',
       end: '2026-11-20',
     });
-    expect(spanOf(item({ inicio: '2026-11-25', fim: '2026-11-20' }), start, end)).toEqual({
+    expect(spanOf(item({ comeca: '2026-11-25', fim: '2026-11-20' }), start, end)).toEqual({
       start: '2026-11-20',
       end: '2026-11-25',
     });
     expect(spanOf(item({}), start, end)).toBeNull();
+  });
+
+  it('runs from the item’s own start to its due date', () => {
+    const own = { ...item({}), startDate: '2026-11-18', dueDate: '2026-11-22' };
+    expect(spanOf(own, START_SOURCE, DUE_SOURCE)).toEqual({
+      start: '2026-11-18',
+      end: '2026-11-22',
+    });
+    expect(spanOf({ ...own, startDate: null }, START_SOURCE, DUE_SOURCE)).toEqual({
+      start: '2026-11-22',
+      end: '2026-11-22',
+    });
   });
 
   it('sits in the window where its days are, cut at the edges, and not at all outside', () => {
