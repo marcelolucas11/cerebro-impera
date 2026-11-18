@@ -100,6 +100,7 @@ const ACTION_NAMES: Record<string, string> = {
   'update.applied': 'Atualização aplicada',
   'update.rolled_back': 'Atualização desfeita',
   'update.refused': 'Atualização recusada',
+  'update.failed': 'Atualização não aplicada',
   'automations.updated': 'Automação alterada',
   'automations.removed': 'Automação apagada',
   'attachment.blocked': 'Anexo bloqueado pelo antivírus',

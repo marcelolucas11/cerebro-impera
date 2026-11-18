@@ -979,6 +979,41 @@ fica do outro lado de uma rede interna. Desenho em [`docs/design/atualizador.md`
   imagem quando ela é construída).
 - Nunca atualiza sozinho.
 
+## D66 — O atualizador: um programa pequeno, sem dependências, que não confia em nada sem assinatura
+
+**Decisão.** O atualizador (`apps/updater`) é um programa Node sem dependências além do pacote
+compartilhado. Ele só responde a requisições assinadas pela API, dentro de um minuto e nunca
+repetidas. Responde em três endereços: situação, procurar e aplicar.
+
+- **Procurar:** pega a maior release publicada e estável acima da versão em uso. Rascunhos,
+  pré-releases e nomes que não sejam versão ficam de fora. A release só vale se trouxer o
+  manifesto e a assinatura dele, e o manifesto:
+  - tem de ser assinado pelo fluxo `release.yml` deste repositório (`cosign verify-blob`);
+  - tem de dizer a mesma versão;
+  - tem de apontar para uma imagem `ghcr.io/<este repositório>/api` por digest;
+  - tem de aceitar a versão em uso como ponto de partida.
+    Os arquivos são baixados só do GitHub, pequenos, com redirecionamentos só dentro do GitHub.
+- **Aplicar:** só a versão que acabou de passar na procura, uma de cada vez.
+  1. Confere de novo a assinatura do manifesto e a da imagem pelo digest (`cosign verify`).
+  2. Copia o banco (`pg_dump`). Se isso falhar, nada é trocado.
+  3. Baixa a imagem pelo digest.
+  4. Troca o digest em `release.env`.
+  5. Roda `migrate`.
+  6. Sobe a `api`.
+  7. Espera a saúde por até 3 minutos.
+
+  Se algo falhar depois da cópia, ele para a versão nova, restaura o banco (`pg_restore` numa
+  transação só), volta o digest anterior e sobe a versão anterior. Se nem isso der certo, diz
+  onde está a cópia.
+
+- **Sem shell:** todo comando é uma lista fixa de argumentos.
+- **Testes:** Docker, GitHub, cosign e disco são trocados por versões de mentira, para provar a
+  ordem dos passos, as recusas e a volta atrás.
+- O protocolo assinado foi para o pacote compartilhado (`@cerebro/shared/protocol`), usado pelos
+  dois lados.
+- **Fica para a próxima parte:** o andamento vive na memória do atualizador. Se ele for
+  reiniciado no meio de uma atualização, a página volta a mostrar só a versão em uso.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

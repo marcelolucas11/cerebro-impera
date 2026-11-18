@@ -2,7 +2,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { httpUpdater, UpdaterUnreachable, type Updater } from '../src/updates/client.js';
-import { sign, UpdaterRefusal, verify, type UpdaterStatus } from '../src/updates/protocol.js';
+import { sign, UpdaterRefusal, verify, type UpdaterStatus } from '@cerebro/shared/protocol';
 import { createTestEnv, expireStepUp, type Person, type TestEnv } from './support/env.js';
 import { buildScenario, type Scenario } from './support/scenario.js';
 

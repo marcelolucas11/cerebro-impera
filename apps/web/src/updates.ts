@@ -18,6 +18,9 @@ const REFUSALS: Record<string, string> = {
   signature_invalid:
     'a assinatura da versão não confere com o repositório do projeto. Nada foi instalado.',
   manifest_missing: 'a versão não traz o arquivo assinado que o atualizador exige.',
+  manifest_invalid: 'o arquivo da versão não fala desta instalação. Nada foi instalado.',
+  too_old: 'esta instalação precisa passar antes por uma versão intermediária.',
+  current_unknown: 'não foi possível saber a versão em uso.',
   busy: 'já há uma atualização em andamento.',
 };
 
