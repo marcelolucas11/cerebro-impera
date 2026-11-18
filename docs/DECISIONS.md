@@ -431,7 +431,10 @@ modo que recarregar, trocar entre lista e quadro ou mandar o link mantém o reco
 - Um filtro só esconde; nunca pede ao servidor nada além do que a pessoa já vê. Campo secreto se
   filtra só por "preenchido" ou "vazio".
 - Endereço com valores sem sentido é ignorado, nunca dá erro.
-- A ordem padrão é "tempo na etapa" (quem espera há mais tempo primeiro), a mesma do quadro.
+- A ordem padrão é a "ordem do quadro" (D41).
+- A lista também agrupa por responsável, por um campo ou sem grupos (`agrupar=`); um item com
+  várias pessoas ou marcadores aparece em cada grupo. Item novo só se cria no agrupamento por
+  etapa, que diz em que etapa ele entra.
 
 **Por quê.** Uma lista de até alguns milhares de itens já chega inteira em bem menos de um segundo
 (teste de escala); filtrar no servidor seria mais um caminho de consulta para proteger, sem ganho

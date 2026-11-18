@@ -843,6 +843,20 @@ test('a list is narrowed and ordered, stays that way across a reload and the boa
   await expect(titles).toHaveCount(2);
   expect(new URL(owner.url()).search).toBe('');
 
+  // Gathered by someone other than the stage: a person, or a field's options.
+  await tools.getByLabel('Agrupar por').selectOption({ label: 'Responsável' });
+  await expect(
+    owner.getByRole('region', { name: 'Grupo Ana Souza' }).locator('.item-title'),
+  ).toHaveCount(2);
+  await tools.getByLabel('Agrupar por').selectOption({ label: 'Fornecedor' });
+  await expect(owner.getByRole('region', { name: 'Grupo Alfa' })).toContainText('Conferir perfis');
+  await expect(owner.getByRole('region', { name: 'Grupo Beta' })).toContainText(
+    'Subir campanha do cliente',
+  );
+  await shot(owner, 'agrupado');
+  await tools.getByLabel('Agrupar por').selectOption({ label: 'Etapa' });
+  expect(new URL(owner.url()).search).toBe('');
+
   await saved.getByRole('button', { name: /Perfis no quadro/ }).click();
   await expect(owner.locator('.card .card-title')).toHaveText(['Conferir perfis']);
   expect(new URL(owner.url()).pathname).toMatch(/\/quadro$/);

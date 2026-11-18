@@ -8,8 +8,10 @@ import {
   matches,
   sortItems,
   toSearch,
+  groupItems,
   type Columns,
   type Filter,
+  type GroupBy,
   type Sort,
 } from '../filters.js';
 import { formatDuration } from '../labels.js';
@@ -78,18 +80,26 @@ export function ListScreen({
   const [editing, setEditing] = useState<'stages' | 'fields' | null>(null);
   // What is narrowed and how it is ordered lives in the address, so it survives a reload.
   const [shaping, setShaping] = useState(() => fromSearch(window.location.search));
-  const reshape = useCallback((filter: Filter, sort: Sort, columns?: Columns) => {
-    setShaping((current) => {
-      const next = { filter, sort, columns: columns === undefined ? current.columns : columns };
-      window.history.replaceState(
-        null,
-        '',
-        window.location.pathname + toSearch(next.filter, next.sort, next.columns),
-      );
-      return next;
-    });
-  }, []);
-  const search = toSearch(shaping.filter, shaping.sort, shaping.columns);
+  const reshape = useCallback(
+    (filter: Filter, sort: Sort, extra: { columns?: Columns; group?: GroupBy } = {}) => {
+      setShaping((current) => {
+        const next = {
+          filter,
+          sort,
+          columns: extra.columns === undefined ? current.columns : extra.columns,
+          group: extra.group ?? current.group,
+        };
+        window.history.replaceState(
+          null,
+          '',
+          window.location.pathname + toSearch(next.filter, next.sort, next.columns, next.group),
+        );
+        return next;
+      });
+    },
+    [],
+  );
+  const search = toSearch(shaping.filter, shaping.sort, shaping.columns, shaping.group);
   // Back and forward bring their own filter with them.
   useEffect(() => {
     const follow = (): void => {
@@ -269,13 +279,17 @@ export function ListScreen({
         onApply={(saved) => {
           const parsed = fromSearch(saved.query);
           navigate(listPath(listId, saved.kind, saved.query));
-          reshape(parsed.filter, parsed.sort, parsed.columns);
+          reshape(parsed.filter, parsed.sort, { columns: parsed.columns, group: parsed.group });
         }}
       />
       <ListTools
         filter={filter}
         sort={sort}
         onChange={reshape}
+        group={view === 'list' ? shaping.group : null}
+        onGroup={(group) => {
+          reshape(filter, sort, { group });
+        }}
         stages={stages.data}
         fields={fields.data}
         people={pickable}
@@ -313,7 +327,7 @@ export function ListScreen({
             reshape(filter, next);
           }}
           onColumns={(next) => {
-            reshape(filter, sort, next);
+            reshape(filter, sort, { columns: next });
           }}
         />
       ) : null}
@@ -338,10 +352,30 @@ export function ListScreen({
           workers={handsOutWork ? (workers.data ?? []) : null}
         />
       ) : null}
-      {view === 'list'
+      {view === 'list' && shaping.group !== 'stage'
+        ? groupItems(visible, shaping.group, { fields: fields.data, nameOf }).map((group) => (
+            <ItemGroup
+              key={group.key}
+              name={group.label}
+              color={group.color}
+              stage={null}
+              stages={stages.data}
+              fields={fields.data}
+              columns={columns}
+              items={group.items}
+              canEdit={canEdit}
+              nameOf={nameOf}
+              listNameOf={listNameOf}
+              workers={handsOutWork ? (workers.data ?? []) : null}
+            />
+          ))
+        : null}
+      {view === 'list' && shaping.group === 'stage'
         ? shownStages.map((stage) => (
-            <StageGroup
+            <ItemGroup
               key={stage.id}
+              name={stage.name}
+              color={stage.color}
               stage={stage}
               stages={stages.data}
               fields={fields.data}
@@ -359,7 +393,10 @@ export function ListScreen({
   );
 }
 
-function StageGroup({
+/** A group of rows: a stage (where new items can be added), a person or a field's value. */
+function ItemGroup({
+  name,
+  color,
   stage,
   stages,
   fields,
@@ -370,7 +407,10 @@ function StageGroup({
   listNameOf,
   workers,
 }: {
-  stage: Stage;
+  name: string;
+  color: string | null;
+  /** The stage this group is, when grouped by stage: new items go there. */
+  stage: Stage | null;
   stages: Stage[];
   fields: CustomField[];
   /** The fields shown as columns of the list. */
@@ -384,7 +424,10 @@ function StageGroup({
 }): ReactNode {
   const [open, setOpen] = useState(true);
   return (
-    <section className="stage-group" aria-label={`Etapa ${stage.name}`}>
+    <section
+      className="stage-group"
+      aria-label={stage !== null ? `Etapa ${name}` : `Grupo ${name}`}
+    >
       <h2>
         <button
           type="button"
@@ -394,8 +437,10 @@ function StageGroup({
             setOpen(!open);
           }}
         >
-          <span className="stage-mark" style={{ background: stage.color }} aria-hidden="true" />
-          {stage.name}
+          {color !== null ? (
+            <span className="stage-mark" style={{ background: color }} aria-hidden="true" />
+          ) : null}
+          {name}
           <span className="stage-count">
             {items.length === 1 ? '1 item' : `${items.length} itens`}
           </span>
@@ -403,7 +448,11 @@ function StageGroup({
       </h2>
       {open ? (
         <>
-          {items.length === 0 ? <p className="field-note">Nenhum item nesta etapa.</p> : null}
+          {items.length === 0 ? (
+            <p className="field-note">
+              {stage !== null ? 'Nenhum item nesta etapa.' : 'Nenhum item neste grupo.'}
+            </p>
+          ) : null}
           {items.length > 0 && columns.length > 0 ? (
             // Read by sight only: each cell below repeats its own field name for screen readers.
             <div
@@ -435,7 +484,7 @@ function StageGroup({
               />
             ))}
           </ul>
-          {canEdit ? <AddItem stage={stage} /> : null}
+          {canEdit && stage !== null ? <AddItem stage={stage} /> : null}
         </>
       ) : null}
     </section>

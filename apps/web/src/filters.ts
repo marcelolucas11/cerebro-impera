@@ -1,6 +1,6 @@
 import type { FieldKind, FieldValue } from '@cerebro/shared';
 import type { Item } from './api.js';
-import type { FieldLike } from './fieldvalues.js';
+import { showValue, type FieldLike } from './fieldvalues.js';
 
 /*
  * Narrowing and ordering what a list shows. Everything here works on items
@@ -247,8 +247,96 @@ export function defaultColumns(fields: readonly FieldLike[]): string[] {
   ];
 }
 
+/** How the list view gathers items: by stage (the default), by who, by a field, or not at all. */
+export type GroupBy = 'stage' | 'who' | 'none' | `field:${string}`;
+
+export interface Group {
+  key: string;
+  label: string;
+  color: string | null;
+  items: Item[];
+}
+
+/**
+ * Items gathered by who or by a field, in a meaningful order: options as the
+ * list orders them, people by name, values as read; "no value" last. An item
+ * with several people or labels appears under each of them.
+ */
+export function groupItems(
+  items: readonly Item[],
+  group: Exclude<GroupBy, 'stage'>,
+  context: { fields: readonly FieldLike[]; nameOf: (userId: string) => string },
+): Group[] {
+  if (group === 'none')
+    return [{ key: 'todos', label: 'Todos os itens', color: null, items: [...items] }];
+  const groups = new Map<string, Group>();
+  const add = (key: string, label: string, color: string | null, item: Item): void => {
+    const existing = groups.get(key) ?? { key, label, color, items: [] };
+    existing.items.push(item);
+    groups.set(key, existing);
+  };
+  let order: string[];
+  let emptyLabel: string;
+  if (group === 'who') {
+    emptyLabel = 'Sem responsável';
+    for (const item of items) {
+      if (item.assignees.length === 0) add('', emptyLabel, null, item);
+      for (const id of item.assignees) add(id, context.nameOf(id), null, item);
+    }
+    order = [...groups.values()]
+      .filter((one) => one.key !== '')
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+      .map((one) => one.key);
+  } else {
+    const field = context.fields.find((candidate) => `field:${candidate.id}` === group);
+    if (!field) return [{ key: 'todos', label: 'Todos os itens', color: null, items: [...items] }];
+    emptyLabel = `Sem ${field.name}`;
+    const options = field.config.options ?? [];
+    for (const item of items) {
+      const value = item.fields[field.id];
+      if (field.kind === 'select' || field.kind === 'labels') {
+        const ids = typeof value === 'string' ? [value] : Array.isArray(value) ? value : [];
+        const known = ids.filter((id) => options.some((option) => option.id === id));
+        if (known.length === 0) add('', emptyLabel, null, item);
+        for (const id of known) {
+          const option = options.find((candidate) => candidate.id === id);
+          add(id, option?.name ?? '', option?.color ?? null, item);
+        }
+      } else if (field.kind === 'people') {
+        const ids = Array.isArray(value) ? value : [];
+        if (ids.length === 0) add('', emptyLabel, null, item);
+        for (const id of ids) add(id, context.nameOf(id), null, item);
+      } else if (field.kind === 'checkbox') {
+        if (value === true) add('sim', 'Sim', null, item);
+        else add('', `${field.name}: não`, null, item);
+      } else {
+        const text = value === undefined ? '' : showValue(field, value);
+        if (text === '') add('', emptyLabel, null, item);
+        else add(`v:${text}`, text, null, item);
+      }
+    }
+    order =
+      field.kind === 'select' || field.kind === 'labels'
+        ? options.map((option) => option.id).filter((id) => groups.has(id))
+        : [...groups.values()]
+            .filter((one) => one.key !== '')
+            .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { numeric: true }))
+            .map((one) => one.key);
+  }
+  const ordered = order
+    .map((key) => groups.get(key))
+    .filter((one): one is Group => one !== undefined);
+  const empty = groups.get('');
+  return empty ? [...ordered, empty] : ordered;
+}
+
 /** Reads what the address says, ignoring anything that does not make sense. */
-export function fromSearch(search: string): { filter: Filter; sort: Sort; columns: Columns } {
+export function fromSearch(search: string): {
+  filter: Filter;
+  sort: Sort;
+  columns: Columns;
+  group: GroupBy;
+} {
   const params = new URLSearchParams(search);
   const text = (params.get('busca') ?? '').slice(0, 200);
   const who = params.get('quem') ?? 'anyone';
@@ -279,15 +367,26 @@ export function fromSearch(search: string): { filter: Filter; sort: Sort; column
     listed === null
       ? null
       : [...new Set(listed.split(','))].filter((id) => COLUMN_ID.test(id)).slice(0, 80);
+  const grouping = params.get('agrupar') ?? 'stage';
+  const group: GroupBy =
+    grouping === 'who' || grouping === 'none' || /^field:[a-z0-9-]{1,40}$/.test(grouping)
+      ? (grouping as GroupBy)
+      : 'stage';
   return {
     filter: { text, who, stageId, field },
     sort: { key: sortKey, descending: params.get('direcao') === 'desc' },
     columns,
+    group,
   };
 }
 
 /** The address part for a filter, an order and a table's columns; empty when nothing is chosen. */
-export function toSearch(filter: Filter, sort: Sort, columns: Columns = null): string {
+export function toSearch(
+  filter: Filter,
+  sort: Sort,
+  columns: Columns = null,
+  group: GroupBy = 'stage',
+): string {
   const params = new URLSearchParams();
   if (filter.text.trim() !== '') params.set('busca', filter.text.trim());
   if (filter.who !== 'anyone') params.set('quem', filter.who);
@@ -300,6 +399,7 @@ export function toSearch(filter: Filter, sort: Sort, columns: Columns = null): s
   if (sort.key !== 'manual') params.set('ordem', sort.key);
   if (sort.descending) params.set('direcao', 'desc');
   if (columns !== null) params.set('colunas', columns.join(','));
+  if (group !== 'stage') params.set('agrupar', group);
   const text = params.toString();
   return text === '' ? '' : `?${text}`;
 }
