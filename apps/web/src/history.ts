@@ -108,6 +108,18 @@ export function describeChange(change: ItemChange, context: HistoryContext): Cha
         ? { sentence: `${who} fez do item uma subtarefa de ${named(change.new)}` }
         : { sentence: `${who} passou o item para dentro de ${named(change.new)}` };
     }
+    case 'check_added':
+      return { sentence: `${who} pôs na checklist: “${text(change.new)}”` };
+    case 'check_done':
+      return { sentence: `${who} marcou como feito: “${text(change.new)}”` };
+    case 'check_undone':
+      return { sentence: `${who} desmarcou: “${text(change.new)}”` };
+    case 'check_renamed':
+      return {
+        sentence: `${who} mudou na checklist “${text(change.old)}” para “${text(change.new)}”`,
+      };
+    case 'check_removed':
+      return { sentence: `${who} tirou da checklist: “${text(change.old)}”` };
     case 'field': {
       const field = change.fieldId === null ? undefined : context.fieldOf(change.fieldId);
       if (!field) return { sentence: `${who} alterou um campo` };

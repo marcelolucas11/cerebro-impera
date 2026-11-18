@@ -599,6 +599,22 @@ subtarefa (um nível só) (`0028_subtasks.sql`).
 **Junto:** item na lixeira também não muda de prioridade, datas ou pai direto no banco (a regra
 antiga só olhava título, descrição e lista).
 
+## D47 — Checklist dentro do item, com quem marcou escrito pelo banco
+
+**Decisão.** Cada item tem uma checklist: linhas curtas (até 500 caracteres), feitas ou não, até
+100 por item (`0029_checklist.sql`). Uma só por item, na ordem em que as linhas foram postas.
+
+- Segue o item: quem vê lê, quem edita põe, marca, renomeia e tira; nada muda com o item na
+  lixeira, e as linhas vão junto quando o item sai de vez.
+- **Quem marcou e quando são escritos pelo banco.** A aplicação não consegue dizer que outra
+  pessoa marcou nem mudar a data; nem o dono do banco tira uma linha de um item e põe em outro.
+- Cada mudança entra no histórico do item com o texto da linha como estava.
+- Na tela: a marca "Checklist 1/2" ao lado do título (verde quando completa) e a seção no painel;
+  o tique aparece na hora e volta atrás só se o servidor recusar.
+
+**Fica para depois:** várias checklists com nome no mesmo item, reordenar linhas e transformar
+uma linha em subtarefa. A API já guarda a posição de cada linha.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

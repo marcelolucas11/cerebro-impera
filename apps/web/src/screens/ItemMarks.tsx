@@ -35,6 +35,7 @@ export function ItemMarks({
     item.priority === null &&
     item.dueDate === null &&
     children.length === 0 &&
+    item.checks.total === 0 &&
     (item.parentId === null || !showParent)
   ) {
     return null;
@@ -56,6 +57,11 @@ export function ItemMarks({
       ) : null}
       {item.dueDate !== null && state !== null ? (
         <span className={`mark due-${state}`}>{dueText(item.dueDate, today, state)}</span>
+      ) : null}
+      {item.checks.total > 0 ? (
+        <span className={item.checks.done === item.checks.total ? 'mark checks-done' : 'mark'}>
+          Checklist {item.checks.done}/{item.checks.total}
+        </span>
       ) : null}
       {children.length > 0 ? (
         <span className="mark">

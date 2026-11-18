@@ -51,6 +51,10 @@ const BY_CODE: Record<string, string> = {
   invalid_list: 'Escolha outra lista.',
   not_in_trash: 'Este item já saiu da lixeira.',
   same_list: 'O item já está nesta lista.',
+  too_many_checks: 'A checklist já tem 100 linhas, o máximo por item.',
+  invalid_parent:
+    'A subtarefa precisa ficar debaixo de um item desta lista que não seja subtarefa.',
+  dates_out_of_order: 'O prazo não pode vir antes do começo.',
   same_password: 'A nova senha precisa ser diferente da atual.',
   cannot_assign_person:
     'Essa pessoa não pode trabalhar nesta lista. Dê a ela acesso para editar antes de passar o item.',

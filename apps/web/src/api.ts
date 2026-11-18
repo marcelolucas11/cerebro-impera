@@ -204,6 +204,8 @@ export interface Item {
   dueDate: string | null;
   /** The item this one is a subtask of; null for an item of its own. */
   parentId: string | null;
+  /** How far its checklist is. */
+  checks: { done: number; total: number };
   /** Set only for an item in the trash. */
   trashedAt: string | null;
   trashedBy: string | null;
@@ -252,10 +254,26 @@ export interface ItemChange {
     | 'priority'
     | 'start_date'
     | 'due_date'
-    | 'parent';
+    | 'parent'
+    | 'check_added'
+    | 'check_done'
+    | 'check_undone'
+    | 'check_renamed'
+    | 'check_removed';
   fieldId: string | null;
   old: unknown;
   new: unknown;
+}
+/** One line of an item's checklist. */
+export interface CheckLine {
+  id: string;
+  itemId: string;
+  text: string;
+  done: boolean;
+  doneBy: string | null;
+  doneAt: string | null;
+  createdBy: string;
+  createdAt: string;
 }
 export interface MySession {
   id: string;
@@ -403,6 +421,12 @@ export const api = {
     ),
 
   items: (listId: string) => request<Item[]>('GET', `/api/lists/${listId}/items`),
+  checklist: (itemId: string) => request<CheckLine[]>('GET', `/api/items/${itemId}/checklist`),
+  addCheck: (itemId: string, text: string) =>
+    request<CheckLine>('POST', `/api/items/${itemId}/checklist`, { text }),
+  updateCheck: (checkId: string, input: { text?: string; done?: boolean }) =>
+    request<CheckLine>('PATCH', `/api/checklist/${checkId}`, input),
+  removeCheck: (checkId: string) => request<{ ok: true }>('DELETE', `/api/checklist/${checkId}`),
   createItem: (listId: string, input: { title: string; stageId?: string; parentId?: string }) =>
     request<Item>('POST', `/api/lists/${listId}/items`, input),
   updateItem: (

@@ -220,6 +220,14 @@ export const createItemSchema = z.strictObject({
   /** Created as a subtask of this item, of the same list. */
   parentId: idSchema.optional(),
 });
+/** Lines in one item's checklist, at most. */
+export const MAX_CHECKS_PER_ITEM = 100;
+const checkText = z.string().trim().min(1).max(500);
+export const addCheckSchema = z.strictObject({ text: checkText });
+export const updateCheckSchema = z
+  .strictObject({ text: checkText.optional(), done: z.boolean().optional() })
+  .refine((value) => Object.keys(value).length > 0, 'empty update');
+
 /** Priority of an item: 1 is the most urgent, 4 the least. */
 export const PRIORITIES = [1, 2, 3, 4] as const;
 export type Priority = (typeof PRIORITIES)[number];

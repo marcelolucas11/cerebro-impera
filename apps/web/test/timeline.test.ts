@@ -24,6 +24,7 @@ const item = (fields: Item['fields']): Item => ({
   startDate: null,
   dueDate: null,
   parentId: null,
+  checks: { done: 0, total: 0 },
   trashedAt: null,
   trashedBy: null,
 });
