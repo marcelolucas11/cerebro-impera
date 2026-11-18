@@ -323,8 +323,12 @@ pnpm check
   configurações do repositório (ver "Pendências").
 - As imagens base ainda são referenciadas por tag, não por digest. Fixar no pipeline de release
   (Fase 8).
-- `pnpm audit` aponta 1 aviso de severidade moderada (`minimatch`, via `eslint`, só em
-  desenvolvimento; não entra no que roda em produção). O CI barra a partir de severidade alta.
+- `pnpm audit` aponta 1 aviso de severidade moderada (`minimatch`, via `eslint`) e, desde 18/11,
+  1 alto (GHSA-fc5q-39xc-vjpf, `picomatch` até 4.0.7, via `typescript-eslint`). Os dois são só de
+  desenvolvimento, com padrões escritos no próprio repositório, e não entram no que roda em
+  produção. O alto ainda não tem versão corrigida: o passo "Vulnerabilidades conhecidas" do CI
+  fica vermelho em todo PR até sair a correção (aí basta atualizar o `picomatch`, respeitando os 3
+  dias). Nenhuma exceção foi aberta no CI; abrir uma é decisão do mantenedor.
 
 ## Próximo passo exato
 
