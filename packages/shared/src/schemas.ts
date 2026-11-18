@@ -206,6 +206,11 @@ export const updateItemSchema = z
     fields: fieldValuesSchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'empty update');
+export const moveItemSchema = z.strictObject({
+  listId: idSchema,
+  /** Omitted: the first stage of the list it goes to. */
+  stageId: idSchema.optional(),
+});
 export const setAssigneesSchema = z.strictObject({ userIds: z.array(idSchema).max(50) });
 
 export const itemHistoryQuerySchema = z.strictObject({

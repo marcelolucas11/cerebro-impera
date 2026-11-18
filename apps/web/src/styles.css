@@ -1020,6 +1020,20 @@ tr[aria-selected='true'] > * {
   max-width: 28rem;
 }
 
+.move-to {
+  display: grid;
+  grid-template-columns: minmax(12rem, 28rem) auto;
+  gap: 1rem;
+  align-items: end;
+  justify-content: start;
+}
+
+@media (max-width: 52rem) {
+  .move-to {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .options-editor {
   display: grid;
   gap: 0.5rem;

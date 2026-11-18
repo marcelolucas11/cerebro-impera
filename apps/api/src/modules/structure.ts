@@ -383,6 +383,35 @@ export async function setAssignees(
   return updated;
 }
 
+/**
+ * Moves an item to another list, onto the given stage there or its first one.
+ * The caller must be able to edit the item where it is and to edit in the list
+ * it goes to. Values of fields both lists share go along (see the database).
+ */
+export async function moveItem(
+  tx: Tx,
+  actor: Actor,
+  itemId: string,
+  body: { listId: string; stageId?: string | undefined },
+): Promise<ItemView> {
+  const { item } = await openItem(tx, actor, itemId, 'edit');
+  if (body.listId === item.listId) throw badRequest('same_list');
+  await openList(tx, actor, body.listId, 'edit');
+  if (body.stageId !== undefined) await requireStageOf(tx, body.listId, body.stageId);
+  const changed = await run(
+    tx,
+    sql`UPDATE app.items SET
+          list_id = ${body.listId},
+          stage_id = coalesce(${body.stageId ?? null}::uuid, stage_id)
+        WHERE id = ${itemId}`,
+  );
+  if (changed !== 1) throw forbidden();
+  const moved = await getItem(tx, itemId);
+  // Moved somewhere the caller edits but where this item is not theirs to see.
+  if (!moved) throw forbidden();
+  return moved;
+}
+
 /** How long an item stays in the trash before it is removed for good. Enforced by the database. */
 export const TRASH_DAYS = 30;
 
