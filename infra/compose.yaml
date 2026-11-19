@@ -2,7 +2,13 @@
 # backup e formulários públicos).
 #
 # Nada neste arquivo é segredo. A chave da instância e as senhas do banco são
-# geradas no primeiro start, dentro do volume "config", e nunca saem dele.
+# geradas no primeiro start, dentro do volume "config", e nunca saem dele. Cada serviço
+# monta só a pasta dos segredos que usa (volume com subpath, Docker 26 ou mais novo):
+#   api/      chave da instância e senhas com que a API conecta (API e migrações)
+#   db/       senha de administrador do banco (banco, migrações e cópias)
+#   updater/  chave das requisições assinadas entre a API e o atualizador
+#   backup/   chave das cópias e o rclone.conf (só o serviço de cópias)
+#   forms/    senha e chave dos formulários públicos
 #
 #   CEREBRO_PUBLIC_ORIGIN=https://cerebro.exemplo.com docker compose --file infra/compose.yaml up --detach
 #
@@ -30,8 +36,6 @@ x-api: &api
     CEREBRO_BACKUP_STATUS: ${CEREBRO_BACKUP_STATUS:-}
     # Com os formulários ligados (--profile forms): o endereço deles, para mostrar e copiar.
     CEREBRO_FORMS_ORIGIN: ${CEREBRO_FORMS_ORIGIN:-}
-  volumes:
-    - config:/opt/cerebro/config
   # Sistema de arquivos somente leitura, sem capacidades do kernel, sem ganho de privilégio.
   read_only: true
   tmpfs:
@@ -50,16 +54,25 @@ services:
     <<: *api
     command: [init-secrets]
     restart: 'no'
+    # O único que vê o volume inteiro: cria as pastas e os segredos (e muda de lugar os de
+    # instalações anteriores às pastas).
+    volumes:
+      - config:/opt/cerebro/config
 
   postgres:
     image: postgres:16
     restart: unless-stopped
     environment:
       POSTGRES_DB: cerebro
-      POSTGRES_PASSWORD_FILE: /run/cerebro/db-admin-password
+      POSTGRES_PASSWORD_FILE: /run/cerebro/admin-password
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - config:/run/cerebro:ro
+      - type: volume
+        source: config
+        target: /run/cerebro
+        read_only: true
+        volume:
+          subpath: db
     depends_on:
       init:
         condition: service_completed_successfully
@@ -92,6 +105,25 @@ services:
     <<: *api
     command: [migrate]
     restart: 'no'
+    volumes:
+      - type: volume
+        source: config
+        target: /opt/cerebro/config/api
+        read_only: true
+        volume:
+          subpath: api
+      - type: volume
+        source: config
+        target: /opt/cerebro/config/db
+        read_only: true
+        volume:
+          subpath: db
+      - type: volume
+        source: config
+        target: /opt/cerebro/config/forms
+        read_only: true
+        volume:
+          subpath: forms
     depends_on:
       postgres:
         condition: service_healthy
@@ -100,9 +132,21 @@ services:
     <<: *api
     command: [serve]
     restart: unless-stopped
-    # Só a API monta os anexos; nenhum outro serviço os alcança.
+    # Só a API monta os anexos; nenhum outro serviço os alcança. Da configuração, só a própria
+    # pasta (onde também fica o token de instalação) e a chave do atualizador: nunca a senha de
+    # administrador do banco nem a chave das cópias.
     volumes:
-      - config:/opt/cerebro/config
+      - type: volume
+        source: config
+        target: /opt/cerebro/config/api
+        volume:
+          subpath: api
+      - type: volume
+        source: config
+        target: /opt/cerebro/config/updater
+        read_only: true
+        volume:
+          subpath: updater
       - files:/opt/cerebro/files
       # Só leitura: a situação que o serviço de backup escreve.
       - backup-status:/opt/cerebro/backup-status:ro
@@ -147,7 +191,8 @@ services:
   # Opcional: o atualizador (--profile updater). É o único serviço com o socket do Docker.
   # Só a API fala com ele, pela rede "updates", com requisições assinadas; ele não publica
   # porta nenhuma e só atualiza quando um Dono pede pela página. Lê as versões do repositório
-  # em CEREBRO_UPDATE_REPOSITORY e só aceita as assinadas pelo fluxo de release dele.
+  # em CEREBRO_UPDATE_REPOSITORY e só aceita as assinadas pelo fluxo de release dele. Sai para
+  # a internet por uma rede só dele: nenhum outro serviço chega até ele por ali.
   updater:
     image: ${CEREBRO_UPDATER_IMAGE:-cerebro-updater:local}
     profiles: [updater]
@@ -156,8 +201,13 @@ services:
       CEREBRO_UPDATE_REPOSITORY: ${CEREBRO_UPDATE_REPOSITORY:-}
       CEREBRO_API_HEALTH_URL: http://api:3000/api/health
     volumes:
-      # Só lê a chave das requisições; os segredos da instância nunca são escritos aqui.
-      - config:/opt/cerebro/config:ro
+      # Só a chave das requisições; os outros segredos da instância nem aparecem aqui.
+      - type: volume
+        source: config
+        target: /opt/cerebro/config/updater
+        read_only: true
+        volume:
+          subpath: updater
       # Este diretório: o compose.yaml e o .env com a imagem em uso, que ele troca.
       - ./:/opt/cerebro/compose
       - backups:/opt/cerebro/backups
@@ -174,7 +224,7 @@ services:
     pids_limit: 128
     networks:
       - updates
-      - edge
+      - updater-out
     depends_on:
       init:
         condition: service_completed_successfully
@@ -182,7 +232,8 @@ services:
   # Opcional: as cópias (--profile backup). Todo dia, na hora de CEREBRO_BACKUP_HOUR (03h por
   # padrão, no fuso TZ), copia banco, anexos e configuração para o repositório do restic em
   # CEREBRO_BACKUP_REPOSITORY, cifrados antes de sair; guarda um ano; no dia 1, prova que a cópia
-  # restaura. Lê anexos e configuração sem poder mudá-los; não tem o socket do Docker.
+  # restaura. Lê anexos e configuração sem poder mudá-los (a configuração inteira, porque sem
+  # ela a cópia não restaura); não tem o socket do Docker.
   # Opcional: formulários públicos (--profile forms), num endereço próprio que o proxy reverso
   # aponta para a porta 3001. Monta só a pasta "forms" da configuração: a senha de um papel do
   # banco que não lê tabela nenhuma, só mostra e envia formulários, e a chave do carimbo contra
@@ -283,6 +334,8 @@ networks:
   # Só a API e o atualizador; sem rota para fora.
   updates:
     internal: true
+  # A saída do atualizador para o GitHub, só dele.
+  updater-out: {}
 
 volumes:
   config: {}

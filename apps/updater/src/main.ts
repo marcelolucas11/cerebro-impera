@@ -156,7 +156,8 @@ async function main(): Promise<void> {
   if (!validRepository(repository)) throw new Error('CEREBRO_UPDATE_REPOSITORY must be owner/repo');
   const configDir = process.env.CEREBRO_CONFIG_DIR ?? '/opt/cerebro/config';
   const key = Buffer.from(
-    (await readFile(join(configDir, 'updater-key'), 'utf8')).trim(),
+    // Only its own folder of the configuration is mounted: this key, nothing else.
+    (await readFile(join(configDir, 'updater', 'updater-key'), 'utf8')).trim(),
     'base64',
   );
   if (key.length !== 32) throw new Error('the updater key is malformed');

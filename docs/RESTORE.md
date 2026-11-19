@@ -15,10 +15,10 @@ Sem a chave, as cópias não abrem: ninguém consegue recuperá-la, nem quem fez
 ## 1. Guardar a chave (uma vez, logo depois de instalar)
 
 ```sh
-docker compose --file infra/compose.yaml exec api cat /opt/cerebro/config/backup-password
+docker run --rm -v cerebro_config:/v:ro alpine cat /v/backup/backup-password
 ```
 
-Copie o resultado para o cofre de senhas e para um papel guardado longe do servidor. Ela não
+(A API não enxerga essa chave: só o serviço das cópias monta a pasta `backup`.) Copie o resultado para o cofre de senhas e para um papel guardado longe do servidor. Ela não
 aparece no aplicativo de propósito.
 
 ## 2. Ver as cópias que existem
@@ -45,29 +45,31 @@ Em `./restaurado` aparecem:
 
 - `work/db.dump`: o banco, no formato do `pg_dump`;
 - `data/files/`: os anexos, ainda cifrados, porque só abrem com a configuração abaixo;
-- `data/config/`: a configuração da instância (chave mestra, senhas do banco, chave do
-  atualizador e das cópias).
+- `data/config/`: a configuração da instância, uma pasta por serviço (`api/` com a chave mestra,
+  `db/` com a senha de administrador do banco, `updater/`, `backup/` e `forms/`). Cópias feitas
+  antes das pastas têm tudo direto em `data/config/`; o `init` muda de lugar sozinho no primeiro
+  start.
 
 ## 4. Subir a instalação com o que foi trazido
 
-1. Num servidor novo, com o repositório do Cérebro e o Docker, crie os volumes subindo só o
-   banco uma vez, e pare em seguida:
+1. Num servidor novo, com o repositório do Cérebro e o Docker 26 ou mais novo, crie os volumes
+   sem ligar nada (assim nenhum segredo novo é gerado e o banco ainda não nasce):
 
    ```sh
-   docker compose --file infra/compose.yaml up --detach postgres
-   docker compose --file infra/compose.yaml down
+   docker compose --file infra/compose.yaml up --no-start
    ```
 
 2. Ponha a configuração e os anexos de volta nos volumes, com o mesmo dono que a API usa (1000):
+   pastas só para ele (700) e arquivos só para ele (600):
 
    ```sh
    docker run --rm -v cerebro_config:/v -v "$PWD/restaurado/data/config:/r:ro" alpine \
-     sh -c 'cp -a /r/. /v/ && chown -R 1000:1000 /v && chmod 700 /v && chmod 600 /v/*'
+     sh -c 'cp -a /r/. /v/ && chown -R 1000:1000 /v && find /v -type d -exec chmod 700 {} + && find /v -type f -exec chmod 600 {} +'
    docker run --rm -v cerebro_files:/v -v "$PWD/restaurado/data/files:/r:ro" alpine \
      sh -c 'cp -a /r/. /v/ && chown -R 1000:1000 /v'
    ```
 
-3. Suba o banco (ele usa a senha de administrador que voltou com a configuração) e restaure:
+3. Suba o banco (ele nasce com a senha de administrador que voltou com a configuração) e restaure:
 
    ```sh
    docker compose --file infra/compose.yaml up --detach postgres

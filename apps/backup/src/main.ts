@@ -30,7 +30,11 @@ const command: Command = {
           // restic keeps its cache in the scratch space; rclone reads the destination set by
           // the maintainer in the configuration (never in the repository).
           RESTIC_CACHE_DIR: process.env.RESTIC_CACHE_DIR ?? '/work/.cache',
-          RCLONE_CONFIG: join(process.env.CEREBRO_CONFIG_DIR ?? '/data/config', 'rclone.conf'),
+          RCLONE_CONFIG: join(
+            process.env.CEREBRO_CONFIG_DIR ?? '/data/config',
+            'backup',
+            'rclone.conf',
+          ),
           ...options.env,
         },
       });
@@ -63,7 +67,7 @@ async function main(): Promise<void> {
   const engine = new BackupEngine(
     {
       repository: required('CEREBRO_BACKUP_REPOSITORY'),
-      passwordFile: join(configDir, 'backup-password'),
+      passwordFile: join(configDir, 'backup', 'backup-password'),
       sources: ['/data/files', configDir],
       workDir: '/work',
       statusFile: process.env.CEREBRO_BACKUP_STATUS ?? '/status/backup.json',
@@ -71,7 +75,7 @@ async function main(): Promise<void> {
         host: process.env.CEREBRO_DB_HOST ?? 'postgres',
         name: process.env.CEREBRO_DB_NAME ?? 'cerebro',
         user: 'postgres',
-        password: (await readFile(join(configDir, 'db-admin-password'), 'utf8')).trim(),
+        password: (await readFile(join(configDir, 'db', 'admin-password'), 'utf8')).trim(),
       },
       tag: process.env.CEREBRO_BACKUP_TAG ?? 'cerebro',
     },

@@ -11,7 +11,7 @@ import {
 
 const settings: Settings = {
   repository: 'rclone:destino:cerebro',
-  passwordFile: '/data/config/backup-password',
+  passwordFile: '/data/config/backup/backup-password',
   sources: ['/data/files', '/data/config'],
   workDir: '/work',
   statusFile: '/status/backup.json',
@@ -97,7 +97,7 @@ describe('the daily copy', () => {
     expect(runs[0]?.env).toEqual({ PGPASSWORD: 'senha-do-banco' });
     expect(runs[1]?.env).toEqual({
       RESTIC_REPOSITORY: 'rclone:destino:cerebro',
-      RESTIC_PASSWORD_FILE: '/data/config/backup-password',
+      RESTIC_PASSWORD_FILE: '/data/config/backup/backup-password',
     });
     // The plain database copy never stays outside the encrypted repository.
     expect(removed).toContain('/work/db.dump');

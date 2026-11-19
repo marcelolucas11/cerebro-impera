@@ -5,7 +5,7 @@
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
@@ -67,10 +67,9 @@ function run(command) {
 
 run('init-secrets');
 // The disposable server already has its own superuser password: use that one.
-const secretsFile = join(configDir, 'secrets.json');
-const secrets = JSON.parse(readFileSync(secretsFile, 'utf8'));
-secrets.db.adminPassword = decodeURIComponent(admin.password);
-writeFileSync(secretsFile, JSON.stringify(secrets), { mode: 0o600 });
+writeFileSync(join(configDir, 'db', 'admin-password'), decodeURIComponent(admin.password), {
+  mode: 0o600,
+});
 run('migrate');
 
 const hour = 60 * 60 * 1000;
@@ -98,7 +97,9 @@ writeFileSync(
 );
 
 const updaterKey = randomBytes(32);
-writeFileSync(join(configDir, 'updater-key'), updaterKey.toString('base64'), { mode: 0o600 });
+writeFileSync(join(configDir, 'updater', 'updater-key'), updaterKey.toString('base64'), {
+  mode: 0o600,
+});
 const fakeUpdater = startFakeUpdater(updaterKey, Number(port) + 1);
 
 const databaseUrl = new URL(adminUrl);
@@ -107,7 +108,7 @@ writeFileSync(
   join(work, 'state.json'),
   JSON.stringify({
     databaseUrl: databaseUrl.toString(),
-    setupTokenFile: join(configDir, 'setup-token'),
+    setupTokenFile: join(configDir, 'api', 'setup-token'),
   }),
   { mode: 0o600 },
 );

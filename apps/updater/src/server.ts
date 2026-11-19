@@ -4,8 +4,10 @@ import type { Engine } from './engine.js';
 
 /*
  * The updater's door: three addresses, answered only to requests signed with
- * the key the API has, within a minute, never twice. Anything else gets the
- * same short refusal, with nothing about why.
+ * the key the API has, within a minute, never twice, and never from before it
+ * started (the numbers already used are kept only in memory, so a request
+ * caught before a restart cannot be sent again after it). Anything else gets
+ * the same short refusal, with nothing about why.
  */
 
 const BODY_LIMIT = 4096;
@@ -40,6 +42,7 @@ function admitted(
   body: string,
   seen: Map<string, number>,
   at: number,
+  bootedAt: number,
 ): string | null {
   const header = (name: string): string | undefined => {
     const value = request.headers[name];
@@ -53,6 +56,7 @@ function admitted(
   if (!verify(key, { method: request.method ?? '', path: request.url ?? '', body, headers }, at)) {
     return null;
   }
+  if (Number(headers['x-cerebro-time']) < bootedAt) return null;
   const nonce = headers['x-cerebro-nonce'] ?? '';
   for (const [old, when] of seen) if (at - when > 2 * SIGNATURE_WINDOW_MS) seen.delete(old);
   if (seen.has(nonce)) return null;
@@ -63,6 +67,7 @@ function admitted(
 export function updaterServer(engine: Engine, key: Buffer, now: () => number = Date.now): Server {
   // One-time numbers already used, while they could still be replayed.
   const seen = new Map<string, number>();
+  const bootedAt = now();
 
   return createServer((request, reply) => {
     const answer = (status: number, value: unknown): void => {
@@ -75,7 +80,7 @@ export function updaterServer(engine: Engine, key: Buffer, now: () => number = D
         answer(413, { error: { code: 'too_large' } });
         return;
       }
-      const nonce = admitted(key, request, body, seen, now());
+      const nonce = admitted(key, request, body, seen, now(), bootedAt);
       if (nonce === null) {
         answer(401, { error: { code: 'unsigned' } });
         return;
