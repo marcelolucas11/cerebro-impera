@@ -43,6 +43,22 @@ describe('copying something that opens a door', () => {
     expect(held).toBe('');
   });
 
+  it('tries again at the next click or key when the browser refuses without one', async () => {
+    await copySensitive('segredo');
+    inFront = false;
+    await vi.advanceTimersByTimeAsync(CLEAR_AFTER_MS);
+    expect(held).toBe('segredo');
+    inFront = true;
+    window.dispatchEvent(new Event('keydown'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(held).toBe('');
+    // Once: a later copy is not wiped by an old retry.
+    await copySensitive('outro');
+    window.dispatchEvent(new Event('pointerdown'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(held).toBe('outro');
+  });
+
   it('empties it when the person comes back, if the page was not in front', async () => {
     await copySensitive('segredo');
     inFront = false;

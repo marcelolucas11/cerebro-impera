@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Home, Tree } from '../src/api.js';
 import {
   expired,
+  homeAfter,
   keepable,
   keptPart,
   listOf,
@@ -109,6 +110,57 @@ describe('what a device keeps to read offline', () => {
     expect(kept.pins).toEqual([OPEN]);
     expect((keptPart('/api/home', home, null) as Home).items).toEqual([]);
     expect(keptPart('/api/me', { id: 1 }, tree)).toEqual({ id: 1 });
+  });
+
+  it('takes from the kept start page what came from a list she no longer sees as before', () => {
+    const OTHER = '33333333-3333-4333-8333-333333333333';
+    const item = (id: string, listId: string): Home['items'][number] => ({
+      id,
+      title: id,
+      listId,
+      listName: id,
+      stageName: 'A fazer',
+      dueDate: null,
+      priority: null,
+      due: 'later',
+    });
+    const before: Tree = {
+      ...tree,
+      lists: [
+        ...tree.lists.map((list) => ({ ...list, isSensitive: false })),
+        {
+          id: OTHER,
+          spaceId: 's',
+          folderId: null,
+          name: 'Compras',
+          isSensitive: false,
+          level: 'edit',
+          itemScope: 'all',
+        },
+      ],
+    };
+    const home: Home = {
+      items: [item('a', OPEN), item('b', SENSITIVE), item('c', OTHER)],
+      unread: 0,
+      pins: [OPEN, SENSITIVE, OTHER],
+    };
+    // Nothing changed: everything stays.
+    expect(homeAfter(home, before, before)).toEqual(home);
+    // SENSITIVE became sensitive, OTHER was taken from her: only OPEN stays.
+    const after = homeAfter(home, before, tree);
+    expect(after.items.map((kept) => kept.id)).toEqual(['a']);
+    expect(after.pins).toEqual([OPEN]);
+    expect(after.unread).toBe(0);
+    // OPEN now seen only for the items given to her: it goes too.
+    const narrower: Tree = {
+      ...before,
+      lists: before.lists.map((list) =>
+        list.id === OPEN ? { ...list, itemScope: 'assigned' as const } : list,
+      ),
+    };
+    expect(homeAfter(home, before, narrower).items.map((kept) => kept.id)).toEqual(['b', 'c']);
+    // With no structure kept before, nothing can be told apart: everything goes.
+    expect(homeAfter(home, null, before).items).toEqual([]);
   });
 
   it('keeps the structure without the sensitive lists, not even their names', () => {

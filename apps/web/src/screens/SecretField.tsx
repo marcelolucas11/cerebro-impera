@@ -181,8 +181,9 @@ export function SecretField({
       ) : null}
       {copied ? (
         <Notice tone="ok">
-          Copiado. Cole onde precisar em até 30 segundos: depois disso a área de transferência é
-          limpa. O valor não apareceu na tela.
+          Copiado. Cole onde precisar em até 30 segundos: depois disso a página tenta limpar a área
+          de transferência (um histórico da área de transferência do sistema, se estiver ligado,
+          guarda uma cópia). O valor não apareceu na tela.
         </Notice>
       ) : null}
       {error ? <Notice tone="error">{error}</Notice> : null}

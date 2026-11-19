@@ -29,7 +29,7 @@ export function Authenticator({
         <div>
           <p className="field-note">Sem câmera? Digite esta chave no aplicativo:</p>
           <Exact>{groups(enrollment.secret)}</Exact>
-          <CopyButton text={enrollment.secret} label="Copiar chave" />
+          <CopyButton text={enrollment.secret} label="Copiar chave" sensitive />
         </div>
       </div>
       <Form

@@ -77,6 +77,8 @@ const BY_CODE: Record<string, string> = {
     'Os anexos ainda não foram ligados nesta instalação: falta escolher o antivírus no servidor.',
   too_many_uploads:
     'Você já tem cinco arquivos sendo enviados. Termine ou cancele um deles antes de começar outro.',
+  uploads_too_large:
+    'Você já está enviando arquivos grandes ao mesmo tempo. Espere um deles terminar antes de começar outro.',
   disk_full:
     'O servidor está sem espaço para guardar esse arquivo. Avise quem administra o sistema.',
   invalid_part: 'O envio se perdeu no caminho. Tente continuar de novo.',

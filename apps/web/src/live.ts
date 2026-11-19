@@ -16,12 +16,16 @@ export interface LiveEvent {
 
 export interface Pending {
   ids: Set<string>;
+  // A list itself changed (not one of its items): it may have become sensitive,
+  // been archived or moved, so the structure is read again.
+  structure: boolean;
   notifications: boolean;
   access: boolean;
 }
 
 export const nothingPending = (): Pending => ({
   ids: new Set(),
+  structure: false,
   notifications: false,
   access: false,
 });
@@ -32,6 +36,7 @@ export function gather(pending: Pending, raw: unknown): Pending {
   const event = raw as Record<string, unknown>;
   if (typeof event.list === 'string') pending.ids.add(event.list);
   if (typeof event.item === 'string') pending.ids.add(event.item);
+  else if (typeof event.list === 'string') pending.structure = true;
   if (event.notifications === true) pending.notifications = true;
   if (event.access === true) pending.access = true;
   return pending;
@@ -45,6 +50,7 @@ export function touches(key: QueryKey, pending: Pending): boolean {
   }
   // The start page gathers items from every list: any change may move it.
   if (key[0] === 'home') return pending.ids.size > 0;
+  if (key[0] === 'tree') return pending.structure;
   return key.some((part) => typeof part === 'string' && pending.ids.has(part));
 }
 

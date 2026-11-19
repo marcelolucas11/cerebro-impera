@@ -20,6 +20,14 @@ describe('what a live event makes the page read again', () => {
     expect(touches(['notifications'], pending)).toBe(false);
   });
 
+  it('reads the structure again when a list itself changed, not for its items', () => {
+    expect(touches(['tree'], gather(nothingPending(), { list: 'tarefas' }))).toBe(true);
+    expect(touches(['tree'], gather(nothingPending(), { list: 'tarefas', item: 'item-1' }))).toBe(
+      false,
+    );
+    expect(touches(['tree'], gather(nothingPending(), { item: 'item-1' }))).toBe(false);
+  });
+
   it('reads the start page again on any change to an item or list, not on notices alone', () => {
     expect(touches(['home'], gather(nothingPending(), { item: 'item-1' }))).toBe(true);
     expect(touches(['home'], gather(nothingPending(), { notifications: true }))).toBe(false);

@@ -30,13 +30,11 @@ export function listOf(path: string): string | undefined {
 }
 
 /**
- * Whether what was kept from an address must go now that the structure is `next`:
- * its list is gone, became sensitive, or is seen at another level or reach than
- * when it was kept (`before`), so the kept items may show more than she may see.
+ * Whether what was kept of a list must go now that the structure is `next`: the
+ * list is gone, became sensitive, or is seen at another level or reach than when
+ * it was kept (`before`), so the kept items may show more than she may see.
  */
-export function noLongerKeepable(path: string, before: Tree | null, next: Tree): boolean {
-  const list = listOf(path);
-  if (list === undefined) return false;
+function changed(list: string, before: Tree | null, next: Tree): boolean {
   const now = next.lists.find((candidate) => candidate.id === list);
   const then = before?.lists.find((candidate) => candidate.id === list);
   return (
@@ -46,6 +44,22 @@ export function noLongerKeepable(path: string, before: Tree | null, next: Tree):
     now.level !== then.level ||
     now.itemScope !== then.itemScope
   );
+}
+
+/** Whether what was kept from an address must go now that the structure is `next`. */
+export function noLongerKeepable(path: string, before: Tree | null, next: Tree): boolean {
+  const list = listOf(path);
+  return list !== undefined && changed(list, before, next);
+}
+
+/** The kept start page without anything from a list that must go (see `noLongerKeepable`). */
+export function homeAfter(home: Home, before: Tree | null, next: Tree): Home {
+  const stays = (list: string): boolean => !changed(list, before, next);
+  return {
+    ...home,
+    items: home.items.filter((item) => stays(item.listId)),
+    pins: home.pins.filter(stays),
+  };
 }
 
 /**

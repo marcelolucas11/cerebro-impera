@@ -3,6 +3,7 @@ import { api, ApiError, type SetupStatus, type SignInResult } from './api.js';
 import { useBrand } from './brand.js';
 import { describeError } from './messages.js';
 import { forget } from './offline/store.js';
+import { tellOtherTabs } from './session.js';
 import { DevicePending } from './screens/DevicePending.js';
 import { Enroll, Invite } from './screens/Enroll.js';
 import { Setup } from './screens/Setup.js';
@@ -109,7 +110,9 @@ export function App(): ReactNode {
     setStage({ name: 'sign-in', notice });
   }, []);
   const afterFactors = useCallback((result: SignInResult) => {
-    // Whoever signs in starts with nothing kept on this device by anyone before.
+    // Whoever signs in starts with nothing kept on this device by anyone before, and no
+    // other tab keeps showing what the session before saw.
+    tellOtherTabs();
     void forget().then(() => {
       setStage(result.status === 'authenticated' ? { name: 'app' } : { name: 'device-pending' });
     });
