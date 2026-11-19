@@ -1386,9 +1386,12 @@ guardaria a senha em texto. O verificador não serve para entrar.
 **Decisão.** Toda imagem de fora (Node, Docker, PostgreSQL, ClamAV), nos Dockerfiles, no Compose e
 no CI, é referenciada pelo hash, além da tag. O CI reprova uma imagem nova sem hash. O Dependabot
 propõe os hashes novos, inclusive das imagens do atualizador e das cópias, que ele não olhava, e
-nenhuma versão nova (de pacote, ação ou imagem) é proposta antes de três dias publicada. A imagem
-das cópias usa o PostgreSQL 16.15: a 16.16 saiu há menos de três dias; o Dependabot propõe a troca
-depois disso.
+nenhuma versão nova (de pacote, ação ou imagem) é proposta antes de três dias publicada.
+
+O PostgreSQL das cópias nunca pode ser mais antigo que o do banco: uma cópia feita no 16.16 não
+abriu no 16.15 (um parâmetro que o 16.15 não conhece), e o teste de restauração do CI reprovou. O
+Dependabot propõe as duas imagens em pull requests separados; trocar as duas juntas. Quando um
+passo das cópias falha, o log do serviço agora diz a linha de erro do programa (só ela, curta).
 
 **Por quê.** Uma tag pode passar a apontar para outra coisa; o hash, não. Era o último item da
 blindagem que dependia de acesso ao Docker Hub.

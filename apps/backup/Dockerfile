@@ -22,7 +22,9 @@ RUN pnpm --filter @cerebro/shared build \
  && pnpm --filter @cerebro/backup build \
  && pnpm --filter @cerebro/backup deploy --prod --legacy /out
 
-FROM postgres:16.15-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139 AS runtime
+# Nunca mais antiga que a do banco (infra/compose.yaml): uma cópia feita num PostgreSQL mais novo
+# pode não abrir num mais antigo, e o teste de restauração reprova. Trocar as duas juntas.
+FROM postgres:16.16-alpine@sha256:81e77a4833487b8132fe4b00bedd39dc3f74b8641e387f19312a48f7de218c2e AS runtime
 RUN apk add --no-cache nodejs restic rclone \
  # O mesmo número de usuário da API: lê os segredos que ela gerou (0600), e o initdb não
  # aceita rodar como root.
