@@ -99,6 +99,10 @@ const BY_CODE: Record<string, string> = {
   bad_origin: 'Abra o sistema pelo endereço oficial e tente de novo.',
   step_up_required: 'Confirme o código do autenticador para continuar.',
   updater_missing: 'Esta instalação não tem o atualizador ligado.',
+  logo_invalid:
+    'O logo não passou na conferência do servidor. Exporte o logo de novo, em PNG, e tente outra vez.',
+  logo_too_large:
+    'O logo ficou pesado demais. Use uma versão mais simples, em cores chapadas e sem fundo de foto.',
   updater_unreachable: 'O atualizador não respondeu. Tente de novo em alguns minutos.',
   forbidden: 'Você não tem permissão para isso.',
   not_found: 'Não encontrado, ou você não tem acesso.',

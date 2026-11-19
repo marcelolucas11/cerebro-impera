@@ -23,10 +23,15 @@ describe('the built page', () => {
       expect(attributes).toMatch(/\bsrc="\/assets\/[^"]+\.js"/);
       expect(body.trim()).toBe('');
     }
-    // Besides /assets/, only the install icons (also in the bundle) and the manifest, which
-    // the API writes with the installation's name.
+    // Besides /assets/, only the install icons (also in the bundle), and two files the API
+    // writes for the installation: the manifest (its name) and /brand.css (its color, D70),
+    // whose copy in the bundle is the project's color.
     for (const [, reference = ''] of page.matchAll(/\b(?:src|href)="([^"]+)"/g)) {
       if (reference === '/manifest.webmanifest') continue;
+      if (reference === '/brand.css') {
+        expect(existsSync(join(dist, reference))).toBe(true);
+        continue;
+      }
       expect(/^\/(?:assets|icons)\//.test(reference), reference).toBe(true);
       expect(existsSync(join(dist, reference)), reference).toBe(true);
     }

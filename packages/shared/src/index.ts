@@ -1,4 +1,5 @@
 export * from './access.js';
+export * from './brand.js';
 export * from './capabilities.js';
 export * from './fields.js';
 export * from './files.js';

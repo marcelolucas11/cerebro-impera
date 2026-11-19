@@ -35,6 +35,8 @@ import {
   automationSchema,
   homePinsSchema,
   applyUpdateSchema,
+  BRAND_IMAGE_KINDS,
+  saveBrandSchema,
   updateAutomationSchema,
   readNotificationsSchema,
   notificationsQuerySchema,
@@ -75,6 +77,7 @@ import * as views from './modules/views.js';
 import * as automations from './modules/automations.js';
 import { installManifest } from './http/manifest.js';
 import * as backups from './modules/backups.js';
+import * as branding from './modules/brand.js';
 import * as reports from './modules/reports.js';
 import * as updates from './modules/updates.js';
 import * as summary from './modules/summary.js';
@@ -109,15 +112,48 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   });
 
   // ---- Installing the app -----------------------------------------------------
-  // The page's manifest carries the installation's name, which the sign-in page already
-  // shows to anyone: nothing else about the installation goes in it.
+  // The page's manifest carries the installation's name and logo, which the sign-in page
+  // already shows to anyone: nothing else about the installation goes in it.
   app.get('/manifest.webmanifest', async (_request, reply) => {
-    const { instanceName } = await auth.setupStatus(deps);
+    const brand = await branding.brand(deps.pools.auth);
     void reply.headers({
       'content-type': 'application/manifest+json; charset=utf-8',
       'cache-control': 'no-cache',
     });
-    return installManifest(instanceName);
+    return installManifest(brand.name, brand.logo);
+  });
+
+  // ---- The installation's brand (public, like the sign-in page) ------------------
+  app.get('/api/brand', () => branding.brand(deps.pools.auth));
+  app.put('/api/brand', { bodyLimit: 1024 * 1024 }, (request) => {
+    const body = parse(saveBrandSchema, request.body);
+    return signedIn(request, (tx, actor) => branding.saveBrand(tx, actor, body));
+  });
+  app.get('/brand.css', async (request, reply) => {
+    const { color } = await branding.brand(deps.pools.auth);
+    const css = branding.brandStyleSheet(color);
+    const etag = `"${color ?? 'default'}"`;
+    void reply.headers({ 'cache-control': 'no-cache', etag });
+    if (request.headers['if-none-match'] === etag) return reply.status(304).send();
+    return reply.type('text/css; charset=utf-8').send(css);
+  });
+  app.get('/brand/:file', async (request, reply) => {
+    const file = (request.params as { file?: unknown }).file;
+    const kind = BRAND_IMAGE_KINDS.find((k) => file === `${k}.png`);
+    if (kind === undefined) return reply.status(404).send({ error: { code: 'not_found' } });
+    const image = await branding.brandImage(deps.pools.auth, kind);
+    void reply.header('cache-control', 'no-cache');
+    // Without a logo of its own, the installation shows the project's.
+    if (image === null) return reply.redirect(`/icons/${kind}.png`, 302);
+    const etag = `"${image.digest.slice(0, 32)}"`;
+    void reply.headers({
+      etag,
+      // An image and nothing else: never run, never framed, never read as another type.
+      'content-security-policy': "default-src 'none'; sandbox",
+      'cross-origin-resource-policy': 'same-origin',
+    });
+    if (request.headers['if-none-match'] === etag) return reply.status(304).send();
+    return reply.type('image/png').send(image.png);
   });
 
   // ---- First-run setup -----------------------------------------------------

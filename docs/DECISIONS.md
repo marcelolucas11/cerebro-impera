@@ -1092,6 +1092,39 @@ restauração. Ela traz `restic` e `rclone` dos pacotes assinados do Alpine.
   (`CEREBRO_BACKUP_NOW=backup+test`). Confere a cópia gravada e o teste de restauração, que
   restaura e consulta o banco descartável.
 
+## D70 — Marca da instalação: pública, mudada só com permissão e código, logo redesenhado pelo navegador
+
+**Decisão.** Nome, cor e logo são da instalação e aparecem para qualquer pessoa: na tela de entrada,
+no título da aba, no ícone e no manifesto. Por isso `/api/brand`, `/brand.css` e `/brand/*.png`
+respondem sem sessão, e a página Marca avisa que nada ali pode ser segredo.
+
+- **Quem muda:** quem tem "Configurar o sistema" (`system.config`; o Dono sempre tem), com o código
+  confirmado há pouco. O banco também exige isso, por RLS em `instance_settings` e em
+  `brand_images`. O serviço de entrada só lê.
+- **Cor:** `#rrggbb`, conferido no banco. Precisa de contraste de pelo menos 4,5:1 com a superfície
+  mais clara do fundo, porque também pinta texto. Uma cor escura demais é recusada já na tela, com
+  o contraste que deu. O texto sobre a cor é a mesma cor escurecida, que sempre passa.
+- **Como a cor chega à página:** por uma folha `/brand.css` com duas propriedades, gerada a partir do
+  valor conferido. Nada de estilo inline, então a política de conteúdo não muda, e não há piscada
+  da cor de fábrica ao abrir.
+- **Logo:**
+  - SVG nunca entra. O arquivo escolhido não sai do aparelho: o navegador o desenha em três PNG
+    (192, 512 e 512 "maskable", com o logo dentro da área que o celular nunca corta).
+  - A API confere cada PNG por inteiro, sem biblioteca nova, e guarda uma versão reconstruída só
+    com cabeçalho, transparência e pixels. Metadados e textos ficam de fora.
+  - Os três tamanhos existem juntos ou nenhum (gatilho no fim da transação).
+  - Os ícones saem como `image/png`, com `nosniff` e `default-src 'none'; sandbox`.
+  - Na trilha de auditoria fica o resumo SHA-256 de cada tamanho, nunca a imagem.
+- **Primeira abertura:** a instalação ganhou um quarto passo, "Deixe com a cara da empresa", que
+  dá para pular ("Ficar com a marca de fábrica"). Depois, a página Marca.
+- **Sem conexão:** o service worker guarda a folha de cor e os ícones num cache próprio (são
+  públicos) e os usa quando a rede falha. Com rede, busca sempre primeiro.
+
+**Por quê.** A empresa reconhece o próprio sistema, e o repositório continua sem a marca de
+ninguém. Redesenhar o logo no navegador e reconstruir o PNG no servidor fecha as portas comuns de
+um upload de imagem: script em SVG, arquivo que é outra coisa por dentro, bomba de compressão e
+metadados com dados pessoais.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

@@ -2932,3 +2932,161 @@ audio.file-preview {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Brand (white label) ----------------------------------------------- */
+
+.shell-brand,
+.door-brand {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+}
+
+.shell-brand img,
+.door-brand img {
+  flex: none;
+  border-radius: var(--raio);
+}
+
+.brand {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 44rem;
+}
+
+.brand-group {
+  display: grid;
+  gap: 0.875rem;
+  justify-items: start;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+}
+
+.brand-group > .field {
+  justify-self: stretch;
+}
+
+.brand-group legend {
+  padding: 0 0.375rem;
+  font-weight: 650;
+}
+
+.brand-color {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: start;
+  justify-self: stretch;
+}
+
+.brand-color > .field:last-child {
+  flex: 1 1 12rem;
+}
+
+.brand-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.brand-icon {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
+  width: 7.5rem;
+  color: var(--texto-suave);
+  font-size: var(--menor);
+  text-align: center;
+}
+
+.brand-icon img,
+.brand-icon-drawn canvas {
+  display: block;
+  width: 96px;
+  height: 96px;
+  border-radius: var(--raio);
+  background: var(--superficie);
+}
+
+.brand-icon-round img,
+.brand-icon-round .brand-icon-drawn canvas {
+  border-radius: 50%;
+  /* The ground is the page's own color: the ring shows where the phone cuts. */
+  box-shadow: 0 0 0 1px var(--linha);
+}
+
+.field input[type='file'] {
+  padding: 0.5rem 0.75rem;
+}
+
+.field input[type='file']::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  background: var(--fundo);
+  color: var(--texto);
+  font: inherit;
+  cursor: pointer;
+}
+
+.field input[type='file']::file-selector-button:hover {
+  border-color: var(--texto-suave);
+}
+
+.brand-preview {
+  overflow: hidden;
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+}
+
+.brand-preview-bar {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid var(--linha);
+  font-weight: 650;
+}
+
+.brand-preview-bar img,
+.brand-preview-bar canvas {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--raio);
+}
+
+.brand-preview-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  background: var(--fundo);
+}
+
+.brand-preview-button {
+  padding: 0.5rem 1rem;
+  border-radius: var(--raio);
+  background: var(--marca);
+  color: var(--sobre-marca);
+  font-weight: 650;
+}
+
+.brand-preview-mark {
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--marca);
+  color: var(--marca);
+}
+
+.brand-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
