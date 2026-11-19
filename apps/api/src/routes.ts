@@ -107,6 +107,11 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     request: FastifyRequest,
     handler: (tx: Tx, actor: Actor) => Promise<T>,
   ): Promise<T> => withActor(deps, request, handler);
+  /** The same, only checking that the session holds: not activity. */
+  const stillSignedIn = <T>(
+    request: FastifyRequest,
+    handler: (tx: Tx, actor: Actor) => Promise<T>,
+  ): Promise<T> => withActor(deps, request, handler, false);
 
   app.get('/api/health', async () => {
     await deps.pools.app.query('SELECT 1');
@@ -401,14 +406,15 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // ---- Live updates ----------------------------------------------------------------
   // A stream of "this changed" for the open page. It never carries data: the page
   // asks again through the routes above. The session is checked again on every
-  // heartbeat, and the stream ends when it is no longer valid.
+  // heartbeat, and the stream ends when it is no longer valid. Opening and checking
+  // the stream is not activity: an open tab alone does not keep a session alive.
   const hub = new LiveHub(deps.pools.app);
   app.addHook('onClose', () => hub.close());
   app.get(
     '/api/events',
     { config: { rateLimit: { max: LIVE_OPENS_PER_MINUTE, timeWindow: 60_000 } } },
     async (request, reply) => {
-      const first = await signedIn(request, (tx, actor) => structure.liveAccess(tx, actor));
+      const first = await stillSignedIn(request, (tx, actor) => structure.liveAccess(tx, actor));
       if (hub.countFor(first.userId) >= MAX_LISTENERS_PER_PERSON)
         throw conflict('too_many_streams');
       reply.hijack();
@@ -431,7 +437,8 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
       };
       const check = async (): Promise<void> => {
         try {
-          lists = (await signedIn(request, (tx, actor) => structure.liveAccess(tx, actor))).lists;
+          lists = (await stillSignedIn(request, (tx, actor) => structure.liveAccess(tx, actor)))
+            .lists;
         } catch {
           stop();
         }

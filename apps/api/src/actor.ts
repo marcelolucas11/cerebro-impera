@@ -40,6 +40,9 @@ export async function withActor<T>(
   deps: Deps,
   request: FastifyRequest,
   fn: (tx: Tx, actor: Actor) => Promise<T>,
+  // False when the app only checks that the session holds (the live stream): that
+  // is not the person doing anything, and does not keep the session from going idle.
+  activity = true,
 ): Promise<T> {
   const token = readToken(request, SESSION_COOKIE);
   if (token === undefined) throw unauthorized();
@@ -47,7 +50,7 @@ export async function withActor<T>(
   return inTransaction(deps.pools.app, async (tx) => {
     const row = await one<ContextRow>(
       tx,
-      sql`SELECT * FROM authz.begin_request(${digest(token)}, ${request.ip}::inet)`,
+      sql`SELECT * FROM authz.begin_request(${digest(token)}, ${request.ip}::inet, ${activity})`,
     );
     if (!row) throw unauthorized();
     return fn(tx, {
