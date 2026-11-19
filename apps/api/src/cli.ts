@@ -17,7 +17,13 @@ import { purgeTrash } from './modules/structure.js';
 import { notifyDue } from './modules/notifications.js';
 import { join } from 'node:path';
 import { serveForms } from './forms/main.js';
-import { FORMS_DIR, initSecrets, readFormsSecrets, readSecrets } from './secrets.js';
+import {
+  FORMS_DIR,
+  initSecrets,
+  readAdminPassword,
+  readFormsSecrets,
+  readSecrets,
+} from './secrets.js';
 
 function say(message: string): void {
   process.stdout.write(`${message}\n`);
@@ -29,7 +35,8 @@ function configDir(): string {
 
 /** Generates this instance's secrets on first boot. Safe to run every time. */
 function commandInitSecrets(): void {
-  const { created } = initSecrets(configDir());
+  const { created, moved } = initSecrets(configDir());
+  if (moved.length > 0) say(`moved into their folders: ${moved.join(', ')}`);
   say(created ? `instance secrets created in ${configDir()}` : 'instance secrets already exist');
 }
 
@@ -44,7 +51,7 @@ async function commandMigrate(): Promise<void> {
       port: Number(process.env.CEREBRO_DB_PORT ?? '5432'),
       database: process.env.CEREBRO_DB_NAME ?? 'cerebro',
       user: process.env.CEREBRO_DB_ADMIN_USER ?? 'postgres',
-      password: secrets.db.adminPassword,
+      password: readAdminPassword(configDir()),
     },
     rolePasswords: {
       app: secrets.db.appPassword,

@@ -1226,6 +1226,38 @@ formulários só mandaria respostas, como antes.
 tomado, nas mãos de quem já tem conta e aparelho aprovado, poderia marcar o código como confirmado
 sem digitá-lo. Isso vale só para a própria sessão, que já é dela.
 
+## D73 — Cada serviço monta só a sua pasta da configuração; o atualizador sai por uma rede só dele
+
+**Decisão.** O volume `config` passa a ter uma pasta por serviço, e cada serviço monta só o que
+usa (volume com `subpath`, Docker 26 ou mais novo, o que os formulários já exigiam):
+
+| Pasta      | O que tem                                                     | Quem monta                       |
+| ---------- | ------------------------------------------------------------- | -------------------------------- |
+| `api/`     | chave da instância, senhas da API e da entrada, token inicial | API; migrações (só leitura)      |
+| `db/`      | senha de administrador do banco                               | banco, migrações (só leitura)    |
+| `updater/` | chave das requisições assinadas                               | API e atualizador (só leitura)   |
+| `backup/`  | chave das cópias e `rclone.conf`                              | só o serviço das cópias          |
+| `forms/`   | senha e chave dos formulários                                 | formulários; migrações (leitura) |
+
+- **Só o `init` vê o volume inteiro.** As cópias leem tudo, só leitura, porque sem a configuração
+  inteira uma cópia não restaura.
+- **Mudança de lugar sozinha:** numa instalação de antes das pastas, o `init` move cada arquivo
+  para a sua pasta no próximo start, uma vez, sem gerar nada novo. A senha de administrador sai do
+  arquivo da API. Se só uma das duas metades existir, ele para e pede a outra de uma cópia, em
+  vez de criar uma senha que não abriria o banco.
+- **Formulários falham fechados:** se a pasta deles tiver qualquer coisa além dos dois segredos
+  deles (volume montado inteiro, sem `subpath`), o serviço não sobe.
+- **Atualizador:** sai para o GitHub por uma rede só dele (`updater-out`), em vez da rede que a API,
+  o antivírus, os formulários e as cópias também usam. Recusa requisição assinada antes de ele
+  subir: os números já usados ficam só na memória, então um pedido capturado antes de um reinício
+  não serve depois.
+- **Restaurar** (`docs/RESTORE.md`): os volumes são criados sem ligar nada (`up --no-start`),
+  para o banco nascer com a senha que voltou na cópia; pastas 700, arquivos 600.
+
+**Por quê.** A API é o serviço exposto à internet. Antes, quem a tomasse levava junto a senha de
+administrador do banco (que passa por cima de todas as regras de linha) e a chave das cópias.
+Agora leva só o que ela já usa.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

@@ -15,16 +15,17 @@ CEREBRO_PUBLIC_ORIGIN=https://cerebro.exemplo.test docker compose --file infra/c
 
 No primeiro start:
 
-1. `init` gera os segredos da instância no volume `config` (chave e senhas do banco). Não existe
-   senha padrão, e eles nunca são sobrescritos.
+1. `init` gera os segredos da instância no volume `config`, uma pasta por serviço (`api`, `db`,
+   `updater`, `backup`, `forms`). Não existe senha padrão, e eles nunca são sobrescritos. Uma
+   instalação de antes das pastas tem os arquivos mudados de lugar no próximo start.
 2. `postgres` nasce com a senha de administrador lida desse volume.
 3. `migrate` aplica as migrações e define as senhas dos três papéis de serviço (API, entrada e
    formulários).
 4. `api` sobe e, como ainda não há Dono, grava um token de instalação de uso único em
-   `/opt/cerebro/config/setup-token`. Sem esse token ninguém consegue reivindicar a instalação:
+   `/opt/cerebro/config/api/setup-token`. Sem esse token ninguém consegue reivindicar a instalação:
 
    ```sh
-   docker compose --file infra/compose.yaml exec api cat /opt/cerebro/config/setup-token
+   docker compose --file infra/compose.yaml exec api cat /opt/cerebro/config/api/setup-token
    ```
 
 ## Anexos e antivírus
@@ -51,6 +52,8 @@ anexos sem antivírus, e cada arquivo aparece como "não verificado pelo antiví
 | API publicada só em `127.0.0.1`                                     | só o proxy reverso do próprio servidor fala com ela                   |
 | `read_only`, `cap_drop: ALL`, `no-new-privileges`, usuário sem root | uma falha na API não altera o código nem ganha privilégio no servidor |
 | Segredos só no volume `config`                                      | nada sensível no repositório, na imagem ou em variáveis de ambiente   |
+| Cada serviço monta só a sua pasta de `config`                       | a API, exposta à internet, não tem a senha de administrador do banco  |
+| Atualizador numa rede de saída só dele                              | nenhum outro serviço alcança a porta dele                             |
 | Limites de memória e de processos                                   | um problema aqui não derruba outros sistemas no mesmo servidor        |
 
 ## Proxy reverso: endereço de quem chega
@@ -145,7 +148,8 @@ docker compose --file infra/compose.yaml --profile backup up --detach
 ```
 
 - Para o Google Drive, use uma conta exclusiva para backups, com 2FA. Ponha o `rclone.conf` dela
-  no volume de configuração (`/opt/cerebro/config/rclone.conf`, dono 1000, permissão 600).
+  na pasta `backup` do volume de configuração (`backup/rclone.conf`, dono 1000, permissão 600),
+  que só o serviço das cópias monta.
 - Copie a chave das cópias para o cofre e para o papel logo depois de instalar (`docs/RESTORE.md`,
   passo 1).
 - Para conferir uma instalação nova, `CEREBRO_BACKUP_NOW=backup+test` faz uma cópia e o teste logo

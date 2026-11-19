@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { readSecrets } from './secrets.js';
+import { readSecrets, SETUP_TOKEN_FILE, UPDATER_KEY_FILE } from './secrets.js';
 
 export interface Argon2Params {
   /** KiB */
@@ -139,7 +139,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     masterKey: Buffer.from(secrets.masterKey, 'base64'),
     argon2: DEFAULT_ARGON2,
-    setupTokenFile: join(configDir, 'setup-token'),
+    setupTokenFile: join(configDir, SETUP_TOKEN_FILE),
     webRoot:
       env.CEREBRO_WEB_ROOT === undefined || env.CEREBRO_WEB_ROOT === ''
         ? null
@@ -193,7 +193,7 @@ export function parseUpdater(raw: string | undefined, configDir: string): Config
   }
   let key: Buffer;
   try {
-    key = Buffer.from(readFileSync(join(configDir, 'updater-key'), 'utf8').trim(), 'base64');
+    key = Buffer.from(readFileSync(join(configDir, UPDATER_KEY_FILE), 'utf8').trim(), 'base64');
   } catch {
     throw new Error(
       'CEREBRO_UPDATER_URL is set but the updater key is missing; run "init-secrets"',

@@ -1,5 +1,13 @@
 import { randomBytes } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -8,7 +16,7 @@ import { PasswordHasher } from '../src/crypto/password.js';
 import { digest, newRecoveryCodes, newToken, safeEqual } from '../src/crypto/tokens.js';
 import { newTotpSecret, totpCodeAt, verifyTotp } from '../src/crypto/totp.js';
 import { Vault } from '../src/crypto/vault.js';
-import { initSecrets, readSecrets } from '../src/secrets.js';
+import { initSecrets, readAdminPassword, readFormsSecrets, readSecrets } from '../src/secrets.js';
 
 const scratch = mkdtempSync(join(tmpdir(), 'cerebro-crypto-'));
 afterAll(() => {
@@ -129,43 +137,126 @@ describe('second-factor codes', () => {
 describe('instance secrets', () => {
   it('are generated on the server, readable only by its user, and never overwritten', () => {
     const dir = join(scratch, 'config');
-    expect(initSecrets(dir)).toEqual({ created: true });
+    expect(initSecrets(dir)).toEqual({ created: true, moved: [] });
     const first = readSecrets(dir);
     expect(Buffer.from(first.masterKey, 'base64')).toHaveLength(32);
-    const passwords = [first.db.adminPassword, first.db.appPassword, first.db.authPassword];
+    const admin = readAdminPassword(dir);
+    const passwords = [admin, first.db.appPassword, first.db.authPassword];
     expect(new Set(passwords).size).toBe(3);
     for (const password of passwords) expect(password.length).toBeGreaterThanOrEqual(43);
 
-    expect(statSync(join(dir, 'secrets.json')).mode & 0o777).toBe(0o600);
-    expect(statSync(join(dir, 'db-admin-password')).mode & 0o777).toBe(0o600);
-    expect(statSync(dir).mode & 0o077).toBe(0);
+    for (const file of [
+      'api/secrets.json',
+      'db/admin-password',
+      'updater/updater-key',
+      'backup/backup-password',
+      'forms/db-password',
+      'forms/form-key',
+    ]) {
+      expect(statSync(join(dir, file)).mode & 0o777, file).toBe(0o600);
+    }
+    for (const folder of ['.', 'api', 'db', 'updater', 'backup', 'forms']) {
+      expect(statSync(join(dir, folder)).mode & 0o077, folder).toBe(0);
+    }
 
-    expect(initSecrets(dir)).toEqual({ created: false });
-    expect(readFileSync(join(dir, 'secrets.json'), 'utf8')).toContain(first.masterKey);
+    expect(initSecrets(dir)).toEqual({ created: false, moved: [] });
+    expect(readFileSync(join(dir, 'api/secrets.json'), 'utf8')).toContain(first.masterKey);
+    expect(readAdminPassword(dir)).toBe(admin);
   });
 
-  it('include the key of the copies, long, private and never replaced', () => {
-    const dir = join(scratch, 'copies');
+  it('keep each service to its own folder: the API never holds the administrator password', () => {
+    const dir = join(scratch, 'folders');
     initSecrets(dir);
-    const key = readFileSync(join(dir, 'backup-password'), 'utf8');
-    expect(key.length).toBeGreaterThanOrEqual(43);
-    expect(statSync(join(dir, 'backup-password')).mode & 0o777).toBe(0o600);
+    const api = readFileSync(join(dir, 'api/secrets.json'), 'utf8');
+    expect(api).not.toContain(readAdminPassword(dir));
+    expect(api).not.toContain('adminPassword');
+    expect(readdirSync(join(dir, 'api'))).toEqual(['secrets.json']);
+    expect(readdirSync(join(dir, 'db'))).toEqual(['admin-password']);
+    expect(readdirSync(join(dir, 'updater'))).toEqual(['updater-key']);
+    expect(readdirSync(join(dir, 'backup'))).toEqual(['backup-password']);
+    expect(readdirSync(join(dir, 'forms')).sort()).toEqual(['db-password', 'form-key']);
+    // An API file that still carries it is refused.
+    const parsed = JSON.parse(api) as { db: Record<string, string> };
+    parsed.db.adminPassword = 'x'.repeat(43);
+    writeFileSync(join(dir, 'api/secrets.json'), JSON.stringify(parsed));
+    expect(() => readSecrets(dir)).toThrow('malformed');
+  });
+
+  it('move out of the old single folder once, keeping every value', () => {
+    const dir = join(scratch, 'old');
+    mkdirSync(dir, { mode: 0o700 });
+    const old = {
+      version: 1,
+      masterKey: Buffer.alloc(32, 7).toString('base64'),
+      db: {
+        adminPassword: 'a'.repeat(43),
+        appPassword: 'b'.repeat(43),
+        authPassword: 'c'.repeat(43),
+      },
+    };
+    writeFileSync(join(dir, 'secrets.json'), JSON.stringify(old), { mode: 0o600 });
+    writeFileSync(join(dir, 'db-admin-password'), old.db.adminPassword, { mode: 0o600 });
+    writeFileSync(join(dir, 'updater-key'), 'chave-antiga', { mode: 0o600 });
+    writeFileSync(join(dir, 'backup-password'), 'copias-antigas', { mode: 0o600 });
+    writeFileSync(join(dir, 'rclone.conf'), '[drive]', { mode: 0o600 });
+    writeFileSync(join(dir, 'setup-token'), 'token', { mode: 0o600 });
+
+    const result = initSecrets(dir);
+    expect(result.created).toBe(false);
+    expect(result.moved.sort()).toEqual(
+      [
+        'backup-password',
+        'db-admin-password',
+        'rclone.conf',
+        'secrets.json',
+        'setup-token',
+        'updater-key',
+      ].sort(),
+    );
+    expect(readSecrets(dir)).toEqual({
+      version: 2,
+      masterKey: old.masterKey,
+      db: { appPassword: old.db.appPassword, authPassword: old.db.authPassword },
+    });
+    expect(readAdminPassword(dir)).toBe(old.db.adminPassword);
+    expect(readFileSync(join(dir, 'updater/updater-key'), 'utf8')).toBe('chave-antiga');
+    expect(readFileSync(join(dir, 'backup/backup-password'), 'utf8')).toBe('copias-antigas');
+    expect(readFileSync(join(dir, 'backup/rclone.conf'), 'utf8')).toBe('[drive]');
+    expect(readFileSync(join(dir, 'api/setup-token'), 'utf8')).toBe('token');
+    // Nothing is left at the top for a service that mounts the whole volume.
+    expect(readdirSync(dir).sort()).toEqual(['api', 'backup', 'db', 'forms', 'updater']);
+    expect(initSecrets(dir)).toEqual({ created: false, moved: [] });
+  });
+
+  it('refuse to make a new administrator password next to existing data', () => {
+    const dir = join(scratch, 'half');
     initSecrets(dir);
-    expect(readFileSync(join(dir, 'backup-password'), 'utf8')).toBe(key);
+    rmSync(join(dir, 'db/admin-password'));
+    expect(() => initSecrets(dir)).toThrow('restore the other');
+  });
+
+  it('give the forms service only its folder, and it refuses anything more', () => {
+    const dir = join(scratch, 'forms-only');
+    initSecrets(dir);
+    expect(readFormsSecrets(join(dir, 'forms')).formKey).toHaveLength(32);
+    // The whole configuration mounted where its folder should be.
+    expect(() => readFormsSecrets(dir)).toThrow();
+    writeFileSync(join(dir, 'forms/extra'), 'x');
+    expect(() => readFormsSecrets(join(dir, 'forms'))).toThrow('more than the forms secrets');
   });
 
   it('include the updater key, made also for installations that had none, and kept', () => {
     const dir = join(scratch, 'older');
     initSecrets(dir);
-    const key = readFileSync(join(dir, 'updater-key'), 'utf8');
+    const file = join(dir, 'updater/updater-key');
+    const key = readFileSync(file, 'utf8');
     expect(Buffer.from(key, 'base64')).toHaveLength(32);
-    expect(statSync(join(dir, 'updater-key')).mode & 0o777).toBe(0o600);
     initSecrets(dir);
-    expect(readFileSync(join(dir, 'updater-key'), 'utf8')).toBe(key);
+    expect(readFileSync(file, 'utf8')).toBe(key);
     // An installation from before the updater gets one on its next start.
-    rmSync(join(dir, 'updater-key'));
-    expect(initSecrets(dir)).toEqual({ created: false });
-    expect(Buffer.from(readFileSync(join(dir, 'updater-key'), 'utf8'), 'base64')).toHaveLength(32);
+    rmSync(file);
+    expect(initSecrets(dir)).toEqual({ created: false, moved: [] });
+    expect(Buffer.from(readFileSync(file, 'utf8'), 'base64')).toHaveLength(32);
   });
 
   it('differ on every instance', () => {
@@ -175,10 +266,14 @@ describe('instance secrets', () => {
     initSecrets(b);
     expect(readSecrets(a).masterKey).not.toBe(readSecrets(b).masterKey);
     expect(readSecrets(a).db.appPassword).not.toBe(readSecrets(b).db.appPassword);
+    expect(readFileSync(join(a, 'backup/backup-password'), 'utf8')).not.toBe(
+      readFileSync(join(b, 'backup/backup-password'), 'utf8'),
+    );
   });
 
   it('are required: the server does not start with missing or damaged secrets', () => {
     expect(() => readSecrets(join(scratch, 'missing'))).toThrow();
+    expect(() => readAdminPassword(join(scratch, 'missing'))).toThrow();
   });
 });
 

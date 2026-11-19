@@ -11,8 +11,8 @@ servidor, no primeiro start.
 - **Um servidor Linux** com acesso SSH:
   - 2 vCPU, 4 GB de memória e 40 GB de disco bastam para uma equipe pequena;
   - com o antivírus dos anexos (ClamAV), conte 2 GB de memória a mais.
-- **Docker Engine 26 ou mais novo**, com o plugin `docker compose`. Os formulários usam um volume
-  com `subpath`, que só existe a partir do 26.
+- **Docker Engine 26 ou mais novo**, com o plugin `docker compose`. Cada serviço monta só a sua
+  pasta da configuração (volume com `subpath`, que só existe a partir do 26).
 - **Dois nomes no DNS** apontando para o servidor. Os dois nunca são o mesmo:
   - um para o aplicativo, por exemplo `cerebro.exemplo.com`;
   - um para os formulários públicos, por exemplo `formularios.exemplo.com`.
@@ -108,7 +108,7 @@ na hora os eventos de `/api/events` (atualização em tempo real). Com o Nginx, 
 1. Leia o token de instalação, de uso único:
 
    ```sh
-   docker compose --file infra/compose.yaml exec api cat /opt/cerebro/config/setup-token
+   docker compose --file infra/compose.yaml exec api cat /opt/cerebro/config/api/setup-token
    ```
 
 2. Abra `https://cerebro.exemplo.com`. Na tela **Instalar**:
@@ -137,11 +137,12 @@ O token some do servidor assim que o primeiro Dono existe: ninguém mais reivind
 
    O resultado fica em `~/.config/rclone/rclone.conf`.
 
-2. Leve esse arquivo ao servidor e ponha no volume de configuração, só para o serviço:
+2. Leve esse arquivo ao servidor e ponha na pasta `backup` do volume de configuração, que só o
+   serviço das cópias monta:
 
    ```sh
    docker run --rm -v cerebro_config:/v -v "$PWD/rclone.conf:/r:ro" alpine \
-     sh -c 'cp /r /v/rclone.conf && chown 1000:1000 /v/rclone.conf && chmod 600 /v/rclone.conf'
+     sh -c 'cp /r /v/backup/rclone.conf && chown 1000:1000 /v/backup/rclone.conf && chmod 600 /v/backup/rclone.conf'
    rm rclone.conf
    ```
 
@@ -173,7 +174,8 @@ alerta.
 - [ ] `https://formularios.exemplo.com/api/me` responde "Não encontrado": o endereço dos
       formulários não serve nada do aplicativo.
 - [ ] O token de instalação não existe mais:
-      `docker compose --file infra/compose.yaml exec api ls /opt/cerebro/config`.
+      `docker compose --file infra/compose.yaml exec api ls /opt/cerebro/config/api` mostra só
+      `secrets.json`.
 - [ ] De fora do servidor, nenhuma porta além de 22, 80 e 443 responde.
 - [ ] A página **Segurança** mostra a cópia e o teste de restauração, e "Verificar se o registro
       está íntegro" dá certo.
@@ -188,6 +190,8 @@ alerta.
   `CEREBRO_PUBLIC_ORIGIN`, com `https`. A API recusa pedidos de outra origem.
 - **O formulário diz "Não encontrado":** confira se o proxy repassa o `Host` original e se
   `CEREBRO_FORMS_ORIGIN` é exatamente o endereço do formulário.
-- **`forms` não sobe, e o erro fala do volume ou de `subpath`:** o Docker é anterior ao 26.
+- **Nada sobe, e o erro fala do volume ou de `subpath`:** o Docker é anterior ao 26.
+- **`forms` não sobe e diz que a pasta tem mais do que os segredos dele:** o volume foi montado
+  inteiro, sem `subpath`. Ele se recusa a rodar assim de propósito.
 - **Perdeu o celular do autenticador:** entre com um dos códigos de recuperação. Sem eles, outro
   Dono ou ADM libera um novo acesso na página **Pessoas**.

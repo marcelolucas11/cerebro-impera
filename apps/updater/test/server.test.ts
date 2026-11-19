@@ -23,6 +23,7 @@ const engine = {
   },
 } as unknown as Engine;
 
+const booted = Date.now();
 const server = updaterServer(engine, KEY);
 let base = '';
 beforeAll(async () => {
@@ -75,6 +76,8 @@ describe('the updater door', () => {
     expect((await fetch(`${base}/status`)).status).toBe(401);
     expect((await send('GET', '/status', '', { key: Buffer.alloc(32, 4) })).status).toBe(401);
     expect((await send('GET', '/status', '', { time: Date.now() - 120_000 })).status).toBe(401);
+    // Within the minute, but signed before this updater started: maybe caught and kept.
+    expect((await send('GET', '/status', '', { time: booted - 1_000 })).status).toBe(401);
     expect((await send('POST', '/apply', '{"version":"1.5.0"}', { path: '/check' })).status).toBe(
       401,
     );
