@@ -1,6 +1,7 @@
 # White label
 
-Estado: **em construção** (Fase 10). Pronto: a marca da instalação (seção 2, D70).
+Estado: **em construção** (Fase 10). Prontos: a marca da instalação (seção 2, D70) e os
+formulários públicos (seção 3, D71).
 
 Cada empresa que instala o Cérebro vê o próprio nome, logo e cor, sem mexer no código. O
 repositório não traz a marca de nenhuma empresa: o que vem de fábrica é a marca do projeto.
@@ -79,8 +80,43 @@ rede falha. Com rede, sempre busca primeiro, para uma troca de marca chegar na p
 
 ## 3. Formulários num subdomínio que só envia
 
-A desenhar na fatia 2: formulário público que cria item numa lista, num endereço separado que não
-serve o aplicativo nem lê dados.
+Um formulário é uma página que qualquer pessoa com o endereço preenche; a resposta vira um item da
+lista. Decisão completa em D71; aqui, o desenho.
+
+**Três camadas, cada uma segurando sozinha:**
+
+1. **Processo próprio** (`cli forms`, perfil `forms` do `compose.yaml`).
+   - Monta só a pasta `forms` da configuração e não tem sessão, cookie nem chave da instância.
+   - Responde só sob o próprio host: `/f/<endereço>`, `/f/<endereço>/enviado`, `/form.css`,
+     `/brand.css` e `/health`.
+   - Aceita só post de formulário comum (`application/x-www-form-urlencoded`), cada nome uma vez, da
+     própria origem.
+2. **Papel do banco `cerebro_forms`.** Não lê tabela nenhuma; executa só `form_view`,
+   `form_submit` e `forms_brand`. As duas primeiras recusam ser chamadas de dentro de uma sessão do
+   aplicativo.
+3. **As funções.**
+   - `form_view` devolve só o que a página mostra (título, apresentação, perguntas e opções em uso),
+     e nada quando o formulário está desligado ou o autor não pode mais criar itens na lista.
+   - `form_submit` confere de novo cada resposta, passa a agir como o autor (sem código recente),
+     marca o que faz como do formulário e cria o item e seus valores.
+   - O limite do dia: 500 respostas por formulário.
+
+**O endereço** tem 22 caracteres aleatórios (122 bits) e nunca muda; quem gerencia a lista o
+copia na tela.
+
+**A página.**
+
+- Sem script, com a marca da instalação (nome e cor).
+- Perguntas na ordem dos campos da lista, e "(opcional)" no que não é obrigatório.
+- Ao errar, volta com o que foi digitado e uma frase por resposta a corrigir.
+- O carimbo assinado e o campo isca separam pessoas de robôs simples.
+
+**Fica para depois.**
+
+- Anexos (dependem do antivírus, D33).
+- CAPTCHA.
+- Aviso a quem gerencia a lista a cada resposta: hoje o item aparece em tempo real e as
+  automações "quando um item é criado" já podem avisar.
 
 ## 4. README de instalação
 
@@ -90,5 +126,5 @@ sem ajuda.
 ## 5. Ordem
 
 1. ~~Marca da instalação (seção 2)~~ (D70).
-2. Formulários (seção 3).
+2. ~~Formulários (seção 3)~~ (D71).
 3. README de instalação (seção 4).

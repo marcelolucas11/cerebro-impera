@@ -99,6 +99,10 @@ const BY_CODE: Record<string, string> = {
   bad_origin: 'Abra o sistema pelo endereço oficial e tente de novo.',
   step_up_required: 'Confirme o código do autenticador para continuar.',
   updater_missing: 'Esta instalação não tem o atualizador ligado.',
+  form_fields:
+    'Um formulário só pergunta campos desta lista que qualquer pessoa pode preencher. Recarregue e escolha de novo.',
+  form_stage: 'Essa etapa não é mais desta lista. Escolha outra.',
+  too_many_forms: 'Esta lista já tem 20 formulários. Remova um antes de criar outro.',
   logo_invalid:
     'O logo não passou na conferência do servidor. Exporte o logo de novo, em PNG, e tente outra vez.',
   logo_too_large:

@@ -10,6 +10,7 @@ export interface TestDatabase {
   template: string;
   appPassword: string;
   authPassword: string;
+  formsPassword: string;
 }
 
 declare module 'vitest' {
@@ -34,6 +35,7 @@ export default async function setup(project: TestProject): Promise<() => Promise
   const prefix = `cerebro_test_${suffix}_`;
   const appPassword = randomBytes(18).toString('base64url');
   const authPassword = randomBytes(18).toString('base64url');
+  const formsPassword = randomBytes(18).toString('base64url');
 
   const admin = new pg.Client({ connectionString: adminUrl });
   await admin.connect();
@@ -43,10 +45,16 @@ export default async function setup(project: TestProject): Promise<() => Promise
   url.pathname = `/${template}`;
   await migrate({
     admin: { connectionString: url.toString() },
-    rolePasswords: { app: appPassword, auth: authPassword },
+    rolePasswords: { app: appPassword, auth: authPassword, forms: formsPassword },
   });
 
-  project.provide('testDatabase', { adminUrl, template, appPassword, authPassword });
+  project.provide('testDatabase', {
+    adminUrl,
+    template,
+    appPassword,
+    authPassword,
+    formsPassword,
+  });
 
   return async () => {
     const leftovers = await admin.query<{ datname: string }>(

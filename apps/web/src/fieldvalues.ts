@@ -1,5 +1,6 @@
 import {
   fieldValueProblem,
+  parseDecimal,
   type FieldConfig,
   type FieldKind,
   type FieldValue,
@@ -159,27 +160,7 @@ export function draftOf(field: FieldLike, value: FieldValue | undefined): FieldD
   }
 }
 
-/**
- * A number as people here type it: comma for decimals, dot for thousands
- * ("1.499,90"). A lone dot followed by exactly three digits is read as
- * thousands ("1.500"); any other lone dot as a decimal point ("12.5").
- */
-export function parseDecimal(raw: string): number | null {
-  const text = raw.trim().replace(/\s/g, '');
-  if (!/^-?[0-9.,]+$/.test(text) || !/[0-9]/.test(text)) return null;
-  let normalized: string;
-  if (text.includes(',')) {
-    if ((text.match(/,/g) ?? []).length > 1) return null;
-    normalized = text.replace(/\./g, '').replace(',', '.');
-  } else {
-    const dots = (text.match(/\./g) ?? []).length;
-    const thousands = /^-?[0-9]{1,3}(\.[0-9]{3})+$/.test(text);
-    if (dots > 1 && !thousands) return null;
-    normalized = thousands ? text.replace(/\./g, '') : text;
-  }
-  const value = Number(normalized);
-  return Number.isFinite(value) ? value : null;
-}
+export { parseDecimal };
 
 export type Parsed = { ok: true; value: FieldValue | null } | { ok: false; message: string };
 

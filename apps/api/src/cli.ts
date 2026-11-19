@@ -15,7 +15,9 @@ import { checkBackups } from './modules/backups.js';
 import { makeWeeklyReport } from './modules/reports.js';
 import { purgeTrash } from './modules/structure.js';
 import { notifyDue } from './modules/notifications.js';
-import { initSecrets, readSecrets } from './secrets.js';
+import { join } from 'node:path';
+import { serveForms } from './forms/main.js';
+import { FORMS_DIR, initSecrets, readFormsSecrets, readSecrets } from './secrets.js';
 
 function say(message: string): void {
   process.stdout.write(`${message}\n`);
@@ -44,7 +46,11 @@ async function commandMigrate(): Promise<void> {
       user: process.env.CEREBRO_DB_ADMIN_USER ?? 'postgres',
       password: secrets.db.adminPassword,
     },
-    rolePasswords: { app: secrets.db.appPassword, auth: secrets.db.authPassword },
+    rolePasswords: {
+      app: secrets.db.appPassword,
+      auth: secrets.db.authPassword,
+      forms: readFormsSecrets(join(configDir(), FORMS_DIR)).dbPassword,
+    },
     log: say,
   });
   say(applied.length === 0 ? 'database is up to date' : `${applied.length} migration(s) applied`);
@@ -129,11 +135,13 @@ const commands: Record<string, () => void | Promise<void>> = {
   'init-secrets': commandInitSecrets,
   migrate: commandMigrate,
   serve: commandServe,
+  // The public forms, on an address of their own: only shows and sends forms.
+  forms: serveForms,
 };
 
 const command = commands[process.argv[2] ?? ''];
 if (!command) {
-  process.stderr.write('usage: cerebro-api <init-secrets | migrate | serve>\n');
+  process.stderr.write('usage: cerebro-api <init-secrets | migrate | serve | forms>\n');
   process.exit(2);
 }
 try {

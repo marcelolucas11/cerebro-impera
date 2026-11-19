@@ -38,6 +38,7 @@ import { SavedViews } from './SavedViews.js';
 import { StageEditor } from './StageEditor.js';
 import { Summary } from './Summary.js';
 import { Automations } from './Automations.js';
+import { Forms } from './Forms.js';
 
 const needsCode = (error: unknown): boolean =>
   error instanceof ApiError && error.code === 'step_up_required';
@@ -85,7 +86,7 @@ export function ListScreen({
     queryFn: () => api.listPeople(listId),
     enabled: handsOutWork,
   });
-  const [editing, setEditing] = useState<'stages' | 'fields' | 'rules' | null>(null);
+  const [editing, setEditing] = useState<'stages' | 'fields' | 'rules' | 'forms' | null>(null);
   const [chosen, setChosen] = useState<Set<string>>(() => new Set());
   const myself = useQuery({ queryKey: ['me'], queryFn: api.me, retry: false });
   // What is narrowed and how it is ordered lives in the address, so it survives a reload.
@@ -306,6 +307,14 @@ export function ListScreen({
           >
             {editing === 'rules' ? 'Fechar as automações' : 'Automações'}
           </Button>
+          <Button
+            variant="quiet"
+            onClick={() => {
+              setEditing(editing === 'forms' ? null : 'forms');
+            }}
+          >
+            {editing === 'forms' ? 'Fechar os formulários' : 'Formulários'}
+          </Button>
         </div>
       ) : null}
       {editing === 'stages' ? (
@@ -332,6 +341,9 @@ export function ListScreen({
               myself.data.capabilities.includes('automations.manage'))
           }
         />
+      ) : null}
+      {editing === 'forms' ? (
+        <Forms listId={listId} stages={stages.data} fields={fields.data} />
       ) : null}
       {view === 'summary' ? (
         <Summary

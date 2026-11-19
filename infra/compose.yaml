@@ -1,4 +1,5 @@
-# Uma instalação do Cérebro: PostgreSQL e API.
+# Uma instalação do Cérebro: PostgreSQL e API (e, se ligados, antivírus, atualizador,
+# backup e formulários públicos).
 #
 # Nada neste arquivo é segredo. A chave da instância e as senhas do banco são
 # geradas no primeiro start, dentro do volume "config", e nunca saem dele.
@@ -27,6 +28,8 @@ x-api: &api
     CEREBRO_UPDATER_URL: ${CEREBRO_UPDATER_URL:-}
     # Com o backup ligado (--profile backup), a API lê a situação das cópias daqui.
     CEREBRO_BACKUP_STATUS: ${CEREBRO_BACKUP_STATUS:-}
+    # Com os formulários ligados (--profile forms): o endereço deles, para mostrar e copiar.
+    CEREBRO_FORMS_ORIGIN: ${CEREBRO_FORMS_ORIGIN:-}
   volumes:
     - config:/opt/cerebro/config
   # Sistema de arquivos somente leitura, sem capacidades do kernel, sem ganho de privilégio.
@@ -180,6 +183,58 @@ services:
   # padrão, no fuso TZ), copia banco, anexos e configuração para o repositório do restic em
   # CEREBRO_BACKUP_REPOSITORY, cifrados antes de sair; guarda um ano; no dia 1, prova que a cópia
   # restaura. Lê anexos e configuração sem poder mudá-los; não tem o socket do Docker.
+  # Opcional: formulários públicos (--profile forms), num endereço próprio que o proxy reverso
+  # aponta para a porta 3001. Monta só a pasta "forms" da configuração: a senha de um papel do
+  # banco que não lê tabela nenhuma, só mostra e envia formulários, e a chave do carimbo contra
+  # robôs. Não vê a chave da instância, as outras senhas nem os anexos. Precisa do Docker 26+
+  # (volume com subpath).
+  forms:
+    image: ${CEREBRO_IMAGE:-cerebro-api:local}
+    profiles: [forms]
+    command: [forms]
+    restart: unless-stopped
+    environment:
+      CEREBRO_ENV: production
+      CEREBRO_FORMS_ORIGIN: ${CEREBRO_FORMS_ORIGIN:-}
+      CEREBRO_FORMS_CONFIG_DIR: /opt/cerebro/forms-config
+      CEREBRO_FORMS_PORT: '3001'
+      CEREBRO_TRUST_PROXY: 'true'
+      CEREBRO_DB_HOST: postgres
+      CEREBRO_DB_NAME: cerebro
+    volumes:
+      - type: volume
+        source: config
+        target: /opt/cerebro/forms-config
+        read_only: true
+        volume:
+          subpath: forms
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: ${CEREBRO_FORMS_MEMORY:-256m}
+    pids_limit: 128
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - --eval
+        - "fetch('http://127.0.0.1:3001/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    ports:
+      - '127.0.0.1:${CEREBRO_FORMS_HOST_PORT:-3001}:3001'
+    networks:
+      - db
+      - edge
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   backup:
     image: ${CEREBRO_BACKUP_IMAGE:-cerebro-backup:local}
     profiles: [backup]

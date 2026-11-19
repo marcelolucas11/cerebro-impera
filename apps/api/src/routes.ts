@@ -36,6 +36,7 @@ import {
   homePinsSchema,
   applyUpdateSchema,
   BRAND_IMAGE_KINDS,
+  formSchema,
   saveBrandSchema,
   updateAutomationSchema,
   readNotificationsSchema,
@@ -78,6 +79,7 @@ import * as automations from './modules/automations.js';
 import { installManifest } from './http/manifest.js';
 import * as backups from './modules/backups.js';
 import * as branding from './modules/brand.js';
+import * as forms from './modules/forms.js';
 import * as reports from './modules/reports.js';
 import * as updates from './modules/updates.js';
 import * as summary from './modules/summary.js';
@@ -569,6 +571,27 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   });
 
   // ---- Automations -----------------------------------------------------------------
+  // ---- Public forms of a list (the forms themselves are served by their own service) --
+  app.get('/api/lists/:id/forms', (request) => {
+    const id = paramId(request);
+    return signedIn(request, (tx, actor) => forms.listForms(tx, deps, actor, id));
+  });
+  app.post('/api/lists/:id/forms', (request) => {
+    const id = paramId(request);
+    const body = parse(formSchema, request.body);
+    return signedIn(request, (tx, actor) => forms.createForm(tx, deps, actor, id, body));
+  });
+  app.put('/api/forms/:id', (request) => {
+    const id = paramId(request);
+    const body = parse(formSchema, request.body);
+    return signedIn(request, (tx, actor) => forms.updateForm(tx, deps, actor, id, body));
+  });
+  app.delete('/api/forms/:id', async (request) => {
+    const id = paramId(request);
+    await signedIn(request, (tx, actor) => forms.removeForm(tx, actor, id));
+    return { ok: true };
+  });
+
   app.get('/api/lists/:id/automations', (request) => {
     const id = paramId(request);
     return signedIn(request, (tx, actor) => automations.listAutomations(tx, actor, id));

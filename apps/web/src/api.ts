@@ -1,4 +1,12 @@
-import type { Brand, FieldConfig, FieldKind, FieldValue, SaveBrand } from '@cerebro/shared';
+import type {
+  Brand,
+  FieldConfig,
+  FieldKind,
+  FieldValue,
+  FormInput,
+  FormView,
+  SaveBrand,
+} from '@cerebro/shared';
 import { currentEra, forget, recall, remember } from './offline/store.js';
 import type { ListView } from './router.js';
 
@@ -283,6 +291,8 @@ export interface ItemChange {
   new: unknown;
   /** Set when a rule made the change, on behalf of `actor`; the name is gone with the rule. */
   automation: RuleMark | null;
+  /** Set when a public form sent it, on behalf of `actor`; the title is gone with the form. */
+  form?: { id: string; title: string | null } | null;
 }
 /** Which rule did something; its name is gone once the rule is removed. */
 export interface RuleMark {
@@ -678,6 +688,11 @@ export const api = {
   home: () => request<Home>('GET', '/api/home'),
   backups: () => request<BackupView>('GET', '/api/backups'),
   brand: () => request<Brand>('GET', '/api/brand'),
+  forms: (listId: string) => request<FormView[]>('GET', `/api/lists/${listId}/forms`),
+  createForm: (listId: string, input: FormInput) =>
+    request<FormView>('POST', `/api/lists/${listId}/forms`, input),
+  updateForm: (id: string, input: FormInput) => request<FormView>('PUT', `/api/forms/${id}`, input),
+  removeForm: (id: string) => request<{ ok: true }>('DELETE', `/api/forms/${id}`),
   saveBrand: (input: SaveBrand) => request<Brand>('PUT', '/api/brand', input),
   updates: () => request<UpdatesView>('GET', '/api/updates'),
   checkUpdates: () => request<UpdatesView>('POST', '/api/updates/check'),

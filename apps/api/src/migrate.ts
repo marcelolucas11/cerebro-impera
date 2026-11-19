@@ -11,7 +11,7 @@ export interface MigrateOptions {
   /** Connection as the database owner. Used only here, never by the API. */
   admin: pg.ClientConfig;
   /** When given, the two service roles are (re)assigned these login passwords. */
-  rolePasswords?: { app: string; auth: string };
+  rolePasswords?: { app: string; auth: string; forms?: string };
   log?: (message: string) => void;
 }
 
@@ -73,6 +73,9 @@ export async function migrate(options: MigrateOptions): Promise<{ applied: strin
     if (options.rolePasswords) {
       await setRolePassword(client, 'cerebro_app', options.rolePasswords.app);
       await setRolePassword(client, 'cerebro_auth', options.rolePasswords.auth);
+      if (options.rolePasswords.forms !== undefined) {
+        await setRolePassword(client, 'cerebro_forms', options.rolePasswords.forms);
+      }
     }
     return { applied };
   } finally {
@@ -80,11 +83,11 @@ export async function migrate(options: MigrateOptions): Promise<{ applied: strin
   }
 }
 
-/** Nobody but the two service roles may even connect to this database. */
+/** Nobody but the three service roles may even connect to this database. */
 export async function hardenDatabase(client: pg.Client): Promise<void> {
   const { rows } = await client.query<{ revoke: string; grant: string }>(
     `SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', current_database()) AS revoke,
-            format('GRANT CONNECT ON DATABASE %I TO cerebro_app, cerebro_auth', current_database()) AS grant`,
+            format('GRANT CONNECT ON DATABASE %I TO cerebro_app, cerebro_auth, cerebro_forms', current_database()) AS grant`,
   );
   const statements = rows[0];
   if (!statements) throw new Error('could not build hardening statements');

@@ -18,6 +18,7 @@ import type { Updater } from '../../src/updates/client.js';
 import { FileStore } from '../../src/files/store.js';
 
 export const ORIGIN = 'https://cerebro.exemplo.test';
+export const FORMS_ORIGIN = 'https://formularios.exemplo.test';
 
 export interface TestEnv {
   deps: Deps;
@@ -100,6 +101,7 @@ export async function createTestEnv(
     version: '1.4.0',
     updater: null,
     backupStatusFile: options.backupStatusFile ?? null,
+    formsOrigin: FORMS_ORIGIN,
   };
 
   const clock = {
