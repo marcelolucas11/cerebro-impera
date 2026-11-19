@@ -5,7 +5,7 @@
 
 ## Onde estamos
 
-**Fase 10 — White label, em andamento.** Prontos: a marca da instalação (nome, cor e logo, na página, na entrada e no manifesto) e os formulários públicos, num endereço e num processo próprios que só mostram e enviam. Falta o README de instalação para outras empresas. A Fase 9 (backup e restauração) está pronta no código. A Fase 8 (atualizador pelo GitHub) também está pronta no código. A Fase 7 (PWA e offline) está pronta no código, menos o push. A Fase 1 (fundação e segurança) está pronta, com o percurso em
+**Fase 10 — White label, pronta no código.** A marca da instalação (nome, cor e logo, na página, na entrada e no manifesto), os formulários públicos (num endereço e num processo próprios que só mostram e enviam) e o guia de instalação para outras empresas (`docs/INSTALL.md`). Próxima: Fase 11, revisão independente de segurança. A Fase 9 (backup e restauração) está pronta no código. A Fase 8 (atualizador pelo GitHub) também está pronta no código. A Fase 7 (PWA e offline) está pronta no código, menos o push. A Fase 1 (fundação e segurança) está pronta, com o percurso em
 navegador real rodando no CI. A Fase 2 (estrutura) está completa no código: etapas, campos
 personalizados (inclusive pessoas, secreto e arquivos), histórico, lixeira, mover entre listas,
 modelos de etapas, delegação, "Minha conta" e anexos; falta o mantenedor revisar e decidir o
@@ -35,7 +35,7 @@ servidor, com conflito por campo; o push espera a decisão D51 (ver `docs/design
 | **7. PWA e offline**                                              | pronta no código, menos o push (D51)    |
 | 8. Atualizador assinado                                           | pronto no código; falta a 1ª release    |
 | 9. Backup e restauração                                           | pronto no código; Drive no servidor     |
-| **10. White label, assistente visual e formulários**              | **em andamento (2 de 3)**               |
+| 10. White label, assistente visual e formulários                  | pronto no código; nomes no servidor     |
 | 11. Blindagem (revisão independente)                              | a fazer                                 |
 | 12. Implantação                                                   | só com autorização do mantenedor        |
 | 13. Migração de dados                                             | só com autorização do mantenedor        |
@@ -412,8 +412,9 @@ pnpm check
 
 ## Próximo passo exato
 
-1. **Fase 10, parte 3:** README de instalação para outras empresas: do zero até o primeiro Dono,
-   com marca, formulários, backup e atualizador.
+1. **Fase 11 (blindagem):** revisão independente. Um revisor que não escreveu o código lê o
+   repositório atrás de falhas de acesso, vazamento e injeção, e cada achado vira correção com
+   teste. Depois: dependências e imagens fixadas por digest no release.
 2. Push no celular, quando o mantenedor decidir quais avisos (D51).
 3. Itens adiados que dependem da interface: passkeys e CAPTCHA.
 4. Relatório por e-mail, quando o mantenedor decidir o servidor de e-mail (D60).
