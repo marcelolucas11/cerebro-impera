@@ -299,8 +299,9 @@ export class BackupEngine {
           // CREATE DATABASE cannot share a command with anything else.
           '--command',
           'CREATE DATABASE cerebro',
+          // Every service role the database grants to, or the copy does not open.
           '--command',
-          'CREATE ROLE cerebro_app NOLOGIN; CREATE ROLE cerebro_auth NOLOGIN;',
+          SERVICE_ROLES.map((role) => `CREATE ROLE ${role} NOLOGIN;`).join(' '),
         ],
         'O banco descartável não pôde ser preparado.',
       );
@@ -348,6 +349,12 @@ export class BackupEngine {
     return next;
   }
 }
+
+/**
+ * The roles the application's database grants to. The throwaway database of the restore test
+ * needs all of them: a grant or policy naming one that does not exist stops the restore.
+ */
+export const SERVICE_ROLES = ['cerebro_app', 'cerebro_auth', 'cerebro_forms'] as const;
 
 /** The next run at this hour of the day, local time; tomorrow when today's has passed. */
 export function nextRun(now: Date, hour: number): Date {
