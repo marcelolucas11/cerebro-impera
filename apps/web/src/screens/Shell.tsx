@@ -9,7 +9,7 @@ import { forget, useServedFromDevice } from '../offline/store.js';
 import { useOfflineSync } from '../offline/sync.js';
 import { useOnline } from '../online.js';
 import { Link, listIdFrom, listViewFrom, usePath } from '../router.js';
-import { onSignedOut as listenForSignOut } from '../session.js';
+import { onSignedOut as listenForSignOut, tellOtherTabs } from '../session.js';
 import { StepUpProvider } from '../stepup.js';
 import { Button, Notice, useAction } from '../ui/kit.js';
 import { Devices } from './Devices.js';
@@ -51,6 +51,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
     useCallback(async () => {
       // What this device kept goes first, even if the server cannot be reached to sign out.
       await forget();
+      tellOtherTabs();
       await api.signOut();
       queryClient.clear();
       onSignedOut();

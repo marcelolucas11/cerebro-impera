@@ -171,6 +171,8 @@ describe('room for uploads', () => {
   const MB = 1024 * 1024;
   // Half a gigabyte always stays free; here, 20 MB more than that.
   const ROOMY = 532 * MB;
+  // The largest file the tests allow.
+  const MAX_FILE = 20 * MB;
 
   it('counts what is still coming as taken, and checks every part again', async () => {
     free(ROOMY);
@@ -204,6 +206,26 @@ describe('room for uploads', () => {
     const fits = await start('cabe.bin', 9 * MB);
     expect(fits.status, JSON.stringify(fits.body)).toBe(200);
     for (const id of [big.body.id, small.body.id, fits.body.id]) {
+      expect((await s.ana.browser.delete(`/api/uploads/${id}`)).status).toBe(200);
+    }
+  });
+
+  it('lets one person hold at most two of the largest files’ worth at a time', async () => {
+    free(10 * ROOMY);
+    const first = await start('primeiro.bin', MAX_FILE);
+    const second = await start('segundo.bin', MAX_FILE);
+    expect([first.status, second.status]).toEqual([200, 200]);
+    const third = await start('terceiro.bin', 1);
+    expect(third.status).toBe(409);
+    expect(third.body.error.code).toBe('uploads_too_large');
+    // Someone else still can.
+    const hers = await s.bruno.browser.post<{ id: string }>(
+      `/api/items/${s.itemBruno}/attachments`,
+      { name: 'dela.bin', size: 1, type: 'application/octet-stream' },
+    );
+    expect(hers.status).toBe(200);
+    expect((await s.bruno.browser.delete(`/api/uploads/${hers.body.id}`)).status).toBe(200);
+    for (const id of [first.body.id, second.body.id]) {
       expect((await s.ana.browser.delete(`/api/uploads/${id}`)).status).toBe(200);
     }
   });

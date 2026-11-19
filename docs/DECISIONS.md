@@ -1224,7 +1224,8 @@ formulários só mandaria respostas, como antes.
 
 **O que sobra, por escrito.** O banco não confere o código do autenticador. Um serviço de entrada
 tomado, nas mãos de quem já tem conta e aparelho aprovado, poderia marcar o código como confirmado
-sem digitá-lo. Isso vale só para a própria sessão, que já é dela.
+sem digitá-lo. O banco não amarra isso à sessão de quem tomou o serviço: com o token de outra
+sessão viva (um cookie roubado), ela também seria marcada. (Corrigido o texto na D84.)
 
 ## D73 — Cada serviço monta só a sua pasta da configuração; o atualizador sai por uma rede só dele
 
@@ -1416,6 +1417,52 @@ Dois achados informativos ficam como estão, com o motivo:
 - Uma consulta com várias transações dentro poderia levar a identidade de uma para a outra. A API
   nunca monta consulta assim: cada pedido abre uma transação só, com a identidade amarrada a ela,
   e os valores vão sempre como parâmetros.
+
+## D83 — Segunda revisão, página: o que fica no aparelho e nas outras abas
+
+**Decisão.** Uma segunda revisão independente, só do que a Fase 11 mudou, achou na página:
+
+- A página inicial guardada para ler offline não perdia o que veio de uma lista tirada da pessoa
+  ou que virou sensível (títulos dos itens e o nome da lista). Agora, quando a estrutura nova
+  chega, sai dela o que veio de lista que mudou, como já saíam os itens da própria lista; e, na
+  leitura offline, ela mostra só o que a estrutura guardada ainda mostra.
+- Quando alguém saía numa aba, as outras apagavam o que estava guardado, mas continuavam com a
+  tela e o que tinham na memória. Agora sair, entrar ou a sessão acabar numa aba leva as outras
+  para a entrada, sem nada na memória.
+- A chave do autenticador e os códigos de recuperação também saem da área de transferência depois
+  de 30 segundos. Quando o navegador recusa limpar (página fora da frente ou, em alguns
+  navegadores, sem um clique ou tecla antes), a página tenta de novo no próximo clique, tecla ou
+  volta à página. A tela agora diz "tenta limpar" e lembra que um histórico da área de
+  transferência do sistema guarda uma cópia.
+- `pwa.md` prometia que a cifragem protegia contra quem lê os arquivos do navegador; não protege
+  (a chave fica nos mesmos arquivos). O texto foi corrigido.
+
+## D84 — Segunda revisão, banco: tirar uma regra, alertas, convites, autenticador e envios
+
+**Decisão.** A mesma segunda revisão achou no banco, todos corrigidos na migração 0049:
+
+- **Tirar uma regra também abre.** Sem uma regra numa pasta ou lista, a pessoa volta para a regra
+  da pasta de cima ou do espaço. Tirar a regra mais estreita entregava isso a ela, e quem tirava
+  só precisava gerenciar o lugar. Agora tirar exige o mesmo que dar o que ela passa a ter (o nível
+  e o alcance da regra para a qual volta), com as regras do próprio ADM abaixo contando (D72).
+  Para quem não pode, a regra não aparece para tirar.
+- **Alertas do serviço de entrada:** só os três que ele usa (bloqueio de entrada, código de
+  recuperação usado, aparelho esperando), como aviso, com pouco anexo. Antes, um serviço tomado
+  podia gravar qualquer alerta, inclusive um falso de cópia que esconderia os de verdade.
+- **Convite vencido** não é usado, e **o aparelho esperando** diz quando pediu pelo relógio do banco.
+- **O autenticador** só é gravado com um desafio vivo feito para vinculá-lo (que só usar um
+  convite ou uma redefinição cria), salvo o do primeiro Dono durante a instalação. Depois disso o
+  serviço de entrada só avança o último código usado; um autenticador confirmado não é trocado no
+  lugar, e só sai quando um convite ou redefinição é usado.
+- **Envios:** começam um de cada vez (a conta do espaço livre e a dos cinco envios abertos não se
+  atropelam), uma pessoa não reserva mais que o dobro do maior arquivo permitido, e um envio parado
+  há 15 minutos deixa de reservar espaço (sai com as rotinas, em 24 horas, como antes).
+- **Donos e a primeira conta** só mudam em READ COMMITTED, o isolamento para o qual as travas
+  foram escritas.
+- **Uma lista que muda** (sensível, arquivada, movida, renomeada) é anunciada ao vivo, e as páginas
+  abertas releem a estrutura, que poda o que ficou guardado no aparelho.
+
+**Por quê.** Nenhum era crítico ou alto; o mais sério (tirar uma regra) desfazia em parte a D72.
 
 ## Adiado, com motivo
 

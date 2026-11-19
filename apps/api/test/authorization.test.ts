@@ -491,6 +491,59 @@ describe('grants', () => {
     expect((await s.owner.browser.delete(`/api/grants/${folder.body.id}`)).status).toBe(200);
   });
 
+  it('cannot open, by taking a narrower rule away, what the person falls back on', async () => {
+    // Marta manages the space but is kept out of Perfis. Ana has the whole space,
+    // and none of the folder, both from the owner.
+    await confirmSecondFactor(s.owner);
+    const byOwner = (
+      userId: string,
+      scopeType: string,
+      scopeId: string,
+      level: string,
+      itemScope = 'all',
+    ) =>
+      s.owner.browser.put<Grant>('/api/grants', { userId, scopeType, scopeId, level, itemScope });
+    const kept = await byOwner(s.marta.id, 'list', s.perfis, 'none');
+    const space = await byOwner(s.ana.id, 'space', s.operacao, 'edit');
+    const folder = await byOwner(s.ana.id, 'folder', s.equipe, 'none');
+    expect([kept.status, space.status, folder.status]).toEqual([200, 200, 200]);
+    expect(ids((await treeOf(s.ana)).lists)).toEqual([s.tarefas]);
+
+    // Taking the folder rule away would hand her the space's "edit" on Perfis: for
+    // Marta, that rule is not there to take.
+    await confirmSecondFactor(s.marta);
+    expect((await s.marta.browser.delete(`/api/grants/${folder.body.id}`)).status).toBe(404);
+    expect(ids((await treeOf(s.ana)).lists)).toEqual([s.tarefas]);
+
+    // Once Marta herself sees Perfis, she may.
+    await confirmSecondFactor(s.owner);
+    expect((await s.owner.browser.delete(`/api/grants/${kept.body.id}`)).status).toBe(200);
+    await confirmSecondFactor(s.marta);
+    expect((await s.marta.browser.delete(`/api/grants/${folder.body.id}`)).status).toBe(200);
+    expect(ids((await treeOf(s.ana)).lists)).toEqual([s.tarefas, s.perfis].sort());
+
+    // The same for how much of a list she sees: Marta sees only what is given to her in
+    // Tarefas, so she cannot take away the rule that keeps Ana to her own items there.
+    await confirmSecondFactor(s.owner);
+    const narrow = await byOwner(s.marta.id, 'list', s.tarefas, 'manage', 'assigned');
+    expect(narrow.status).toBe(200);
+    const anaList = (
+      await env.admin.query<{ id: string; item_scope: string }>(
+        'SELECT id, item_scope FROM app.access_grants WHERE user_id = $1 AND list_id = $2',
+        [s.ana.id, s.tarefas],
+      )
+    ).rows[0];
+    expect(anaList?.item_scope).toBe('assigned');
+    await confirmSecondFactor(s.marta);
+    expect((await s.marta.browser.delete(`/api/grants/${anaList?.id ?? ''}`)).status).toBe(404);
+
+    // Back as it was.
+    await confirmSecondFactor(s.owner);
+    expect((await s.owner.browser.delete(`/api/grants/${narrow.body.id}`)).status).toBe(200);
+    expect((await s.owner.browser.delete(`/api/grants/${space.body.id}`)).status).toBe(200);
+    expect(ids((await treeOf(s.ana)).lists)).toEqual([s.tarefas]);
+  });
+
   it('open a whole list to an employee only when someone with authority says so', async () => {
     const widen = await s.owner.browser.put<Grant>('/api/grants', {
       userId: s.bruno.id,

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
-import type { Tree } from '../api.js';
-import { expired, keepable, keptPart, listOf, noLongerKeepable } from './policy.js';
+import type { Home, Tree } from '../api.js';
+import { expired, homeAfter, keepable, keptPart, listOf, noLongerKeepable } from './policy.js';
 import { newKey, seal, unseal, type Sealed } from './vault.js';
 
 /*
@@ -188,6 +188,12 @@ export async function remember(path: string, value: unknown, askedIn: number): P
       await remove(
         (await slots()).filter((slot) => noLongerKeepable(slot, before ?? null, value as Tree)),
       );
+      // The start page names items and lists too: what came from those lists goes from it.
+      const home = await readSealed('/api/home').catch(() => null);
+      if (home !== null) {
+        const pruned = homeAfter(home.value as Home, before ?? null, value as Tree);
+        await writeSealed('/api/home', pruned, home.savedAt);
+      }
     }
     if (!keepable(path, tree)) return;
     const lock = await deviceKey();
@@ -222,6 +228,11 @@ export async function recall(path: string): Promise<{ value: unknown } | null> {
     const value = await unseal(lock, path, record);
     if (value === undefined) return null;
     served(Math.min(servedSince ?? record.savedAt, record.savedAt));
+    if (path === '/api/home') {
+      // Only what the kept structure still shows (it has no sensitive list).
+      const kept = (await readSealed('/api/tree'))?.value as Tree | undefined;
+      return { value: keptPart(path, value, kept ?? null) };
+    }
     return { value };
   } catch {
     return null;

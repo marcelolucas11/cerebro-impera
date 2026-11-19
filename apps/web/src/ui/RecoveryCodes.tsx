@@ -23,7 +23,7 @@ export function RecoveryCodes({
           </li>
         ))}
       </ul>
-      <CopyButton text={codes.join('\n')} label="Copiar os 10 códigos" />
+      <CopyButton text={codes.join('\n')} label="Copiar os 10 códigos" sensitive />
       <p className="field-note">
         Guarde em um gerenciador de senhas ou impresso em lugar seguro. Não deixe em anotações do
         celular nem em conversas.

@@ -133,12 +133,18 @@ export async function startUpload(
     throw badRequest('file_too_large', { maxBytes: deps.config.files.maxBytes });
   }
   // What others are still sending counts as taken, and a margin stays free: a full
-  // disk would stop the database too.
-  const open = await one<{ pending: string; mine: number }>(
+  // disk would stop the database too. Uploads start one at a time, so two at once
+  // do not both count the same free space.
+  await run(tx, sql`SELECT pg_advisory_xact_lock(hashtextextended('cerebro:uploads', 0))`);
+  const open = await one<{ pending: string; mine: number; mine_pending: string }>(
     tx,
-    sql`SELECT pending, mine FROM app.uploads_open()`,
+    sql`SELECT pending, mine, mine_pending FROM app.uploads_open()`,
   );
   if ((open?.mine ?? 0) >= MAX_OPEN_UPLOADS) throw conflict('too_many_uploads');
+  // One person never holds more than two of the largest files' worth of space.
+  if (Number(open?.mine_pending ?? 0) + body.size > 2 * deps.config.files.maxBytes) {
+    throw conflict('uploads_too_large');
+  }
   if ((await deps.files.freeBytes()) < body.size + Number(open?.pending ?? 0) + DISK_MARGIN) {
     throw conflict('disk_full');
   }

@@ -100,16 +100,16 @@ async function audit(
   );
 }
 
+/** The three alerts the login service raises (the database takes no other from it). */
 async function alert(
   db: Queryable,
-  kind: string,
-  severity: 'info' | 'warning' | 'critical',
+  kind: 'login_lockout' | 'recovery_code_used' | 'device_pending',
   actor: string | null,
   metadata: Record<string, unknown>,
 ): Promise<void> {
   await run(
     db,
-    sql`SELECT app.raise_alert(${kind}, ${severity}, ${actor}, ${JSON.stringify(metadata)}::jsonb)`,
+    sql`SELECT auth.raise_login_alert(${kind}, ${actor}, ${JSON.stringify(metadata)}::jsonb)`,
   );
 }
 
@@ -123,7 +123,7 @@ async function failedAttempt(
   if (attempt.accountKey !== undefined) {
     const result = await registerFailure(db, attempt.accountKey, ACCOUNT_POLICY);
     if (result.failures === ACCOUNT_POLICY.threshold && attempt.userId !== undefined) {
-      await alert(db, 'login_lockout', 'warning', null, { user_id: attempt.userId });
+      await alert(db, 'login_lockout', null, { user_id: attempt.userId });
     }
   }
   await audit(
@@ -232,7 +232,7 @@ async function checkSecondFactor(
   );
   if (used !== 1) return false;
   await audit(db, userId, ip, 'recovery_code.used', { type: 'user', id: userId });
-  await alert(db, 'recovery_code_used', 'warning', userId, { user_id: userId });
+  await alert(db, 'recovery_code_used', userId, { user_id: userId });
   return true;
 }
 
@@ -319,7 +319,7 @@ async function finishLogin(
       setCookie(reply, DEVICE_COOKIE, token, DEVICE_COOKIE_SECONDS);
     }
     await audit(tx, userId, ip, 'device.pending', { type: 'device', id: deviceId });
-    await alert(tx, 'device_pending', 'warning', userId, { device_id: deviceId, user_id: userId });
+    await alert(tx, 'device_pending', userId, { device_id: deviceId, user_id: userId });
     return { status: 'device_pending' };
   });
 }

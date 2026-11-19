@@ -61,10 +61,11 @@ distância. O push espera a decisão D51. Nada aqui
 - **Onde e como:** IndexedDB, cada registro cifrado com AES-GCM de 256 bits e um vetor novo por
   gravação. A chave é gerada no próprio aparelho pelo WebCrypto, marcada como não exportável, e
   guardada no IndexedDB. Nenhum código da página consegue ler os bytes da chave, só usá-la.
-- **Limite honesto:** a chave fica no perfil do navegador. Quem copiar o perfil inteiro de um
-  aparelho desbloqueado leva a chave junto, como já levaria o cookie de sessão. A cifragem protege
-  contra ferramentas que leem o disco, cópias de segurança e sincronizações que pegam os arquivos
-  do navegador. A defesa contra aparelho perdido é a soma de:
+- **Limite honesto:** a chave fica no perfil do navegador, nos mesmos arquivos dos registros.
+  "Não exportável" só impede o código da página de ler os bytes da chave; quem lê os arquivos do
+  navegador (uma ferramenta que lê o disco, uma cópia de segurança, uma sincronização do perfil, ou
+  quem copia o perfil de um aparelho desbloqueado) leva a chave junto, como já levaria o cookie de
+  sessão. A cifragem não protege contra isso. A defesa contra aparelho perdido é a soma de:
   - criptografia de disco do sistema;
   - expiração;
   - encerramento da sessão por um Dono;
@@ -82,7 +83,12 @@ distância. O push espera a decisão D51. Nada aqui
   - ao entrar, para ninguém herdar o que outra pessoa deixou no aparelho;
   - quando um Dono manda apagar (seção 4).
     Uma resposta pedida antes de apagar e que chega depois é descartada. Todas as abas abertas
-    apagam juntas: a que apaga avisa as outras (BroadcastChannel), que largam o que têm na memória.
+    apagam juntas: a que apaga avisa as outras (BroadcastChannel). Quando alguém sai ou entra numa
+    aba, ou a sessão acaba, as outras abas também largam o que têm na memória e voltam para a
+    entrada.
+- **A página inicial guardada** também perde o que veio de uma lista que mudou (tirada, sensível,
+  com outro nível ou alcance) assim que a estrutura nova chega, e na leitura offline mostra só o
+  que a estrutura guardada ainda mostra.
 
 ## 4. Apagamento remoto (pronto)
 
