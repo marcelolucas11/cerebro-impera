@@ -1464,6 +1464,32 @@ Dois achados informativos ficam como estão, com o motivo:
 
 **Por quê.** Nenhum era crítico ou alto; o mais sério (tirar uma regra) desfazia em parte a D72.
 
+## D85 — Segunda revisão, servidor: imagens assinadas, configuração, endereços e redes
+
+**Decisão.** A segunda revisão achou no servidor, corrigido:
+
+- **A lista de imagens da release** (`cerebro-images.env`), que o guia manda colar no `.env`, não
+  era assinada, e nada conferia as imagens do atualizador e das cópias. Quem conseguisse trocar um
+  anexo da release faria uma instalação nova rodar um atualizador dele, com acesso ao Docker do
+  servidor. Agora o arquivo é assinado pelo fluxo de release, como o manifesto, e o guia de
+  instalação manda conferir com o `cosign` (a mesma origem que o atualizador exige) antes de usar.
+- **A API recusa subir em produção se enxerga mais da configuração do que a pasta dela e a do
+  atualizador.** Um compose de antes das pastas por serviço (D73) montaria o volume inteiro, e a
+  API rodaria com a senha de administrador do banco e a chave das cópias.
+- **Endereços:** antes de entrar, a API conta pedidos por bloco IPv6 /64, como já contava o teto
+  por endereço; os formulários também. O mapa desse teto tem limite de tamanho (passado o limite,
+  os endereços novos dividem uma contagem).
+- **Redes:** formulários e cópias saíram da rede da API (`edge`): cada um tem a sua. Um contêiner
+  de formulários tomado não alcança mais a API para fingir ser o proxy. `CEREBRO_TRUST_PROXY`
+  passa a ser configurável no `.env` (padrão 1).
+- **Log das cópias:** valores da cópia que apareçam numa linha de erro são mascarados; nomes de
+  tabela, coluna ou parâmetro ficam, porque dizem o que deu errado.
+
+**Rever com o mantenedor (junto da D79).** O ClamAV, por padrão, diz "limpo" para um compactado
+com arquivos acima dos limites dele ou cifrado. Ligar `AlertExceedsMax` e `AlertEncrypted` faria
+esses casos serem bloqueados, ao custo de bloquear também compactados grandes ou com senha
+legítimos. Fica para a mesma decisão da D79.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

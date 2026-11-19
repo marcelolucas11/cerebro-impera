@@ -65,7 +65,11 @@ dependem de saber o endereço real de quem chega. A API confia só no número de
 `CEREBRO_TRUST_PROXY` (normalmente 1) e lê o `X-Forwarded-For` da direita para a esquerda, então o
 que o próprio cliente escrever nesse cabeçalho não conta. O Caddy já faz o certo. No Nginx, use
 `proxy_set_header X-Forwarded-For $remote_addr;` (ou `$proxy_add_x_forwarded_for`, que também
-funciona com 1 salto). Endereços IPv6 contam por bloco /64.
+funciona com 1 salto). Endereços IPv6 contam por bloco /64. Com dois proxies na frente (uma CDN e
+o proxy do servidor, por exemplo), ponha `CEREBRO_TRUST_PROXY=2` no `.env`.
+
+A API fica sozinha na rede da porta dela: os formulários e as cópias têm redes próprias, e de lá
+não se chega à API para se fazer passar pelo proxy.
 
 ## Proxy reverso: atualizações em tempo real
 

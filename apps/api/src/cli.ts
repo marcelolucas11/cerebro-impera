@@ -18,6 +18,7 @@ import { notifyDue } from './modules/notifications.js';
 import { join } from 'node:path';
 import { serveForms } from './forms/main.js';
 import {
+  assertOwnConfiguration,
   FORMS_DIR,
   initSecrets,
   readAdminPassword,
@@ -64,6 +65,9 @@ async function commandMigrate(): Promise<void> {
 }
 
 async function commandServe(): Promise<void> {
+  if ((process.env.CEREBRO_ENV ?? 'production') === 'production') {
+    assertOwnConfiguration(process.env.CEREBRO_CONFIG_DIR ?? '/opt/cerebro/config');
+  }
   const config = loadConfig();
   const pools = createPools(config.db);
   const deps: Deps = {

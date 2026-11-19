@@ -81,6 +81,20 @@ describe('limits on requests', () => {
     expect(statuses.at(-1)).toBe(429);
   });
 
+  it('counts one IPv6 network as one before anyone signs in, whatever address of it is used', async () => {
+    const statuses: number[] = [];
+    for (let n = 1; n <= LIMIT + 1; n += 1) {
+      const response = await env.app.inject({
+        method: 'GET',
+        url: '/api/setup/status',
+        remoteAddress: `2001:db8:5:6::${n.toString(16)}`,
+      });
+      statuses.push(response.statusCode);
+    }
+    expect(statuses.slice(0, LIMIT).every((status) => status === 200)).toBe(true);
+    expect(statuses.at(-1)).toBe(429);
+  });
+
   it('believes only the proxies in front, never an address the client wrote', async () => {
     expect(parseTrustProxy(undefined)).toBe(0);
     expect(parseTrustProxy('false')).toBe(0);

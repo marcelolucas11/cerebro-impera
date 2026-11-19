@@ -194,6 +194,29 @@ export interface FormsSecrets {
   formKey: Buffer;
 }
 
+/**
+ * The API is given only its own folder of the configuration and the updater's
+ * key. If it sees more (a compose file from before each service got its own
+ * folder, still mounting the whole volume), it would run with the database
+ * administrator's password and the backup key: it refuses to start instead.
+ */
+export function assertOwnConfiguration(configDir: string): void {
+  let entries: string[];
+  try {
+    entries = readdirSync(configDir);
+  } catch {
+    // Nothing to see: reading the secrets says what is missing.
+    return;
+  }
+  const others = entries.filter((entry) => entry !== API_DIR && entry !== UPDATER_DIR);
+  if (others.length > 0) {
+    throw new Error(
+      `${configDir} holds more than the API's own configuration (${others.join(', ')}); ` +
+        'mount only its "api" and "updater" folders, as infra/compose.yaml does',
+    );
+  }
+}
+
 const FORMS_FILES = ['db-password', 'form-key'];
 
 /**

@@ -368,3 +368,28 @@ export function nextRun(now: Date, hour: number): Date {
 export function isRestoreDay(day: Date): boolean {
   return day.getDate() === 1;
 }
+
+/**
+ * The lines of a failed program's errors worth putting in the service's log: only
+ * its own error lines, at most three, short, and with any value from the copy
+ * masked. A quoted name (of a table, a column, a parameter) stays: it says what went
+ * wrong without saying anything of what is in the copy.
+ */
+export function errorLines(errors: string): string[] {
+  return errors
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /^(\S+: error:|ERROR:|FATAL:|Fatal:)/.test(line))
+    .slice(0, 3)
+    .map((line) =>
+      line
+        .replace(/"([^"]*)"/g, (_all, quoted: string) => `"${nameOrNot(quoted)}"`)
+        .replace(/'([^']*)'/g, (_all, quoted: string) => `'${nameOrNot(quoted)}'`)
+        .replace(/=\([^)]*\)/g, '=(…)')
+        .slice(0, 200),
+    );
+}
+
+function nameOrNot(quoted: string): string {
+  return /^[a-z_][a-z0-9_.]{0,62}$/.test(quoted) ? quoted : '…';
+}

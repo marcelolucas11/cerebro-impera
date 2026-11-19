@@ -67,6 +67,28 @@ CEREBRO_BACKUP_REPOSITORY=rclone:drive:cerebro-copias
 
 `chmod 600 infra/.env` e o diretório `infra` pertencendo ao root.
 
+**Antes de colar as linhas das imagens, confira a assinatura.** Baixe da release o
+`cerebro-images.env` e o `cerebro-images.env.sigstore.json` e rode o
+[cosign](https://docs.sigstore.dev/cosign/system_config/installation/) com o dono, o repositório e a
+tag da versão:
+
+```sh
+REPO=<dono>/<repositório>
+TAG=<tag da versão, como aparece na release>
+cosign verify-blob cerebro-images.env \
+  --bundle cerebro-images.env.sigstore.json \
+  --certificate-identity "https://github.com/${REPO}/.github/workflows/release.yml@refs/tags/${TAG}" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-github-workflow-trigger release \
+  --certificate-github-workflow-ref "refs/tags/${TAG}" \
+  --certificate-github-workflow-repository "${REPO}"
+```
+
+Só use o arquivo se a resposta for `Verified OK`. Ela prova que ele saiu do fluxo de release deste
+repositório, para esta tag; os digests dentro dele prendem cada imagem ao conteúdo exato. Um anexo
+trocado depois (por quem conseguisse escrever na release) não passa: o atualizador usaria a imagem
+dele com acesso ao Docker do servidor. O atualizador confere a mesma coisa a cada versão nova.
+
 ## 4. Subir
 
 ```sh
