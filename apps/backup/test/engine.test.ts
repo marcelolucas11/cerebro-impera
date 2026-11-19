@@ -157,7 +157,7 @@ describe('the monthly restore test', () => {
     );
     // The database is created in a command of its own, as PostgreSQL requires.
     expect(lines[4]).toBe(
-      'psql --host /work/teste/pg --username postgres --dbname postgres --set ON_ERROR_STOP=1 --command CREATE DATABASE cerebro --command CREATE ROLE cerebro_app NOLOGIN; CREATE ROLE cerebro_auth NOLOGIN;',
+      'psql --host /work/teste/pg --username postgres --dbname postgres --set ON_ERROR_STOP=1 --command CREATE DATABASE cerebro --command CREATE ROLE cerebro_app NOLOGIN; CREATE ROLE cerebro_auth NOLOGIN; CREATE ROLE cerebro_forms NOLOGIN;',
     );
     expect(
       lines.some(
