@@ -1,13 +1,16 @@
 import { useSyncExternalStore } from 'react';
 import type { Tree } from '../api.js';
-import { expired, keepable, keptPart } from './policy.js';
+import { expired, keepable, keptPart, listOf, noLongerKeepable } from './policy.js';
 import { newKey, seal, unseal, type Sealed } from './vault.js';
 
 /*
  * What this device keeps to read offline, in IndexedDB, every record sealed
  * (see vault.ts). Written after each answer the server gives; read only when
  * the server cannot be reached. Forgotten on signing out, when the session
- * ends, on signing in, and after days without talking to the server.
+ * ends, on signing in, and after days without talking to the server, in every
+ * open tab at once. A list the person no longer sees as before (gone, now
+ * sensitive, another level or reach, or refused by the server) is dropped as
+ * soon as the page learns it. A device can also be told to keep nothing.
  * Anything going wrong here only means less is kept: the app works as before.
  */
 
@@ -83,6 +86,21 @@ async function read<T>(store: string, slot: string): Promise<T | undefined> {
   >;
 }
 
+async function slots(): Promise<string[]> {
+  const db = await database();
+  if (db === null) return [];
+  return (await done(db.transaction(RECORDS, 'readonly').objectStore(RECORDS).getAllKeys())).map(
+    String,
+  );
+}
+
+async function remove(slotsToGo: readonly string[]): Promise<void> {
+  const db = await database();
+  if (db === null || slotsToGo.length === 0) return;
+  const store = db.transaction(RECORDS, 'readwrite').objectStore(RECORDS);
+  await Promise.all(slotsToGo.map((slot) => done(store.delete(slot))));
+}
+
 async function write(store: string, slot: string, value: unknown): Promise<void> {
   const db = await database();
   if (db === null) return;
@@ -125,6 +143,30 @@ export function useServedFromDevice(): number | null {
   );
 }
 
+// ---- Whether this device keeps anything at all ----------------------------------
+
+const SWITCH = 'cerebro:offline';
+
+/** False on a device told to keep nothing (a shared computer, say). The choice is the device's. */
+export function keepsOffline(): boolean {
+  try {
+    return localStorage.getItem(SWITCH) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+/** Turns keeping on or off for this device; off forgets everything at once. */
+export async function setKeepsOffline(on: boolean): Promise<void> {
+  try {
+    if (on) localStorage.removeItem(SWITCH);
+    else localStorage.setItem(SWITCH, 'off');
+  } catch {
+    // Without storage the choice does not last; what was kept still goes.
+  }
+  if (!on) await forget();
+}
+
 // ---- Called by the API client -----------------------------------------------------
 
 /**
@@ -136,10 +178,17 @@ export async function remember(path: string, value: unknown, askedIn: number): P
   if (askedIn !== era) return;
   served(null);
   if (path === '/api/me') signedIn = true;
-  if (!signedIn) return;
+  if (!signedIn || !keepsOffline()) return;
   if (path === '/api/tree') tree = value as Tree;
   try {
     await write(META, 'lastContact', Date.now());
+    if (path === '/api/tree') {
+      // What was kept of lists she no longer sees as before goes, before anything else.
+      const before = (await readSealed('/api/tree').catch(() => null))?.value as Tree | undefined;
+      await remove(
+        (await slots()).filter((slot) => noLongerKeepable(slot, before ?? null, value as Tree)),
+      );
+    }
     if (!keepable(path, tree)) return;
     const lock = await deviceKey();
     if (lock === null) return;
@@ -159,6 +208,14 @@ export async function recall(path: string): Promise<{ value: unknown } | null> {
       await forget();
       return null;
     }
+    if (listOf(path) !== undefined) {
+      // Only a list the kept structure still shows, as it was then.
+      const kept = (await readSealed('/api/tree'))?.value as Tree | undefined;
+      if (!keepable(path, kept ?? null)) {
+        await remove([path]);
+        return null;
+      }
+    }
     const record = await read<Record_>(RECORDS, path);
     const lock = record === undefined ? null : await deviceKey();
     if (record === undefined || lock === null) return null;
@@ -168,6 +225,31 @@ export async function recall(path: string): Promise<{ value: unknown } | null> {
     return { value };
   } catch {
     return null;
+  }
+}
+
+/** The server refused this address (403 or 404): what was kept of it, and of its list, goes. */
+export async function dropKept(path: string): Promise<void> {
+  try {
+    const list = listOf(path);
+    await remove(
+      list === undefined
+        ? [path]
+        : (await slots()).filter((slot) => slot === path || listOf(slot) === list),
+    );
+  } catch {
+    // Nothing else to do: the next structure from the server prunes it too.
+  }
+}
+
+/** At start: a device away from the server for too long forgets before showing anything. */
+export async function sweep(): Promise<void> {
+  try {
+    if (typeof indexedDB === 'undefined') return;
+    const lastContact = (await read<number>(META, 'lastContact')) ?? null;
+    if (expired(lastContact, Date.now()) || !keepsOffline()) await forget();
+  } catch {
+    // The first read offline checks again.
   }
 }
 
@@ -237,7 +319,23 @@ export async function writeQueue(entries: readonly unknown[]): Promise<void> {
 /** Removes everything this device kept, the key included. */
 export const FORGOTTEN = 'cerebro:offline-forgotten';
 
+// Every open tab of the app forgets together: one that signs out, or is signed
+// out, tells the others, which drop what they hold in memory and keep nothing
+// they were about to.
+const others: BroadcastChannel | null =
+  typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('cerebro-offline');
+if (others !== null) {
+  others.onmessage = (event: MessageEvent) => {
+    if (event.data === 'forget') void forgetHere();
+  };
+}
+
 export async function forget(): Promise<void> {
+  others?.postMessage('forget');
+  await forgetHere();
+}
+
+async function forgetHere(): Promise<void> {
   era += 1;
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(FORGOTTEN));
   signedIn = false;

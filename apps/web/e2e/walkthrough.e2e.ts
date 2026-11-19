@@ -1395,8 +1395,12 @@ test('the app can be installed, and its worker keeps the page and never anything
   await owner.reload();
   await heading(owner, 'Início');
   await expect(owner.getByText(/Você está vendo o que este aparelho guardou em/)).toBeVisible();
+  // A sensitive list is never kept, not even its name in the structure.
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await expect(owner.locator('main').getByRole('link', { name: 'Tarefas' })).toBeVisible();
+  await expect(owner.locator('main')).not.toContainText('Dinheiro');
   await ownerContext.setOffline(false);
-  await owner.reload();
+  await owner.goto('/inicio');
   await heading(owner, 'Início');
   expect(
     problems.splice(before).filter((problem) => !/ERR_INTERNET_DISCONNECTED/.test(problem)),
@@ -1513,6 +1517,97 @@ test('a phone keeps the lists it opened, sealed, to read and change offline', as
   expect(
     problems.splice(before).filter((problem) => !/ERR_INTERNET_DISCONNECTED/.test(problem)),
   ).toEqual([]);
+});
+
+test('a list taken from her leaves the phone too, and a shared computer can keep nothing', async () => {
+  const slots = (): Promise<string[]> =>
+    ana.evaluate(async () => {
+      if (!(await indexedDB.databases()).some((db) => db.name === 'cerebro-offline')) return [];
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open('cerebro-offline');
+        request.onsuccess = () => {
+          resolve(request.result);
+        };
+        request.onerror = () => {
+          reject(new Error('no database'));
+        };
+      });
+      const keys = await new Promise<string[]>((resolve) => {
+        const request = db.transaction('records', 'readonly').objectStore('records').getAllKeys();
+        request.onsuccess = () => {
+          resolve(request.result.map(String));
+        };
+      });
+      db.close();
+      return keys;
+    });
+  await ana.getByRole('link', { name: 'Espaços' }).click();
+  await ana.locator('main').getByRole('link', { name: 'Ideias' }).click();
+  await heading(ana, 'Ideias');
+  const ideias = new URL(ana.url()).pathname.split('/')[2] ?? '';
+  await expect
+    .poll(async () => (await slots()).filter((slot) => slot.includes(ideias)))
+    .toHaveLength(3);
+
+  // The owner takes the space from her: what the phone kept of its lists goes.
+  await sql(
+    "UPDATE auth.sessions SET step_up_at = now() WHERE user_id = (SELECT id FROM app.users WHERE email = 'olivia@exemplo.test')",
+  );
+  await owner.getByRole('link', { name: 'Pessoas' }).click();
+  await heading(owner, 'Pessoas');
+  await owner
+    .getByRole('row', { name: /Ana Souza/ })
+    .getByRole('button', { name: 'Gerenciar' })
+    .click();
+  await owner
+    .getByRole('listitem')
+    .filter({ hasText: 'Espaço inteiro: Operação' })
+    .getByRole('button', { name: 'Retirar' })
+    .click();
+  await expect(
+    owner.getByRole('listitem').filter({ hasText: 'Espaço inteiro: Operação' }),
+  ).toHaveCount(0);
+  // The next time her phone reads the structure, the list is gone from it and from the device.
+  await ana.getByRole('link', { name: 'Espaços' }).click();
+  await heading(ana, 'Seus espaços');
+  await expect(ana.locator('main').getByRole('link', { name: 'Ideias' })).toHaveCount(0);
+  await expect
+    .poll(async () => (await slots()).filter((slot) => slot.includes(ideias)))
+    .toEqual([]);
+  // Given back, as it was, for what comes next.
+  await owner
+    .getByLabel('Área', { exact: true })
+    .selectOption({ label: 'Espaço inteiro: Operação' });
+  await owner.getByLabel('Nível', { exact: true }).selectOption({ label: 'Gerencia' });
+  await owner.getByRole('button', { name: 'Liberar área' }).click();
+  await expect(owner.getByRole('listitem').filter({ hasText: 'Gerencia, ' })).toContainText(
+    'Operação',
+  );
+
+  // On a computer others use, she tells this device to keep nothing: what it kept goes now.
+  await ana.goto('/conta');
+  await heading(ana, 'Minha conta');
+  const device = ana.getByRole('region', { name: 'Este aparelho' });
+  const keep = device.getByLabel('Guardar neste aparelho o que eu abrir, para ler sem conexão');
+  await expect(keep).toBeChecked();
+  await keep.uncheck();
+  await expect(device).toContainText('Nada fica guardado neste aparelho');
+  await expect.poll(slots).toEqual([]);
+  await shot(ana, 'aparelho-sem-guardar');
+  await ana.getByRole('link', { name: 'Espaços' }).click();
+  await ana.locator('main').getByRole('link', { name: 'Tarefas' }).click();
+  await heading(ana, 'Tarefas');
+  await ana.waitForTimeout(500);
+  expect(await slots()).toEqual([]);
+  // Her phone keeps again, as before.
+  await ana.goto('/conta');
+  await ana
+    .getByRole('region', { name: 'Este aparelho' })
+    .getByLabel('Guardar neste aparelho o que eu abrir, para ler sem conexão')
+    .check();
+  await ana.reload();
+  await heading(ana, 'Minha conta');
+  await expect.poll(async () => (await slots()).length).toBeGreaterThan(0);
 });
 
 test('the owner updates from the app: looks for a version, confirms the code, follows each step', async () => {

@@ -6,6 +6,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ApiError } from './api.js';
 import { App } from './App.js';
+import { sweep } from './offline/store.js';
 import { announceSignedOut } from './session.js';
 
 const root = document.getElementById('app');
@@ -30,6 +31,10 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// What this device kept for offline reading does not outlive its days away from the
+// server (or the device's choice to keep nothing), even if nothing is ever read from it.
+void sweep();
 
 // Installed or not, the page itself is kept by the browser so it opens offline. The
 // worker keeps only the page and its files, never an answer from the API.
