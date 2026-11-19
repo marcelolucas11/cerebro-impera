@@ -1,6 +1,5 @@
 import { randomBytes } from 'node:crypto';
 import {
-  chmodSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -49,13 +48,20 @@ function randomPassword(): string {
   return randomBytes(32).toString('base64url');
 }
 
-/** A secret in a file of its own, made only if it is not there yet ('wx': in one step). */
-function ensureSecretFile(configDir: string, name: string, content: string): void {
+/** Writes a new private file; false, and nothing written, if it is already there ('wx'). */
+function createOnly(path: string, content: string): boolean {
   try {
-    writeFileSync(join(configDir, name), content, { mode: 0o600, flag: 'wx' });
+    writeFileSync(path, content, { mode: 0o600, flag: 'wx' });
+    return true;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    return false;
   }
+}
+
+/** A secret in a file of its own, made only if it is not there yet. */
+function ensureSecretFile(configDir: string, name: string, content: string): void {
+  createOnly(join(configDir, name), content);
 }
 
 /**
@@ -125,28 +131,26 @@ export function initSecrets(configDir: string): { created: boolean; moved: strin
   ensureSecretFile(configDir, join(FORMS_DIR, 'db-password'), randomPassword());
   ensureSecretFile(configDir, join(FORMS_DIR, 'form-key'), randomBytes(32).toString('base64'));
 
-  const secretsPath = join(configDir, SECRETS_FILE);
-  const adminPath = join(configDir, ADMIN_PASSWORD_FILE);
-  const haveSecrets = existsSync(secretsPath);
-  if (haveSecrets !== existsSync(adminPath)) {
-    // A new administrator password next to an existing database (or the other
-    // way round) would lock the installation out of its own data.
-    throw new Error(
-      `only one of ${SECRETS_FILE} and ${ADMIN_PASSWORD_FILE} exists; restore the other from a copy`,
-    );
-  }
-  if (haveSecrets) return { created: false, moved };
-
+  // Both halves are made in one step each ('wx' fails if the file is there): two starters
+  // cannot both write, and nothing is looked at first and written later.
   const secrets: InstanceSecrets = {
     version: 2,
     masterKey: randomBytes(32).toString('base64'),
     db: { appPassword: randomPassword(), authPassword: randomPassword() },
   };
-  // 'wx' fails if the file appeared meanwhile, so two starters cannot both write.
-  writeFileSync(adminPath, randomPassword(), { mode: 0o600, flag: 'wx' });
-  writeFileSync(secretsPath, JSON.stringify(secrets, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
-  chmodSync(secretsPath, 0o600);
-  return { created: true, moved };
+  const adminPath = join(configDir, ADMIN_PASSWORD_FILE);
+  const secretsPath = join(configDir, SECRETS_FILE);
+  const madeAdmin = createOnly(adminPath, randomPassword());
+  const madeSecrets = createOnly(secretsPath, JSON.stringify(secrets, null, 2) + '\n');
+  if (madeAdmin !== madeSecrets) {
+    // A new administrator password next to an existing database (or the other
+    // way round) would lock the installation out of its own data: undo, and say so.
+    rmSync(madeAdmin ? adminPath : secretsPath);
+    throw new Error(
+      `only one of ${SECRETS_FILE} and ${ADMIN_PASSWORD_FILE} exists; restore the other from a copy`,
+    );
+  }
+  return { created: madeSecrets, moved };
 }
 
 /** The API's own secrets: the instance key and the passwords it connects with. */
