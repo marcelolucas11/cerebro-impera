@@ -1,10 +1,10 @@
 # Infraestrutura
 
-`compose.yaml` descreve uma instalação: PostgreSQL e API, numa rede interna sem rota para fora.
+`compose.yaml` descreve uma instalação: PostgreSQL e API numa rede interna sem rota para fora e,
+se ligados, antivírus, atualizador, backup e formulários públicos.
 
-> O atualizador está descrito abaixo. A implantação guiada (proxy reverso com TLS e backup)
-> chega nas fases 9 e 12; por enquanto isto serve para desenvolvimento e para o CI provar que a
-> imagem sobe.
+> Para instalar numa empresa, do zero até o primeiro Dono, siga [`docs/INSTALL.md`](../docs/INSTALL.md).
+> Este arquivo explica cada serviço e o que protege o quê.
 
 ## Subir localmente
 
@@ -18,7 +18,8 @@ No primeiro start:
 1. `init` gera os segredos da instância no volume `config` (chave e senhas do banco). Não existe
    senha padrão, e eles nunca são sobrescritos.
 2. `postgres` nasce com a senha de administrador lida desse volume.
-3. `migrate` aplica as migrações e define as senhas dos dois papéis da API.
+3. `migrate` aplica as migrações e define as senhas dos três papéis de serviço (API, entrada e
+   formulários).
 4. `api` sobe e, como ainda não há Dono, grava um token de instalação de uso único em
    `/opt/cerebro/config/setup-token`. Sem esse token ninguém consegue reivindicar a instalação:
 
