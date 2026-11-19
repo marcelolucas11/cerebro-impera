@@ -231,6 +231,9 @@ describe('a stored value as it is read', () => {
   it('only becomes a link when the address is safe to follow', () => {
     expect(linkOf(field('url'), 'https://exemplo.test/painel')).toBe('https://exemplo.test/painel');
     expect(linkOf(field('email'), 'contato@exemplo.test')).toBe('mailto:contato@exemplo.test');
+    // Stored before the stricter rule: no link that carries more than one address.
+    expect(linkOf(field('email'), 'a@b.test?subject=oi&body=x')).toBeNull();
+    expect(linkOf(field('email'), 'a@b.test,c@d.test')).toBeNull();
     expect(linkOf(field('phone'), '+55 (11) 91234-5678')).toBe('tel:+5511912345678');
     // Whatever ended up stored, these never turn into something a click would run.
     for (const stored of [

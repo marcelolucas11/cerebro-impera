@@ -68,6 +68,9 @@ describe('the page', () => {
     expect(directives.get('frame-ancestors')).toBe("'none'");
     expect(directives.get('form-action')).toBe("'none'");
     expect(directives.get('base-uri')).toBe("'none'");
+    // No text becomes script, except through the page's one named policy.
+    expect(directives.get('require-trusted-types-for')).toBe("'script'");
+    expect(directives.get('trusted-types')).toBe('cerebro');
     expect(policy).not.toMatch(/unsafe|data:|blob:|https?:|\*/);
 
     expect(response.headers['x-frame-options']).toBe('DENY');

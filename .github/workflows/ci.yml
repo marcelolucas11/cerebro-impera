@@ -217,12 +217,26 @@ jobs:
             sleep 2
           done
           test "${before}" = "$(docker compose exec -T api sha256sum /opt/cerebro/config/api/secrets.json)"
+      - name: Antivírus com poucas permissões, numa rede de saída só dele
+        run: |
+          # A imagem já traz as assinaturas: o clamd responde sem esperar baixar nada.
+          docker compose --profile antivirus up --detach clamav
+          for _ in $(seq 1 90); do
+            if docker compose --profile antivirus exec -T clamav clamdscan --ping 1 > /dev/null 2>&1; then break; fi
+            sleep 5
+          done
+          docker compose --profile antivirus exec -T clamav clamdscan --ping 1
+          container="$(docker compose --profile antivirus ps --quiet clamav)"
+          test "$(docker inspect --format '{{.HostConfig.CapDrop}}' "${container}")" = "[ALL]"
+          test "$(docker inspect --format '{{len .NetworkSettings.Networks}}' "${container}")" = "2"
+          docker inspect --format '{{range $name, $net := .NetworkSettings.Networks}}{{$name}} {{end}}' "${container}" | grep --quiet "clamav-out"
+          if docker inspect --format '{{range $name, $net := .NetworkSettings.Networks}}{{$name}} {{end}}' "${container}" | grep --quiet "_edge"; then exit 1; fi
       - name: Logs em caso de falha
         if: failure()
-        run: docker compose --profile backup logs --no-color --tail 200 || true
+        run: docker compose --profile backup --profile antivirus logs --no-color --tail 200 || true
       - name: Derrubar
         if: always()
-        run: docker compose down --volumes
+        run: docker compose --profile backup --profile forms --profile antivirus down --volumes
 
   dependencies:
     name: Auditoria de dependências

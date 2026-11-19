@@ -2,6 +2,7 @@ import { MAX_SECRET_LENGTH, secretValueProblem } from '@cerebro/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
 import { api, type CustomField, type Item } from '../api.js';
+import { copySensitive } from '../clipboard.js';
 import { useGuard } from '../stepup.js';
 import { Button, Exact, Notice, useAction } from '../ui/kit.js';
 
@@ -62,7 +63,7 @@ export function SecretField({
   const copy = useAction(
     useCallback(async () => {
       const value = await fetchValue();
-      await navigator.clipboard.writeText(value);
+      await copySensitive(value);
       setCopied(true);
     }, [fetchValue]),
   );
@@ -179,7 +180,10 @@ export function SecretField({
         </div>
       ) : null}
       {copied ? (
-        <Notice tone="ok">Copiado. Cole onde precisar; o valor não apareceu na tela.</Notice>
+        <Notice tone="ok">
+          Copiado. Cole onde precisar em até 30 segundos: depois disso a área de transferência é
+          limpa. O valor não apareceu na tela.
+        </Notice>
       ) : null}
       {error ? <Notice tone="error">{error}</Notice> : null}
     </div>

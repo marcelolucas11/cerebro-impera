@@ -11,6 +11,7 @@ import { ApiError } from '../api.js';
 import { describeError } from '../messages.js';
 import { announceSignedOut } from '../session.js';
 import { Cancelled } from '../cancelled.js';
+import { copySensitive } from '../clipboard.js';
 
 interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {
   label: string;
@@ -171,10 +172,22 @@ export function Exact({ children }: { children: string }): ReactNode {
   return <code className="exact">{children}</code>;
 }
 
-export function CopyButton({ text, label }: { text: string; label: string }): ReactNode {
+/**
+ * Copies text in one tap. `sensitive` for what opens a door (an invite link): the
+ * clipboard is emptied 30 seconds later.
+ */
+export function CopyButton({
+  text,
+  label,
+  sensitive = false,
+}: {
+  text: string;
+  label: string;
+  sensitive?: boolean;
+}): ReactNode {
   const [copied, setCopied] = useState(false);
   const copy = (): void => {
-    navigator.clipboard.writeText(text).then(
+    (sensitive ? copySensitive(text) : navigator.clipboard.writeText(text)).then(
       () => {
         setCopied(true);
         window.setTimeout(() => {

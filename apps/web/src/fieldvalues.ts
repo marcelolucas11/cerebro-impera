@@ -1,4 +1,5 @@
 import {
+  EMAIL_PATTERN,
   fieldValueProblem,
   parseDecimal,
   type FieldConfig,
@@ -325,7 +326,7 @@ export function linkOf(field: FieldLike, value: FieldValue | undefined): string 
   if (typeof value !== 'string') return null;
   if (field.kind === 'url') return /^https?:\/\/[^\s]+$/i.test(value) ? value : null;
   if (field.kind === 'email') {
-    return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value) ? `mailto:${value}` : null;
+    return EMAIL_PATTERN.test(value) ? `mailto:${value}` : null;
   }
   if (field.kind === 'phone') {
     const digits = value.replace(/[^0-9+]/g, '');

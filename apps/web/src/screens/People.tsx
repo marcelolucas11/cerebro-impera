@@ -105,10 +105,10 @@ function AccessLink({ link }: { link: InviteLink }): ReactNode {
         {formatWhen(link.expiresAt)}.
       </p>
       <Exact>{address}</Exact>
-      <CopyButton text={address} label="Copiar endereço" />
+      <CopyButton text={address} label="Copiar endereço" sensitive />
       <p className="field-note">
-        Ele não será mostrado de novo. A pessoa escolhe a própria senha e liga o próprio
-        autenticador.
+        Ele não será mostrado de novo. Copiado, fica na área de transferência por 30 segundos. A
+        pessoa escolhe a própria senha e liga o próprio autenticador.
       </p>
     </div>
   );

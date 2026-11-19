@@ -117,9 +117,24 @@ describe('the value of a field', () => {
       expect(fieldValueProblem('url', {}, value), value).toBe('invalid_url');
     }
     expect(fieldValueProblem('email', {}, 'contato@exemplo.test')).toBeNull();
-    for (const value of ['contato', 'a@b', 'a b@c.test', '@c.test']) {
+    for (const value of [
+      'contato',
+      'a@b',
+      'a b@c.test',
+      '@c.test',
+      // One address only: nothing a mail link would read as a subject, a body or more people.
+      'a@b.test?subject=oi',
+      'a@b.test?bcc=c@d.test',
+      'a@b.test,c@d.test',
+      'a@b.test;c@d.test',
+      'a@b.test&body=x',
+      'a%40b@c.test',
+      'a@b.test#x',
+      '"a"@b.test',
+    ]) {
       expect(fieldValueProblem('email', {}, value), value).toBe('invalid_email');
     }
+    expect(fieldValueProblem('email', {}, 'nome.sobrenome+vendas@exemplo.com.br')).toBeNull();
     expect(fieldValueProblem('phone', {}, '+55 (11) 91234-5678')).toBeNull();
     for (const value of ['ligar depois', '12', '9'.repeat(41)]) {
       expect(fieldValueProblem('phone', {}, value), value).not.toBeNull();

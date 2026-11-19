@@ -5,7 +5,7 @@
 
 ## Onde estamos
 
-**Fase 11 — Blindagem, em andamento.** Três revisores que não escreveram o código leram o banco, a API com os serviços, e a página com a instalação. Nada crítico ou alto. Já corrigido: concessão que ampliava o próprio acesso, o que o bloqueio da entrada revelava, limites por endereço atrás de proxy, tudo o que o banco agora segura sozinho mesmo que um serviço seja tomado (D72), e a configuração com uma pasta por serviço, para a API não ter a senha de administrador do banco, com o atualizador numa rede só dele (D73), e o aparelho que acompanha o acesso: lista que a pessoa não vê mais sai dele, e um computador compartilhado pode não guardar nada (D74). Na entrada: o autenticador só é ligado logo depois do convite, uma aba aberta não segura mais a sessão, e os envios de anexos reservam o espaço que ainda vão ocupar (D75). No atualizador: a assinatura de uma versão só vale se vier do commit da tag no ramo principal, e a imagem das cópias passa a sair assinada em cada release (D76). O restante segue em correção, fora do repositório público até sair. A Fase 10 (white label: marca, formulários públicos e `docs/INSTALL.md`) está pronta no código. A Fase 9 (backup e restauração) está pronta no código. A Fase 8 (atualizador pelo GitHub) também está pronta no código. A Fase 7 (PWA e offline) está pronta no código, menos o push. A Fase 1 (fundação e segurança) está pronta, com o percurso em
+**Fase 11 — Blindagem, pronta no código.** Três revisores que não escreveram o código leram o banco, a API com os serviços, e a página com a instalação. Nada crítico ou alto. Já corrigido: concessão que ampliava o próprio acesso, o que o bloqueio da entrada revelava, limites por endereço atrás de proxy, tudo o que o banco agora segura sozinho mesmo que um serviço seja tomado (D72), e a configuração com uma pasta por serviço, para a API não ter a senha de administrador do banco, com o atualizador numa rede só dele (D73), e o aparelho que acompanha o acesso: lista que a pessoa não vê mais sai dele, e um computador compartilhado pode não guardar nada (D74). Na entrada: o autenticador só é ligado logo depois do convite, uma aba aberta não segura mais a sessão, e os envios de anexos reservam o espaço que ainda vão ocupar (D75). No atualizador: a assinatura de uma versão só vale se vier do commit da tag no ramo principal, e a imagem das cópias passa a sair assinada em cada release (D76). Por fim, os itens baixos: antivírus com o mínimo de permissões e rede própria, segredo copiado que some da área de transferência, e-mail de um endereço só e Trusted Types na página (D77). O restante segue em correção, fora do repositório público até sair. A Fase 10 (white label: marca, formulários públicos e `docs/INSTALL.md`) está pronta no código. A Fase 9 (backup e restauração) está pronta no código. A Fase 8 (atualizador pelo GitHub) também está pronta no código. A Fase 7 (PWA e offline) está pronta no código, menos o push. A Fase 1 (fundação e segurança) está pronta, com o percurso em
 navegador real rodando no CI. A Fase 2 (estrutura) está completa no código: etapas, campos
 personalizados (inclusive pessoas, secreto e arquivos), histórico, lixeira, mover entre listas,
 modelos de etapas, delegação, "Minha conta" e anexos; falta o mantenedor revisar e decidir o
@@ -36,7 +36,7 @@ servidor, com conflito por campo; o push espera a decisão D51 (ver `docs/design
 | 8. Atualizador assinado                                           | pronto no código; falta a 1ª release    |
 | 9. Backup e restauração                                           | pronto no código; Drive no servidor     |
 | 10. White label, assistente visual e formulários                  | pronto no código; nomes no servidor     |
-| **11. Blindagem (revisão independente)**                          | em andamento (D72 a D76)                |
+| **11. Blindagem (revisão independente)**                          | pronta no código (D72 a D77)            |
 | 12. Implantação                                                   | só com autorização do mantenedor        |
 | 13. Migração de dados                                             | só com autorização do mantenedor        |
 
@@ -291,7 +291,7 @@ servidor, com conflito por campo; o push espera a decisão D51 (ver `docs/design
 - Limite de requisições (D54): toda rota, 1 200 por minuto por sessão (ajustável), e o fluxo de
   tempo real abre no máximo 20 vezes por minuto; a página espera e tenta de novo.
 
-### O que os testes provam (665 testes)
+### O que os testes provam (673 testes)
 
 | Arquivo                                          | O que garante                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -395,30 +395,31 @@ pnpm check
   página, ainda em movimento. Em alguns horários a medida errava e o arraste falhava. Corrigido na
   Fase 10 (`hover()` espera a alça parar). Os PRs anteriores ao #53 ainda têm a versão antiga e
   podem ficar vermelhos nesse passo, conforme a hora em que o CI rodar.
-- O serviço `clamav` de `infra/compose.yaml` (perfil `antivirus`) não foi levantado neste
-  trabalho: a conversa com o ClamAV segue o protocolo dele e é testada com um verificador falso. O
-  CI sobe a instalação sem esse perfil.
-- Os workflows rodaram e passaram na `main` (CI, CodeQL, Scorecard). O passo "Revisão das
-  dependências novas do PR" reprova enquanto o "Dependency graph" estiver desligado nas
-  configurações do repositório (ver "Pendências").
+- O serviço `clamav` de `infra/compose.yaml` (perfil `antivirus`) só é levantado no CI para
+  conferir que responde com as permissões mínimas (D77). A verificação de arquivos de verdade
+  segue o protocolo do ClamAV e é testada com um verificador falso.
+- Os workflows rodaram e passaram na `main` (CI, CodeQL, Scorecard). Em todo PR, desde o
+  primeiro, o job "Auditoria de dependências" reprova no passo "Revisão das dependências novas do
+  PR", porque o "Dependency graph" está desligado nas configurações do repositório (o GitHub diz
+  isso no log). É o que gera os e-mails de falha. Ligar é com o dono do repositório (ver
+  "Pendências"); nenhuma verificação foi afrouxada para esconder isso.
 - As imagens base ainda são referenciadas por tag, não por digest. Fixar no pipeline de release
   (Fase 8).
 - O fluxo de release ainda não rodou de verdade (falta a primeira release). A conferência de
   origem das assinaturas (D76) usa opções que existem no `cosign` 3.1.4 da imagem (conferido na
   ajuda do programa), mas aqui é testada só pela lista de argumentos; a prova real vem com a
   primeira atualização feita pelo aplicativo.
-- `pnpm audit` aponta 1 aviso de severidade moderada (`minimatch`, via `eslint`) e, desde 18/11,
-  1 alto (GHSA-fc5q-39xc-vjpf, `picomatch` até 4.0.7, via `typescript-eslint`). Os dois são só de
-  desenvolvimento, com padrões escritos no próprio repositório, e não entram no que roda em
-  produção. O alto ainda não tem versão corrigida: o passo "Vulnerabilidades conhecidas" do CI
-  fica vermelho em todo PR até sair a correção (aí basta atualizar o `picomatch`, respeitando os 3
-  dias). Nenhuma exceção foi aberta no CI; abrir uma é decisão do mantenedor.
+- `pnpm audit` aponta 1 aviso de severidade moderada (`minimatch`, via `eslint`), só de
+  desenvolvimento. O aviso alto do `picomatch` (GHSA-fc5q-39xc-vjpf), que reprovou o passo
+  "Vulnerabilidades conhecidas" em 18/11, não aparece mais desde 19/11: o passo voltou a passar
+  sem nenhuma mudança nem exceção no CI.
 
 ## Próximo passo exato
 
 1. **Fase 11 (blindagem):** seguir corrigindo os achados da revisão independente, cada um com
-   teste e, no banco, com enfraquecimentos conferidos. Próximos: o antivírus e os itens
-   pequenos da revisão. Depois: dependências e imagens fixadas por digest no release.
+   teste e, no banco, com enfraquecimentos conferidos. Os achados estão corrigidos; sobram
+   informativos menores (registrados à parte) e as imagens base fixadas por digest, que
+   dependem do CI ou do Dependabot (aqui não há acesso ao Docker Hub).
 2. Push no celular, quando o mantenedor decidir quais avisos (D51).
 3. Itens adiados que dependem da interface: passkeys e CAPTCHA.
 4. Relatório por e-mail, quando o mantenedor decidir o servidor de e-mail (D60).
