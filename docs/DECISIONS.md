@@ -1490,6 +1490,31 @@ com arquivos acima dos limites dele ou cifrado. Ligar `AlertExceedsMax` e `Alert
 esses casos serem bloqueados, ao custo de bloquear também compactados grandes ou com senha
 legítimos. Fica para a mesma decisão da D79.
 
+## D86 — O registro aceita cada entrada de quem pode dizê-la
+
+**Decisão.** O registro (auditoria) aceitava qualquer uma das entradas da aplicação de qualquer
+pessoa conectada, em nome dela. Agora o que uma atualização fez só entra por um Dono (só Donos veem
+e rodam atualizações), e "abriu uma lista sensível" só por quem pode abrir aquela lista. As outras
+entradas continuam como antes.
+
+**Por quê.** A segunda revisão notou que um funcionário, pela API, podia registrar uma atualização
+aplicada ou a abertura de uma lista que não vê. Ficava no nome dele, mas enganaria quem lê o
+registro depois.
+
+**Ficam como estão, com o motivo (achados informativos):**
+
+- Quem vê só uma subtarefa fica sabendo, ao trazê-la da lixeira, se o pai que ela não vê também
+  está na lixeira: é o que decide se ela volta debaixo dele ou sozinha.
+- O título de um formulário vai para quem vê a lista dele mesmo se ela for sensível: o título é
+  público (a página do formulário o mostra a qualquer um com o endereço).
+- A auditoria de uma lista guarda o nome dela, inclusive de lista sensível, para quem pode ler o
+  registro, como as outras tabelas já faziam.
+- Quem edita uma lista sensível (com o código confirmado) pode mover os itens dela para outra:
+  já podia ler e copiar o conteúdo.
+- As rotinas do banco (sem identidade) rodam pela mesma conexão da API: uma API tomada as chamaria
+  fora de uma requisição. Separar um papel só para elas fica para depois (**Rever com o
+  mantenedor**).
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

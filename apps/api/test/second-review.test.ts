@@ -298,6 +298,40 @@ describe('owners and the first account', () => {
   });
 });
 
+describe('the record', () => {
+  it('takes what an update did only from an owner, and a sensitive list opened only from who can open it', async () => {
+    const say = async (who: typeof s.ana, statement: string, values: unknown[]) => {
+      expect(await bind(app, who)).toBe(true);
+      const result = await attempt(app, statement, values);
+      await app.query('ROLLBACK');
+      return result;
+    };
+    const update = `SELECT audit.record('update.applied', 'update', 'job-1', '{}')`;
+    expect(await say(s.ana, update, [])).toMatchObject({ ok: false, code: 'CB001' });
+    expect(await say(s.marta, update, [])).toMatchObject({ ok: false, code: 'CB001' });
+    expect(await say(s.owner, update, [])).toMatchObject({ ok: true });
+    const viewed = `SELECT audit.record('list.sensitive_viewed', 'list', $1)`;
+    expect(await say(s.ana, viewed, [s.dinheiro])).toMatchObject({ ok: false, code: 'CB001' });
+    expect(await say(s.ana, viewed, ['nada'])).toMatchObject({ ok: false, code: 'CB001' });
+    expect(await say(s.ana, viewed, ['00000000-0000-4000-8000-000000000000'])).toMatchObject({
+      ok: false,
+      code: 'CB001',
+    });
+    expect(await say(s.owner, viewed, [s.dinheiro])).toMatchObject({ ok: true });
+    // Said of a list, naming one: not of anything else, nor of nothing.
+    expect(
+      await say(s.owner, `SELECT audit.record('list.sensitive_viewed', 'item', $1)`, [s.dinheiro]),
+    ).toMatchObject({ ok: false, code: 'CB001' });
+    expect(
+      await say(s.owner, `SELECT audit.record('list.sensitive_viewed', 'list', NULL)`, []),
+    ).toMatchObject({ ok: false, code: 'CB001' });
+    // Other entries, as before, from whoever writes them.
+    expect(
+      await say(s.ana, `SELECT audit.record('attachment.downloaded', 'attachment', 'a')`, []),
+    ).toMatchObject({ ok: true });
+  });
+});
+
 describe('a list that changes', () => {
   it('is announced, so open pages read the structure again', async () => {
     const listener = await connectAs(env, 'cerebro_app');
