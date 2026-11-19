@@ -177,6 +177,8 @@ jobs:
             sleep 3
           done
           docker compose exec -T api cat /opt/cerebro/backup-status/backup.json > backup.json
+          # What the service says about itself (dates, sizes and sentences only; no secrets).
+          jq '{lastBackup, lastRestoreTest}' backup.json
           jq --exit-status '.lastBackup.ok == true and (.lastBackup.snapshot | length) > 0' backup.json
           # A fresh installation has nobody yet: the test restores and queries, and says so.
           jq --exit-status '.lastRestoreTest.ok == true or .lastRestoreTest.problem == "A cópia restaurada não tem ninguém."' backup.json
@@ -195,7 +197,7 @@ jobs:
           test "${before}" = "$(docker compose exec -T api sha256sum /opt/cerebro/config/secrets.json)"
       - name: Logs em caso de falha
         if: failure()
-        run: docker compose logs --no-color --tail 200 || true
+        run: docker compose --profile backup logs --no-color --tail 200 || true
       - name: Derrubar
         if: always()
         run: docker compose down --volumes

@@ -150,9 +150,14 @@ describe('the monthly restore test', () => {
       'restic restore latest --tag cerebro --target /work/teste/restaurado --include /work/db.dump',
     );
     expect(lines[2]).toBe('initdb --pgdata /work/teste/pg --username postgres --auth trust');
-    // Local only: no address to listen on, just a socket inside the scratch space.
+    // Local only: no address to listen on, just a socket in the data folder (which exists:
+    // a folder of its own would have to be created first, or the server does not start).
     expect(lines[3]).toBe(
-      'pg_ctl --pgdata /work/teste/pg --options -k /work/teste/socket -c listen_addresses= --wait start',
+      'pg_ctl --pgdata /work/teste/pg --options -k /work/teste/pg -c listen_addresses= --wait start',
+    );
+    // The database is created in a command of its own, as PostgreSQL requires.
+    expect(lines[4]).toBe(
+      'psql --host /work/teste/pg --username postgres --dbname postgres --set ON_ERROR_STOP=1 --command CREATE DATABASE cerebro --command CREATE ROLE cerebro_app NOLOGIN; CREATE ROLE cerebro_auth NOLOGIN;',
     );
     expect(
       lines.some(

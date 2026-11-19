@@ -221,7 +221,9 @@ export class BackupEngine {
     const work = join(this.settings.workDir, 'teste');
     const target = join(work, 'restaurado');
     const data = join(work, 'pg');
-    const socket = join(work, 'socket');
+    // The socket goes in the data folder, which exists once initdb has run: the server
+    // will not create a missing folder for it.
+    const socket = data;
     const dump = join(target, this.settings.workDir, 'db.dump');
     const psql = (sql: string): string[] => [
       'psql',
@@ -290,8 +292,11 @@ export class BackupEngine {
           'postgres',
           '--set',
           'ON_ERROR_STOP=1',
+          // CREATE DATABASE cannot share a command with anything else.
           '--command',
-          'CREATE DATABASE cerebro; CREATE ROLE cerebro_app NOLOGIN; CREATE ROLE cerebro_auth NOLOGIN;',
+          'CREATE DATABASE cerebro',
+          '--command',
+          'CREATE ROLE cerebro_app NOLOGIN; CREATE ROLE cerebro_auth NOLOGIN;',
         ],
         'O banco descartável não pôde ser preparado.',
       );
