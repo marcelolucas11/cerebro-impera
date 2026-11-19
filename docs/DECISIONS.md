@@ -1321,6 +1321,7 @@ fluxo, sem o passo de aprovação, empurrada junto com uma tag nova. Amarrar a a
 e o commit ao ramo principal, faz valer só o fluxo que passou por revisão.
 
 **Fica com o mantenedor:** uma regra de tags no GitHub para que só mantenedores criem tags `v*`.
+(Feito em 19/11, D82.)
 
 ## D77 — Antivírus preso, segredo que não fica copiado, e-mail de um endereço só, Trusted Types
 
@@ -1345,6 +1346,76 @@ e o commit ao ramo principal, faz valer só o fluxo que passou por revisão.
 
 **Por quê.** São os achados baixos da revisão independente. Nenhum abre acesso sozinho; cada um
 fecha uma porta que, somada a outra falha, ajudaria quem ataca.
+
+## D78 — Duas consultas que respondiam sobre qualquer coisa
+
+**Decisão.** Saber se um item ainda segura subtarefas passou a ser perguntado sobre um item que
+quem pergunta vê ("o pai deste item ainda serve?"), e não mais sobre qualquer item e qualquer
+lista; a consulta antiga fica só para as rotinas do próprio banco. O título de um formulário, que
+aparece no histórico de um item, só vai para quem vê a lista do formulário, como o nome de uma
+regra (D72).
+
+**Por quê.** Eram achados informativos da revisão: as duas respondiam sobre um identificador
+qualquer. Ninguém chega a um identificador sem já ter visto o item, mas o banco não depende disso.
+
+## D79 — Arquivo maior do que o antivírus aceita fica "não verificado"
+
+**Decisão.** O ClamAV recusa um envio maior que o limite dele (`StreamMaxLength`, bem menor que
+os 2 GB padrão dos anexos). Antes, esse arquivo ficava "em verificação" para sempre e era mandado
+de novo ao antivírus a cada hora, inteiro. Agora ele fica "não verificado pelo antivírus", como na
+instalação sem antivírus, e não volta para a fila. O envio ao antivírus também espera a rede: o
+arquivo é lido no ritmo em que o antivírus recebe, e a leitura para assim que ele responde.
+
+**Rever com o mantenedor.** A alternativa é bloquear esse arquivo em vez de liberá-lo com o aviso.
+Para verificar arquivos maiores, sobe-se o limite do ClamAV (`StreamMaxLength`, `MaxFileSize`,
+`MaxScanSize`, com mais memória) ou baixa-se `CEREBRO_MAX_ATTACHMENT_MB` para o mesmo valor.
+
+## D80 — A senha dos papéis do banco chega já como verificador
+
+**Decisão.** A migração não manda mais a senha dos papéis da API, da entrada e dos formulários num
+`ALTER ROLE ... PASSWORD`. Ela calcula ali mesmo o verificador SCRAM-SHA-256 que o PostgreSQL
+guarda (o mesmo que ele faria, conferido nos testes contra o próprio PostgreSQL) e manda só ele.
+Senha de papel só com caracteres ASCII visíveis, sem espaço: para elas, a normalização que o
+PostgreSQL aplica antes não muda nada.
+
+**Por quê.** Um registro de comandos ligado no banco (para investigar um problema, por exemplo)
+guardaria a senha em texto. O verificador não serve para entrar.
+
+## D81 — Imagens de fora fixadas pelo hash
+
+**Decisão.** Toda imagem de fora (Node, Docker, PostgreSQL, ClamAV), nos Dockerfiles, no Compose e
+no CI, é referenciada pelo hash, além da tag. O CI reprova uma imagem nova sem hash. O Dependabot
+propõe os hashes novos, inclusive das imagens do atualizador e das cópias, que ele não olhava, e
+nenhuma versão nova (de pacote, ação ou imagem) é proposta antes de três dias publicada.
+
+O PostgreSQL das cópias nunca pode ser mais antigo que o do banco: uma cópia feita no 16.16 não
+abriu no 16.15 (um parâmetro que o 16.15 não conhece), e o teste de restauração do CI reprovou. O
+Dependabot propõe as duas imagens em pull requests separados; trocar as duas juntas. Quando um
+passo das cópias falha, o log do serviço agora diz a linha de erro do programa (só ela, curta).
+
+**Por quê.** Uma tag pode passar a apontar para outra coisa; o hash, não. Era o último item da
+blindagem que dependia de acesso ao Docker Hub.
+
+## D82 — Proteções do repositório ligadas; dois informativos aceitos
+
+**Decisão.** O mantenedor ligou no GitHub: relato privado de vulnerabilidades e alertas do
+Dependabot (inclusive de malware); o ramo principal só recebe mudança por pull request com os seis
+passos do CI passando, sem force push nem exclusão; só administradores criam, alteram ou apagam
+tags; o ambiente `release` só roda com a aprovação do mantenedor e só a partir de tags de versão,
+sem atalho para administradores; as ações precisam estar fixadas pelo hash; quem não é do
+repositório só roda o CI depois de aprovado; o token dos fluxos é só de leitura.
+
+Aprovação obrigatória num pull request fica em zero enquanto houver um mantenedor só: o GitHub não
+deixa a mesma conta aprovar o próprio pull request, e a revisão é quem clica em "Merge".
+
+Dois achados informativos ficam como estão, com o motivo:
+
+- O fluxo ao vivo escuta um canal do banco (`LISTEN cerebro_live`) que qualquer conexão da API
+  ouve. Por ele passam só identificadores (da lista, do item e das pessoas envolvidas), nunca
+  título ou conteúdo; o conteúdo é sempre lido de novo com o acesso de quem está na página.
+- Uma consulta com várias transações dentro poderia levar a identidade de uma para a outra. A API
+  nunca monta consulta assim: cada pedido abre uma transação só, com a identidade amarrada a ela,
+  e os valores vão sempre como parâmetros.
 
 ## Adiado, com motivo
 

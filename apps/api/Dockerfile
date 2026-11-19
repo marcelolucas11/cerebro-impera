@@ -3,7 +3,7 @@
 # Imagem da API. O contexto de build é a raiz do repositório:
 #   docker build --file apps/api/Dockerfile --tag cerebro-api:local .
 
-FROM node:22-bookworm-slim AS build
+FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS build
 ENV CI=true
 WORKDIR /repo
 # pnpm na versão exata fixada em package.json ("packageManager").
@@ -26,7 +26,7 @@ RUN pnpm -r build \
  && pnpm --filter @cerebro/api deploy --prod --legacy /out \
  && cp -r apps/web/dist /out/web
 
-FROM node:22-bookworm-slim AS runtime
+FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS runtime
 # A versão vem da release que construiu a imagem; fora de uma release fica vazia ("dev").
 ARG CEREBRO_VERSION=
 ENV CEREBRO_VERSION=${CEREBRO_VERSION}

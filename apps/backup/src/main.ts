@@ -39,19 +39,37 @@ const command: Command = {
         },
       });
       let output = '';
+      let errors = '';
       const keep = (chunk: Buffer): void => {
         if (output.length < 1_000_000) output += chunk.toString('utf8');
       };
       child.stdout.on('data', keep);
-      child.stderr.on('data', () => undefined);
+      child.stderr.on('data', (chunk: Buffer) => {
+        if (errors.length < 20_000) errors += chunk.toString('utf8');
+      });
       child.on('error', () => {
         resolve({ code: 1, output });
       });
       child.on('close', (code) => {
+        if (code !== 0) explain(program, errors);
         resolve({ code: code ?? 1, output });
       });
     }),
 };
+
+/**
+ * Why a step failed, for whoever reads the service's log: only the program's own error lines,
+ * short (never the rest of what it printed, which can carry data from the copy).
+ */
+function explain(program: string, errors: string): void {
+  const lines = errors
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /^(\S+: error:|ERROR:|FATAL:|Fatal:)/.test(line))
+    .slice(0, 3)
+    .map((line) => line.slice(0, 200));
+  process.stderr.write(`${program} failed${lines.length > 0 ? `: ${lines.join(' | ')}` : ''}\n`);
+}
 
 function required(name: string): string {
   const value = process.env[name];

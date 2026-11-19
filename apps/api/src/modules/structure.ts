@@ -588,8 +588,7 @@ export async function restoreItem(tx: Tx, actor: Actor, itemId: string): Promise
   await run(
     tx,
     sql`UPDATE app.items SET parent_id = NULL
-        WHERE id = ${itemId} AND parent_id IS NOT NULL
-          AND NOT app.parent_usable(parent_id, list_id)`,
+        WHERE id = ${itemId} AND app.parent_still_usable(id) IS FALSE`,
   );
   const item = await getItem(tx, itemId);
   if (!item) throw notFound();

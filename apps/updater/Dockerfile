@@ -6,7 +6,7 @@
 # É o único serviço com acesso ao Docker (pelo socket montado no compose.yaml), então
 # leva só o que precisa: Node, o cliente do Docker com o compose e o cosign.
 
-FROM node:22-bookworm-slim AS build
+FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS build
 ENV CI=true
 WORKDIR /repo
 RUN corepack enable
@@ -21,7 +21,7 @@ RUN pnpm --filter @cerebro/shared build \
  && pnpm --filter @cerebro/updater build \
  && pnpm --filter @cerebro/updater deploy --prod --legacy /out
 
-FROM docker:28-cli AS runtime
+FROM docker:28-cli@sha256:625d9431a9f54c5a2bc90f24f0e1c3d55b1349fd857dd85035f98c2c9acbdd4d AS runtime
 ARG TARGETARCH
 # cosign em versão fixa, com o resumo conferido antes de entrar na imagem.
 ARG COSIGN_VERSION=3.1.4
