@@ -11,7 +11,7 @@ export interface MigrateOptions {
   /** Connection as the database owner. Used only here, never by the API. */
   admin: pg.ClientConfig;
   /** When given, the two service roles are (re)assigned these login passwords. */
-  rolePasswords?: { app: string; auth: string };
+  rolePasswords?: { app: string; auth: string; forms?: string };
   log?: (message: string) => void;
 }
 
@@ -73,6 +73,9 @@ export async function migrate(options: MigrateOptions): Promise<{ applied: strin
     if (options.rolePasswords) {
       await setRolePassword(client, 'cerebro_app', options.rolePasswords.app);
       await setRolePassword(client, 'cerebro_auth', options.rolePasswords.auth);
+      if (options.rolePasswords.forms !== undefined) {
+        await setRolePassword(client, 'cerebro_forms', options.rolePasswords.forms);
+      }
     }
     return { applied };
   } finally {

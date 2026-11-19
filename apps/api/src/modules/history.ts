@@ -35,6 +35,8 @@ export interface ItemChangeView {
   new: unknown;
   /** Set when a rule made the change, on behalf of `actor`; the name is gone with the rule. */
   automation: { id: string; name: string | null } | null;
+  /** Set when a public form sent it, on behalf of `actor`; the title is gone with the form. */
+  form: { id: string; title: string | null } | null;
 }
 
 /** The changes of an item, newest first. `before` continues from an earlier page. */
@@ -55,9 +57,12 @@ export async function itemHistory(
     new: unknown;
     automation_id: string | null;
     automation_name: string | null;
+    form_id: string | null;
+    form_title: string | null;
   }>(tx, {
     text: `SELECT id, at, actor, what, field_id, old, new, automation_id,
-                  app.automation_name(automation_id) AS automation_name
+                  app.automation_name(automation_id) AS automation_name,
+                  form_id, app.form_title(form_id) AS form_title
            FROM app.item_changes
            WHERE item_id = $1 AND ($2::bigint IS NULL OR id < $2::bigint)
            ORDER BY id DESC LIMIT $3`,
@@ -73,5 +78,6 @@ export async function itemHistory(
     new: row.new,
     automation:
       row.automation_id === null ? null : { id: row.automation_id, name: row.automation_name },
+    form: row.form_id === null ? null : { id: row.form_id, title: row.form_title },
   }));
 }

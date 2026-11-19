@@ -39,6 +39,35 @@ function ensureSecretFile(configDir: string, name: string, content: string): voi
 function ensureLaterSecrets(configDir: string): void {
   ensureSecretFile(configDir, 'updater-key', randomBytes(32).toString('base64'));
   ensureSecretFile(configDir, 'backup-password', randomPassword());
+  // The forms service gets a folder of its own and sees nothing else: its database
+  // password (a role that can only send forms) and the key of its anti-robot stamp.
+  mkdirSync(join(configDir, FORMS_DIR), { recursive: true, mode: 0o700 });
+  ensureSecretFile(configDir, join(FORMS_DIR, 'db-password'), randomPassword());
+  ensureSecretFile(configDir, join(FORMS_DIR, 'form-key'), randomBytes(32).toString('base64'));
+}
+
+/** The folder, inside the configuration, that is all the forms service mounts. */
+export const FORMS_DIR = 'forms';
+
+export interface FormsSecrets {
+  dbPassword: string;
+  formKey: Buffer;
+}
+
+/** Reads the forms service's own secrets from its folder. */
+export function readFormsSecrets(formsDir: string): FormsSecrets {
+  let dbPassword: string;
+  let formKey: Buffer;
+  try {
+    dbPassword = readFileSync(join(formsDir, 'db-password'), 'utf8').trim();
+    formKey = Buffer.from(readFileSync(join(formsDir, 'form-key'), 'utf8').trim(), 'base64');
+  } catch {
+    throw new Error(`the forms secrets are not in ${formsDir}; run "init-secrets" first`);
+  }
+  if (dbPassword.length < 20 || formKey.length !== 32) {
+    throw new Error('the forms secrets are malformed');
+  }
+  return { dbPassword, formKey };
 }
 
 /** Creates the secrets on first boot; never overwrites existing ones. */

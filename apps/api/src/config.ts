@@ -50,6 +50,8 @@ export interface Config {
   updater: { url: string; key: Buffer } | null;
   /** The backup service's situation file, read-only; null without the service. */
   backupStatusFile: string | null;
+  /** Where the public forms are served (an origin of their own); null without them. */
+  formsOrigin: string | null;
 }
 
 export function parseAntivirus(raw: string | undefined): Config['antivirus'] {
@@ -149,7 +151,25 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       env.CEREBRO_BACKUP_STATUS === undefined || env.CEREBRO_BACKUP_STATUS === ''
         ? null
         : env.CEREBRO_BACKUP_STATUS,
+    formsOrigin: parseFormsOrigin(env.CEREBRO_FORMS_ORIGIN, env.CEREBRO_PUBLIC_ORIGIN ?? '', mode),
   };
+}
+
+/**
+ * The forms' own origin: never the app's, so a form page can never reach the
+ * app's cookies or answers. Optional: without it, forms are made but have no address.
+ */
+export function parseFormsOrigin(
+  raw: string | undefined,
+  appOrigin: string,
+  mode: 'production' | 'development',
+): string | null {
+  if (raw === undefined || raw === '') return null;
+  const origin = parsePublicOrigin(raw, mode);
+  if (origin === appOrigin.replace(/\/$/, '')) {
+    throw new Error("CEREBRO_FORMS_ORIGIN must be an address of its own, not the app's");
+  }
+  return origin;
 }
 
 /** "1.2.3" (as released), or "dev" for a build that did not come from a release. */

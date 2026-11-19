@@ -138,7 +138,7 @@ export async function buildScenario(env: TestEnv): Promise<Scenario> {
 // Talking to the database directly, as the API's own roles
 // ---------------------------------------------------------------------------
 
-export type ServiceRole = 'cerebro_app' | 'cerebro_auth';
+export type ServiceRole = 'cerebro_app' | 'cerebro_auth' | 'cerebro_forms';
 
 /** A raw connection with exactly the privileges the API has. No API code involved. */
 export async function connectAs(env: TestEnv, role: ServiceRole): Promise<pg.Client> {
@@ -146,7 +146,12 @@ export async function connectAs(env: TestEnv, role: ServiceRole): Promise<pg.Cli
   const client = new pg.Client({
     ...env.dbConfig,
     user: role,
-    password: role === 'cerebro_app' ? shared.appPassword : shared.authPassword,
+    password:
+      role === 'cerebro_app'
+        ? shared.appPassword
+        : role === 'cerebro_auth'
+          ? shared.authPassword
+          : shared.formsPassword,
   });
   await client.connect();
   return client;
