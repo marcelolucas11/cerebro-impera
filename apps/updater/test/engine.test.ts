@@ -6,6 +6,8 @@ import {
   MANIFEST_BUNDLE,
   newest,
   readManifest,
+  signer,
+  signerFlags,
   signerIdentity,
   type GithubRelease,
 } from '../src/release.js';
@@ -13,6 +15,8 @@ import {
 const REPO = 'exemplo/cerebro';
 const DIGEST = `sha256:${createHash('sha256').update('imagem').digest('hex')}`;
 const IMAGE = 'ghcr.io/exemplo/cerebro/api';
+/** The commit the tag points at, on the default branch unless a test says otherwise. */
+const SHA = 'a'.repeat(40);
 
 const release = (tag: string, extra: Partial<GithubRelease> = {}): GithubRelease => ({
   tag_name: tag,
@@ -54,6 +58,8 @@ function world(options: {
   imageSigned?: boolean;
   failing?: string;
   healthyAfter?: number;
+  commit?: string | null;
+  reviewed?: boolean;
 }) {
   const files = new Map<string, string>([
     [
@@ -77,6 +83,14 @@ function world(options: {
     },
     releases: {
       list: () => Promise.resolve(options.releases ?? [release('v1.5.0')]),
+      commitOf: (_repository, tag) => {
+        verified.push(`commit ${tag}`);
+        return Promise.resolve(options.commit === undefined ? SHA : options.commit);
+      },
+      onDefaultBranch: (_repository, sha) => {
+        verified.push(`reviewed ${sha}`);
+        return Promise.resolve(options.reviewed ?? true);
+      },
       download: (url, to) => {
         files.set(
           to,
@@ -86,12 +100,12 @@ function world(options: {
       },
     },
     verifier: {
-      blob: (_file, _bundle, identity) => {
-        verified.push(`blob ${identity}`);
+      blob: (_file, _bundle, who) => {
+        verified.push(`blob ${signerFlags(who).join(' ')}`);
         return Promise.resolve(options.signed ?? true);
       },
-      image: (reference, identity) => {
-        verified.push(`image ${reference} ${identity}`);
+      image: (reference, who) => {
+        verified.push(`image ${reference} ${signerFlags(who).join(' ')}`);
         return Promise.resolve(options.imageSigned ?? true);
       },
     },
@@ -156,6 +170,21 @@ describe('which release is a candidate', () => {
     expect(signerIdentity(REPO, 'v1.5.0')).toBe(
       'https://github.com/exemplo/cerebro/.github/workflows/release.yml@refs/tags/v1.5.0',
     );
+    // A signature holds only if it says all of this: the flow, the event, the tag and the commit.
+    expect(signerFlags(signer(REPO, 'v1.5.0', SHA))).toEqual([
+      '--certificate-identity',
+      'https://github.com/exemplo/cerebro/.github/workflows/release.yml@refs/tags/v1.5.0',
+      '--certificate-oidc-issuer',
+      'https://token.actions.githubusercontent.com',
+      '--certificate-github-workflow-trigger',
+      'release',
+      '--certificate-github-workflow-ref',
+      'refs/tags/v1.5.0',
+      '--certificate-github-workflow-sha',
+      SHA,
+      '--certificate-github-workflow-repository',
+      REPO,
+    ]);
   });
 });
 
@@ -164,7 +193,25 @@ describe('looking for an update', () => {
     const { engine, verified } = world({});
     const status = await engine.check();
     expect(status.available).toMatchObject({ version: '1.5.0', notes: 'Notas da v1.5.0' });
-    expect(verified).toEqual([`blob ${signerIdentity(REPO, 'v1.5.0')}`]);
+    expect(verified).toEqual([
+      'commit v1.5.0',
+      `reviewed ${SHA}`,
+      `blob ${signerFlags(signer(REPO, 'v1.5.0', SHA)).join(' ')}`,
+    ]);
+  });
+
+  it('refuses a version whose commit is not on the default branch, before reading anything of it', async () => {
+    const outside = world({ reviewed: false });
+    await expect(outside.engine.check()).rejects.toMatchObject({ code: 'not_reviewed' });
+    expect(outside.verified).toEqual(['commit v1.5.0', `reviewed ${SHA}`]);
+    expect([...outside.files.keys()]).toEqual([settings.releaseEnv]);
+    for (const commit of [null, 'main', 'A'.repeat(40), 'a'.repeat(39)]) {
+      const unknown = world({ commit });
+      await expect(unknown.engine.check(), String(commit)).rejects.toMatchObject({
+        code: 'origin_unknown',
+      });
+      expect(unknown.verified).toEqual(['commit v1.5.0']);
+    }
   });
 
   it('refuses what is unsigned, off, missing, or too far ahead of this installation', async () => {
@@ -210,7 +257,9 @@ describe('applying an update', () => {
     });
     expect(status.current).toBe('1.5.0');
     expect(status.available).toBeNull();
-    expect(verified.at(-1)).toBe(`image ${IMAGE}@${DIGEST} ${signerIdentity(REPO, 'v1.5.0')}`);
+    expect(verified.at(-1)).toBe(
+      `image ${IMAGE}@${DIGEST} ${signerFlags(signer(REPO, 'v1.5.0', SHA)).join(' ')}`,
+    );
     expect(commands).toEqual([
       compose('exec -T postgres pg_dump --username postgres --format custom cerebro'),
       `docker pull ${IMAGE}@${DIGEST}`,

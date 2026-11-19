@@ -17,6 +17,9 @@ const REFUSALS: Record<string, string> = {
   not_newer: 'essa versão não é mais nova do que a que está em uso.',
   signature_invalid:
     'a assinatura da versão não confere com o repositório do projeto. Nada foi instalado.',
+  origin_unknown: 'não foi possível saber de qual código a versão saiu. Nada foi instalado.',
+  not_reviewed:
+    'a versão não saiu do ramo principal do projeto, onde as mudanças são revisadas. Nada foi instalado.',
   manifest_missing: 'a versão não traz o arquivo assinado que o atualizador exige.',
   manifest_invalid: 'o arquivo da versão não fala desta instalação. Nada foi instalado.',
   too_old: 'esta instalação precisa passar antes por uma versão intermediária.',

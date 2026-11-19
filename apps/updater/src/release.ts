@@ -116,6 +116,56 @@ export function signerIdentity(repository: string, tag: string): string {
 
 export const SIGNER_ISSUER = 'https://token.actions.githubusercontent.com';
 
+/**
+ * Everything a signature must say about where it was made: the release flow of
+ * this repository, run because a release was published for this tag, from this
+ * very commit. The commit is one the updater has already seen on the default
+ * branch, so the flow that signed is the reviewed one, with its approval step:
+ * a changed flow pushed under a new tag signs with another commit and is refused.
+ */
+export interface Signer {
+  identity: string;
+  issuer: string;
+  trigger: 'release';
+  ref: string;
+  sha: string;
+  repository: string;
+}
+
+export function signer(repository: string, tag: string, sha: string): Signer {
+  return {
+    identity: signerIdentity(repository, tag),
+    issuer: SIGNER_ISSUER,
+    trigger: 'release',
+    ref: `refs/tags/${tag}`,
+    sha,
+    repository,
+  };
+}
+
+/** The cosign flags that hold a signature to a signer. */
+export function signerFlags(who: Signer): string[] {
+  return [
+    '--certificate-identity',
+    who.identity,
+    '--certificate-oidc-issuer',
+    who.issuer,
+    '--certificate-github-workflow-trigger',
+    who.trigger,
+    '--certificate-github-workflow-ref',
+    who.ref,
+    '--certificate-github-workflow-sha',
+    who.sha,
+    '--certificate-github-workflow-repository',
+    who.repository,
+  ];
+}
+
+/** A full commit id, as GitHub writes it. */
+export function validCommit(raw: string | null): raw is string {
+  return raw !== null && /^[0-9a-f]{40}$/.test(raw);
+}
+
 /** "owner/repo", as GitHub spells them. */
 export function validRepository(raw: string): boolean {
   return /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/.test(raw);

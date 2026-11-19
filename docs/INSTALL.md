@@ -53,9 +53,11 @@ CEREBRO_PUBLIC_ORIGIN=https://cerebro.exemplo.com
 CEREBRO_FORMS_ORIGIN=https://formularios.exemplo.com
 TZ=America/Sao_Paulo
 
-# Com versão publicada (senão, deixe de fora e valem as imagens :local do passo 2):
+# Com versão publicada (senão, deixe de fora e valem as imagens :local do passo 2). As linhas
+# certas, com os digests, vêm prontas no arquivo cerebro-images.env anexado a cada release:
 CEREBRO_IMAGE=ghcr.io/<dono>/<repositório>/api@sha256:<digest>
 CEREBRO_VERSION=<versão>
+CEREBRO_UPDATER_IMAGE=ghcr.io/<dono>/<repositório>/updater@sha256:<digest>
 CEREBRO_BACKUP_IMAGE=ghcr.io/<dono>/<repositório>/backup@sha256:<digest>
 
 # Cópias de segurança (passo 7):

@@ -7,12 +7,13 @@ import {
   newest,
   parseVersion,
   readManifest,
-  SIGNER_ISSUER,
-  signerIdentity,
+  signer,
+  validCommit,
   versionText,
   type GithubRelease,
   type Manifest,
   type Release,
+  type Signer,
 } from './release.js';
 
 /*
@@ -30,12 +31,16 @@ export interface Command {
 }
 export interface Releases {
   list(repository: string): Promise<GithubRelease[]>;
+  /** The commit a tag points at, or null if GitHub does not say. */
+  commitOf(repository: string, tag: string): Promise<string | null>;
+  /** Whether the commit is on the repository's default branch, where changes are reviewed. */
+  onDefaultBranch(repository: string, sha: string): Promise<boolean>;
   /** A release file, saved where asked. Small files only. */
   download(url: string, to: string): Promise<void>;
 }
 export interface Verifier {
-  blob(file: string, bundle: string, identity: string, issuer: string): Promise<boolean>;
-  image(reference: string, identity: string, issuer: string): Promise<boolean>;
+  blob(file: string, bundle: string, who: Signer): Promise<boolean>;
+  image(reference: string, who: Signer): Promise<boolean>;
 }
 export interface Disk {
   read(path: string): Promise<string>;
@@ -103,7 +108,12 @@ export function withRelease(content: string, image: string, version: string): st
 
 export class Engine {
   private checkedAt: string | null = null;
-  private candidate: { release: Release; manifest: Manifest; dir: string } | null = null;
+  private candidate: {
+    release: Release;
+    manifest: Manifest;
+    dir: string;
+    who: Signer;
+  } | null = null;
   private job: Job | null = null;
 
   constructor(
@@ -150,10 +160,16 @@ export class Engine {
     const dir = join(this.settings.workDir, versionText(release.version));
     const file = join(dir, MANIFEST);
     const bundle = join(dir, MANIFEST_BUNDLE);
+    // Where the version came from: a commit on the default branch, signed by the flow run there.
+    const sha = await this.ports.releases.commitOf(this.settings.repository, release.tag);
+    if (!validCommit(sha)) throw new UpdaterRefusal('origin_unknown');
+    if (!(await this.ports.releases.onDefaultBranch(this.settings.repository, sha))) {
+      throw new UpdaterRefusal('not_reviewed');
+    }
     await this.ports.releases.download(manifestAsset.url, file);
     await this.ports.releases.download(bundleAsset.url, bundle);
-    const identity = signerIdentity(this.settings.repository, release.tag);
-    if (!(await this.ports.verifier.blob(file, bundle, identity, SIGNER_ISSUER))) {
+    const who = signer(this.settings.repository, release.tag, sha);
+    if (!(await this.ports.verifier.blob(file, bundle, who))) {
       throw new UpdaterRefusal('signature_invalid');
     }
     const manifest = readManifest(
@@ -164,7 +180,7 @@ export class Engine {
     if (manifest === null) throw new UpdaterRefusal('manifest_invalid');
     const oldest = parseVersion(manifest.minFrom);
     if (oldest !== null && compare(current, oldest) < 0) throw new UpdaterRefusal('too_old');
-    this.candidate = { release, manifest, dir };
+    this.candidate = { release, manifest, dir, who };
     return this.status();
   }
 
@@ -233,11 +249,10 @@ export class Engine {
 
   private async run(
     job: Job,
-    candidate: { release: Release; manifest: Manifest; dir: string },
+    candidate: { release: Release; manifest: Manifest; dir: string; who: Signer },
   ): Promise<void> {
-    const { manifest, release, dir } = candidate;
+    const { manifest, dir, who } = candidate;
     const reference = `${manifest.image}@${manifest.digest}`;
-    const identity = signerIdentity(this.settings.repository, release.tag);
     const previousEnv = await this.ports.disk.read(this.settings.releaseEnv);
     const stamp = job.startedAt.replace(/[^0-9]/g, '').slice(0, 14);
     const backup = join(this.settings.backupsDir, `antes-de-${job.to}-${stamp}.dump`);
@@ -248,10 +263,9 @@ export class Engine {
       const blobHolds = await this.ports.verifier.blob(
         join(dir, MANIFEST),
         join(dir, MANIFEST_BUNDLE),
-        identity,
-        SIGNER_ISSUER,
+        who,
       );
-      if (!blobHolds || !(await this.ports.verifier.image(reference, identity, SIGNER_ISSUER))) {
+      if (!blobHolds || !(await this.ports.verifier.image(reference, who))) {
         throw new StepFailed('A assinatura da versão não conferiu. Nada foi trocado.');
       }
       job.step = 'backup';

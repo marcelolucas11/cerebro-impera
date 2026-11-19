@@ -38,6 +38,12 @@ para o repositório de onde aceita versões.
   `https://github.com/<dono>/<repo>/.github/workflows/release.yml@refs/tags/<versão>` pelo emissor
   `https://token.actions.githubusercontent.com`. O repositório vem da configuração da instalação
   (`CEREBRO_UPDATE_REPOSITORY`). Sem ela, o atualizador não procura nada.
+- **Origem aceita:** além da identidade, o certificado precisa dizer que o fluxo rodou por causa da
+  publicação de uma release (`release`), na tag da versão, a partir do commit para o qual a tag
+  aponta, e que esse commit está no ramo principal do repositório (o atualizador pergunta ao
+  GitHub antes de baixar qualquer arquivo da versão). Assim, só assina uma versão o fluxo revisado,
+  com o passo de aprovação dele. O próprio fluxo também se recusa a publicar uma tag fora do ramo
+  principal. Fica com o mantenedor: uma regra no GitHub para que só mantenedores criem tags `v*`.
 
 ## 3. Atualizador (serviço próprio)
 
@@ -47,8 +53,9 @@ para o repositório de onde aceita versões.
 - Sem porta publicada. Fala só na rede `updates`, que só a API alcança. Toda requisição leva
   assinatura HMAC (chave gerada pelo `init` no volume de configuração), hora e número único. Fora
   de 60 segundos, ou com número repetido, é recusada.
-- **Procurar:** lê as releases do repositório e pega a maior versão estável acima da atual. Baixa
-  o manifesto e a assinatura e confere os dois com o `cosign`. Devolve versão, data e notas. As
+- **Procurar:** lê as releases do repositório e pega a maior versão estável acima da atual.
+  Confere que o commit da tag está no ramo principal; só então baixa o manifesto e a assinatura e
+  confere os dois com o `cosign`. Devolve versão, data e notas. As
   notas vão para a página só como texto, nunca como HTML.
 - **Atualizar**, só para uma versão que acabou de passar na conferência:
   1. confere de novo o manifesto e a assinatura da imagem pelo digest;

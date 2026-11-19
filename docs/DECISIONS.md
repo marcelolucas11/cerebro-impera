@@ -1302,6 +1302,26 @@ dele. Uma aba esquecida aberta mantinha a sessão viva para sempre. E vários en
 começados juntos passavam cada um na conferência de espaço, e somados enchiam o disco, que é o
 mesmo do banco.
 
+## D76 — A assinatura de uma versão precisa vir do commit da tag, no ramo principal
+
+**Decisão.**
+
+- O atualizador pergunta ao GitHub para qual commit a tag aponta e se esse commit está no ramo
+  principal do repositório, antes de baixar qualquer arquivo da versão. Fora dele, recusa
+  (`not_reviewed`); sem saber o commit, recusa (`origin_unknown`).
+- O `cosign` confere, além da identidade e do emissor: o evento que disparou o fluxo (`release`),
+  a referência (`refs/tags/<tag>`), o commit e o repositório (`--certificate-github-workflow-*`).
+  Vale para o manifesto e para a imagem.
+- O próprio `release.yml` se recusa a publicar uma tag cujo commit não está no ramo principal.
+- O `release.yml` também publica e assina a imagem das cópias de segurança, e anexa à release o
+  `cerebro-images.env`, com as linhas do `.env` (API, atualizador e cópias, por digest).
+
+**Por quê.** A identidade `release.yml@refs/tags/<tag>` valia também para uma cópia alterada do
+fluxo, sem o passo de aprovação, empurrada junto com uma tag nova. Amarrar a assinatura ao commit,
+e o commit ao ramo principal, faz valer só o fluxo que passou por revisão.
+
+**Fica com o mantenedor:** uma regra de tags no GitHub para que só mantenedores criem tags `v*`.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |
