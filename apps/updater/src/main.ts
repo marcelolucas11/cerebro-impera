@@ -5,7 +5,7 @@ import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import process from 'node:process';
 import { Engine, type Command, type Ports, type Releases, type Verifier } from './engine.js';
-import { validRepository, type GithubRelease } from './release.js';
+import { signerFlags, validCommit, validRepository, type GithubRelease } from './release.js';
 import { updaterServer } from './server.js';
 
 /*
@@ -72,21 +72,51 @@ const ALLOWED_DOWNLOAD_HOSTS = new Set([
 ]);
 const DOWNLOAD_LIMIT = 1024 * 1024;
 
+/** A read from GitHub's API, public data only; null when GitHub says it has no such thing. */
+async function github<T>(path: string): Promise<T | null> {
+  const response = await fetch(`https://api.github.com${path}`, {
+    headers: {
+      accept: 'application/vnd.github+json',
+      'user-agent': 'cerebro-updater',
+      'x-github-api-version': '2022-11-28',
+    },
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`github answered ${String(response.status)}`);
+  return (await response.json()) as T;
+}
+
+interface GitObject {
+  object?: { type?: string; sha?: string };
+}
+
 const releases: Releases = {
   async list(repository) {
-    const response = await fetch(
-      `https://api.github.com/repos/${repository}/releases?per_page=30`,
-      {
-        headers: {
-          accept: 'application/vnd.github+json',
-          'user-agent': 'cerebro-updater',
-          'x-github-api-version': '2022-11-28',
-        },
-        signal: AbortSignal.timeout(20_000),
-      },
+    return (await github<GithubRelease[]>(`/repos/${repository}/releases?per_page=30`)) ?? [];
+  },
+  async commitOf(repository, tag) {
+    // A tag points at a commit, or at an annotated tag that points at one.
+    let found = await github<GitObject>(
+      `/repos/${repository}/git/ref/tags/${encodeURIComponent(tag)}`,
     );
-    if (!response.ok) throw new Error(`github answered ${String(response.status)}`);
-    return (await response.json()) as GithubRelease[];
+    for (let hop = 0; hop < 3 && found?.object?.type === 'tag'; hop += 1) {
+      const sha = found.object.sha ?? '';
+      if (!validCommit(sha)) return null;
+      found = await github<GitObject>(`/repos/${repository}/git/tags/${sha}`);
+    }
+    return found?.object?.type === 'commit' ? (found.object.sha ?? null) : null;
+  },
+  async onDefaultBranch(repository, sha) {
+    const repo = await github<{ default_branch?: string }>(`/repos/${repository}`);
+    const branch = repo?.default_branch;
+    if (branch === undefined || !/^[A-Za-z0-9._/-]{1,100}$/.test(branch)) return false;
+    // The default branch, compared with the commit: it holds the commit when it is the
+    // same or ahead of it.
+    const compared = await github<{ status?: string }>(
+      `/repos/${repository}/compare/${sha}...${encodeURIComponent(branch)}`,
+    );
+    return compared?.status === 'ahead' || compared?.status === 'identical';
   },
   async download(url, to) {
     // Release files only, from GitHub, small; redirects are followed only within GitHub.
@@ -117,32 +147,11 @@ const releases: Releases = {
 };
 
 const verifier: Verifier = {
-  blob: async (file, bundle, identity, issuer) =>
-    (
-      await command.run([
-        'cosign',
-        'verify-blob',
-        '--bundle',
-        bundle,
-        '--certificate-identity',
-        identity,
-        '--certificate-oidc-issuer',
-        issuer,
-        file,
-      ])
-    ).code === 0,
-  image: async (reference, identity, issuer) =>
-    (
-      await command.run([
-        'cosign',
-        'verify',
-        '--certificate-identity',
-        identity,
-        '--certificate-oidc-issuer',
-        issuer,
-        reference,
-      ])
-    ).code === 0,
+  blob: async (file, bundle, who) =>
+    (await command.run(['cosign', 'verify-blob', '--bundle', bundle, ...signerFlags(who), file]))
+      .code === 0,
+  image: async (reference, who) =>
+    (await command.run(['cosign', 'verify', ...signerFlags(who), reference])).code === 0,
 };
 
 function required(name: string): string {
