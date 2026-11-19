@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import process from 'node:process';
-import { BackupEngine, isRestoreDay, nextRun, type Command } from './engine.js';
+import { BackupEngine, errorLines, isRestoreDay, nextRun, type Command } from './engine.js';
 
 /*
  * The backup service as it runs in its own container: a copy every day at
@@ -57,17 +57,9 @@ const command: Command = {
     }),
 };
 
-/**
- * Why a step failed, for whoever reads the service's log: only the program's own error lines,
- * short (never the rest of what it printed, which can carry data from the copy).
- */
+/** Why a step failed, for whoever reads the service's log (see `errorLines`). */
 function explain(program: string, errors: string): void {
-  const lines = errors
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => /^(\S+: error:|ERROR:|FATAL:|Fatal:)/.test(line))
-    .slice(0, 3)
-    .map((line) => line.slice(0, 200));
+  const lines = errorLines(errors);
   process.stderr.write(`${program} failed${lines.length > 0 ? `: ${lines.join(' | ')}` : ''}\n`);
 }
 

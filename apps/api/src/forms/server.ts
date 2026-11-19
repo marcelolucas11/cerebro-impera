@@ -2,7 +2,7 @@ import rateLimit from '@fastify/rate-limit';
 import type { PublicForm } from '@cerebro/shared';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import type pg from 'pg';
-import { trustHops } from '../http/proxy.js';
+import { addressGroup, trustHops } from '../http/proxy.js';
 import { brandStyleSheet } from '../modules/brand.js';
 import { readAnswer, type FormBody } from './answer.js';
 import { closedPage, formPage, FORM_STYLE, fullPage, sentPage } from './page.js';
@@ -88,10 +88,13 @@ export async function buildFormsApp(deps: FormsDeps): Promise<FastifyInstance> {
     },
   );
 
+  // Counted by address; an IPv6 network counts as one (whoever has one has its 2^64 addresses).
+  const byAddress = (request: FastifyRequest): string => addressGroup(request.ip);
   await app.register(rateLimit, {
     global: true,
     max: 120,
     timeWindow: 60_000,
+    keyGenerator: byAddress,
     errorResponseBuilder: () => ({ statusCode: 429, error: 'too_many_requests' }),
   });
 
@@ -187,7 +190,15 @@ export async function buildFormsApp(deps: FormsDeps): Promise<FastifyInstance> {
 
   app.post(
     '/f/:slug',
-    { config: { rateLimit: { max: deps.sendsPerWindow ?? 10, timeWindow: 10 * 60_000 } } },
+    {
+      config: {
+        rateLimit: {
+          max: deps.sendsPerWindow ?? 10,
+          timeWindow: 10 * 60_000,
+          keyGenerator: byAddress,
+        },
+      },
+    },
     async (request, reply) => {
       const slug = slugOf(request);
       const { name } = await brand();

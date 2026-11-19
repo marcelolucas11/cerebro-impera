@@ -22,7 +22,9 @@ x-api: &api
   environment:
     CEREBRO_ENV: production
     CEREBRO_PUBLIC_ORIGIN: ${CEREBRO_PUBLIC_ORIGIN:?defina CEREBRO_PUBLIC_ORIGIN, por exemplo https://cerebro.exemplo.com}
-    CEREBRO_TRUST_PROXY: 'true'
+    # Quantos proxies reversos há na frente (normalmente 1). Com dois (uma CDN e o proxy do
+    # servidor, por exemplo), 2.
+    CEREBRO_TRUST_PROXY: ${CEREBRO_TRUST_PROXY:-1}
     CEREBRO_DB_HOST: postgres
     CEREBRO_DB_NAME: cerebro
     CEREBRO_MAX_ATTACHMENT_MB: ${CEREBRO_MAX_ATTACHMENT_MB:-2048}
@@ -254,7 +256,7 @@ services:
       CEREBRO_FORMS_ORIGIN: ${CEREBRO_FORMS_ORIGIN:-}
       CEREBRO_FORMS_CONFIG_DIR: /opt/cerebro/forms-config
       CEREBRO_FORMS_PORT: '3001'
-      CEREBRO_TRUST_PROXY: 'true'
+      CEREBRO_TRUST_PROXY: ${CEREBRO_TRUST_PROXY:-1}
       CEREBRO_DB_HOST: postgres
       CEREBRO_DB_NAME: cerebro
     volumes:
@@ -284,9 +286,10 @@ services:
       retries: 12
     ports:
       - '127.0.0.1:${CEREBRO_FORMS_HOST_PORT:-3001}:3001'
+    # Uma rede só dele para a porta publicada: daqui não se chega à API.
     networks:
       - db
-      - edge
+      - forms-edge
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -321,9 +324,10 @@ services:
       - no-new-privileges:true
     mem_limit: ${CEREBRO_BACKUP_MEMORY:-512m}
     pids_limit: 128
+    # A saída para o destino das cópias, só dele: daqui não se chega à API.
     networks:
       - db
-      - edge
+      - backup-out
     depends_on:
       postgres:
         condition: service_healthy
@@ -335,7 +339,12 @@ networks:
   # Só a API e o antivírus; sem rota para fora.
   scan:
     internal: true
+  # A porta publicada da API; só ela está aqui.
   edge: {}
+  # A porta publicada dos formulários, só deles.
+  forms-edge: {}
+  # A saída das cópias para o destino, só delas.
+  backup-out: {}
   # Só a API e o atualizador; sem rota para fora.
   updates:
     internal: true

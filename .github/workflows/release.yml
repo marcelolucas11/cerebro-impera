@@ -113,7 +113,8 @@ jobs:
             > cerebro-release.json
           cosign sign-blob --yes --bundle cerebro-release.json.sigstore.json cerebro-release.json
 
-      - name: Endereços das imagens, para o .env da instalação
+      # Assinado como o manifesto: quem instala confere antes de colar no .env (INSTALL.md).
+      - name: Endereços das imagens, para o .env da instalação, assinados
         run: |
           {
             echo "CEREBRO_IMAGE=${REGISTRY_PATH}/api@${API_DIGEST}"
@@ -121,12 +122,13 @@ jobs:
             echo "CEREBRO_UPDATER_IMAGE=${REGISTRY_PATH}/updater@${UPDATER_DIGEST}"
             echo "CEREBRO_BACKUP_IMAGE=${REGISTRY_PATH}/backup@${BACKUP_DIGEST}"
           } > cerebro-images.env
+          cosign sign-blob --yes --bundle cerebro-images.env.sigstore.json cerebro-images.env
 
       - name: Anexar à release
         run: |
           gh release upload "${TAG}" --clobber \
             cerebro-release.json cerebro-release.json.sigstore.json sbom-api.spdx.json \
-            cerebro-images.env
+            cerebro-images.env cerebro-images.env.sigstore.json
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}

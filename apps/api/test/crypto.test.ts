@@ -5,6 +5,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  renameSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -16,7 +17,13 @@ import { PasswordHasher } from '../src/crypto/password.js';
 import { digest, newRecoveryCodes, newToken, safeEqual } from '../src/crypto/tokens.js';
 import { newTotpSecret, totpCodeAt, verifyTotp } from '../src/crypto/totp.js';
 import { Vault } from '../src/crypto/vault.js';
-import { initSecrets, readAdminPassword, readFormsSecrets, readSecrets } from '../src/secrets.js';
+import {
+  assertOwnConfiguration,
+  initSecrets,
+  readAdminPassword,
+  readFormsSecrets,
+  readSecrets,
+} from '../src/secrets.js';
 
 const scratch = mkdtempSync(join(tmpdir(), 'cerebro-crypto-'));
 afterAll(() => {
@@ -243,6 +250,28 @@ describe('instance secrets', () => {
     expect(() => readFormsSecrets(dir)).toThrow();
     writeFileSync(join(dir, 'forms/extra'), 'x');
     expect(() => readFormsSecrets(join(dir, 'forms'))).toThrow('more than the forms secrets');
+  });
+
+  it('keep the API from starting with more of the configuration than its own', () => {
+    const dir = join(scratch, 'api-view');
+    initSecrets(dir);
+    // The whole volume mounted, as compose files before the folders did.
+    expect(() => {
+      assertOwnConfiguration(dir);
+    }).toThrow(/more than the API's own configuration \(backup, db, forms\)/);
+    // What the API is given now: its folder and the updater's.
+    const own = join(scratch, 'api-own');
+    mkdirSync(own);
+    renameSync(join(dir, 'api'), join(own, 'api'));
+    renameSync(join(dir, 'updater'), join(own, 'updater'));
+    expect(() => {
+      assertOwnConfiguration(own);
+    }).not.toThrow();
+    // A secret left at the top, from before the folders, counts too.
+    writeFileSync(join(own, 'secrets.json'), '{}');
+    expect(() => {
+      assertOwnConfiguration(own);
+    }).toThrow('secrets.json');
   });
 
   it('include the updater key, made also for installations that had none, and kept', () => {

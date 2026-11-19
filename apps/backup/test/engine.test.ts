@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BackupEngine,
+  errorLines,
   isRestoreDay,
   nextRun,
   RETENTION,
@@ -197,5 +198,28 @@ describe('when it runs', () => {
   it('tests a restore on the first day of the month', () => {
     expect(isRestoreDay(new Date(2030, 6, 1, 3))).toBe(true);
     expect(isRestoreDay(new Date(2030, 6, 2, 3))).toBe(false);
+  });
+});
+
+describe('why a step failed, in the log', () => {
+  it('keeps the program’s own error lines, short, with the copy’s values masked', () => {
+    const errors = [
+      'pg_restore: processing data for table "app.users"',
+      'pg_restore: error: could not execute query: ERROR:  unrecognized parameter "pg_attver"',
+      'Command was: ALTER TABLE ONLY app.items ALTER COLUMN title SET (pg_attver = 1);',
+      'ERROR:  invalid input syntax for type uuid: "ana@exemplo.test"',
+      'DETAIL:  Key (email)=(ana@exemplo.test) already exists.',
+      "ERROR:  duplicate key value violates unique constraint 'users_email_key' (email)=(ana@exemplo.test)",
+      'FATAL:  a fourth line is never shown',
+    ].join('\n');
+    const lines = errorLines(errors);
+    expect(lines).toEqual([
+      'pg_restore: error: could not execute query: ERROR:  unrecognized parameter "pg_attver"',
+      'ERROR:  invalid input syntax for type uuid: "…"',
+      "ERROR:  duplicate key value violates unique constraint 'users_email_key' (email)=(…)",
+    ]);
+    expect(lines.join(' ')).not.toContain('ana@');
+    expect(errorLines(`Fatal: ${'x'.repeat(500)}`)[0]).toHaveLength(200);
+    expect(errorLines('nothing went wrong\n')).toEqual([]);
   });
 });

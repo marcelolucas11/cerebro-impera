@@ -13,6 +13,8 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /** How many sessions' worth of requests one address may make in a minute. */
 export const ADDRESS_ALLOWANCE = 5;
+/** How many addresses one minute of counting keeps apart before the rest share one count. */
+export const MAX_ADDRESSES = 50_000;
 
 /**
  * Whether a request is for the API, judged by the route it reached: the router
@@ -40,7 +42,7 @@ function isApiRequest(request: FastifyRequest): boolean {
 function rateKey(request: FastifyRequest): string {
   const token = readToken(request, SESSION_COOKIE);
   return token === undefined
-    ? `ip:${request.ip}`
+    ? `ip:${addressGroup(request.ip)}`
     : `session:${digest(token).toString('base64url')}`;
 }
 
@@ -91,7 +93,10 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       windowStart = now;
       byAddress.clear();
     }
-    const group = addressGroup(request.ip);
+    // Past a ceiling of addresses in one minute (someone cycling through many), the new
+    // ones share one count, which runs out fast: the memory stays bounded.
+    const own = addressGroup(request.ip);
+    const group = byAddress.has(own) || byAddress.size < MAX_ADDRESSES ? own : 'others';
     const count = (byAddress.get(group) ?? 0) + 1;
     byAddress.set(group, count);
     if (count > perAddress) {

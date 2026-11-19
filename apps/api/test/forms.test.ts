@@ -488,6 +488,29 @@ describe('the forms service', () => {
     expect((await page(`/f/${slug}`)).statusCode).toBe(404);
   });
 
+  it('counts one IPv6 network as one sender, whatever address of it is used', async () => {
+    const statuses: number[] = [];
+    for (let n = 1; n <= 121; n += 1) {
+      const response = await forms.inject({
+        method: 'GET',
+        url: '/health',
+        headers: { host: HOST },
+        remoteAddress: `2001:db8:7:8::${n.toString(16)}`,
+      });
+      statuses.push(response.statusCode);
+    }
+    expect(statuses.slice(0, 120).every((status) => status === 200)).toBe(true);
+    expect(statuses.at(-1)).toBe(429);
+    // Another network is not held back.
+    const other = await forms.inject({
+      method: 'GET',
+      url: '/health',
+      headers: { host: HOST },
+      remoteAddress: '2001:db8:7:9::1',
+    });
+    expect(other.statusCode).toBe(200);
+  });
+
   it('takes at most 500 answers a day from one form, however many send', async () => {
     const slug = slugOf(form);
     await env.admin.query(

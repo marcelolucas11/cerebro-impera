@@ -1464,6 +1464,57 @@ Dois achados informativos ficam como estão, com o motivo:
 
 **Por quê.** Nenhum era crítico ou alto; o mais sério (tirar uma regra) desfazia em parte a D72.
 
+## D85 — Segunda revisão, servidor: imagens assinadas, configuração, endereços e redes
+
+**Decisão.** A segunda revisão achou no servidor, corrigido:
+
+- **A lista de imagens da release** (`cerebro-images.env`), que o guia manda colar no `.env`, não
+  era assinada, e nada conferia as imagens do atualizador e das cópias. Quem conseguisse trocar um
+  anexo da release faria uma instalação nova rodar um atualizador dele, com acesso ao Docker do
+  servidor. Agora o arquivo é assinado pelo fluxo de release, como o manifesto, e o guia de
+  instalação manda conferir com o `cosign` (a mesma origem que o atualizador exige) antes de usar.
+- **A API recusa subir em produção se enxerga mais da configuração do que a pasta dela e a do
+  atualizador.** Um compose de antes das pastas por serviço (D73) montaria o volume inteiro, e a
+  API rodaria com a senha de administrador do banco e a chave das cópias.
+- **Endereços:** antes de entrar, a API conta pedidos por bloco IPv6 /64, como já contava o teto
+  por endereço; os formulários também. O mapa desse teto tem limite de tamanho (passado o limite,
+  os endereços novos dividem uma contagem).
+- **Redes:** formulários e cópias saíram da rede da API (`edge`): cada um tem a sua. Um contêiner
+  de formulários tomado não alcança mais a API para fingir ser o proxy. `CEREBRO_TRUST_PROXY`
+  passa a ser configurável no `.env` (padrão 1).
+- **Log das cópias:** valores da cópia que apareçam numa linha de erro são mascarados; nomes de
+  tabela, coluna ou parâmetro ficam, porque dizem o que deu errado.
+
+**Rever com o mantenedor (junto da D79).** O ClamAV, por padrão, diz "limpo" para um compactado
+com arquivos acima dos limites dele ou cifrado. Ligar `AlertExceedsMax` e `AlertEncrypted` faria
+esses casos serem bloqueados, ao custo de bloquear também compactados grandes ou com senha
+legítimos. Fica para a mesma decisão da D79.
+
+## D86 — O registro aceita cada entrada de quem pode dizê-la
+
+**Decisão.** O registro (auditoria) aceitava qualquer uma das entradas da aplicação de qualquer
+pessoa conectada, em nome dela. Agora o que uma atualização fez só entra por um Dono (só Donos veem
+e rodam atualizações), e "abriu uma lista sensível" só por quem pode abrir aquela lista. As outras
+entradas continuam como antes.
+
+**Por quê.** A segunda revisão notou que um funcionário, pela API, podia registrar uma atualização
+aplicada ou a abertura de uma lista que não vê. Ficava no nome dele, mas enganaria quem lê o
+registro depois.
+
+**Ficam como estão, com o motivo (achados informativos):**
+
+- Quem vê só uma subtarefa fica sabendo, ao trazê-la da lixeira, se o pai que ela não vê também
+  está na lixeira: é o que decide se ela volta debaixo dele ou sozinha.
+- O título de um formulário vai para quem vê a lista dele mesmo se ela for sensível: o título é
+  público (a página do formulário o mostra a qualquer um com o endereço).
+- A auditoria de uma lista guarda o nome dela, inclusive de lista sensível, para quem pode ler o
+  registro, como as outras tabelas já faziam.
+- Quem edita uma lista sensível (com o código confirmado) pode mover os itens dela para outra:
+  já podia ler e copiar o conteúdo.
+- As rotinas do banco (sem identidade) rodam pela mesma conexão da API: uma API tomada as chamaria
+  fora de uma requisição. Separar um papel só para elas fica para depois (**Rever com o
+  mantenedor**).
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |
