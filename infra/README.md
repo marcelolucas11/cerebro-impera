@@ -140,3 +140,25 @@ docker compose --file infra/compose.yaml --profile backup up --detach
   passo 1).
 - Para conferir uma instalação nova, `CEREBRO_BACKUP_NOW=backup+test` faz uma cópia e o teste logo
   ao subir.
+
+## Formulários públicos
+
+Opcionais, no perfil `forms`. Cada lista pode ter formulários que qualquer pessoa com o endereço
+preenche, e a resposta chega como item da lista. Eles ficam num endereço próprio (um subdomínio,
+por exemplo `formularios.exemplo.com`), servido por um serviço à parte que só mostra e envia
+formulários.
+
+- O serviço monta só a pasta `forms` da configuração. Ela tem a senha de um papel do banco que não
+  lê tabela nenhuma, só chama as funções dos formulários, e a chave do carimbo contra robôs.
+- Ele não vê a chave da instância, as outras senhas nem os anexos.
+- Precisa do Docker 26 ou mais novo (volume com `subpath`).
+
+```sh
+# no .env deste diretório:
+CEREBRO_FORMS_ORIGIN=https://formularios.exemplo.com
+
+docker compose --file infra/compose.yaml --profile forms up --detach
+```
+
+No proxy reverso, o subdomínio dos formulários aponta para `127.0.0.1:3001`, com TLS, e repassa o
+`Host` original e o `X-Forwarded-For`. O endereço do aplicativo continua apontando para a porta 3000. Os dois nunca dividem o mesmo nome. Desenho em `docs/design/white-label.md`, seção 3.

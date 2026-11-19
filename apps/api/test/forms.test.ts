@@ -4,6 +4,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { inject } from 'vitest';
 import { buildFormsApp } from '../src/forms/server.js';
+import { hardenDatabase } from '../src/migrate.js';
 import { checkStamp, issueStamp } from '../src/forms/stamp.js';
 import {
   createTestEnv,
@@ -259,6 +260,8 @@ describe('the forms service', () => {
       "default-src 'none'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
     );
     expect(shown.headers['set-cookie']).toBeUndefined();
+    // Its own posts keep their origin; nothing goes to another site.
+    expect(shown.headers['referrer-policy']).toBe('same-origin');
     expect(shown.body).toContain('Pedido de orçamento');
     expect(shown.body).toContain('Respondemos em até dois dias.');
     expect(shown.body).toContain('Aceita contato');
@@ -290,6 +293,11 @@ describe('the forms service', () => {
       404,
     );
     expect((await page('/f/AAAAAAAAAAAAAAAAAAAAAA')).statusCode).toBe(404);
+    // Only the health check answers under another name, and it says nothing.
+    const health = await page('/health', { host: '127.0.0.1:3001' });
+    expect(health.statusCode).toBe(200);
+    expect(health.body).toBe('{"status":"ok"}');
+    expect((await page('/health?x', { host: '127.0.0.1:3001' })).statusCode).toBe(404);
     expect((await page('/f/curto')).statusCode).toBe(404);
   });
 
@@ -763,6 +771,22 @@ describe('the forms role in the database', () => {
     } finally {
       await app.end();
     }
+  });
+
+  it('connects to a hardened database, as the other two services do, and no one else', async () => {
+    const client = await env.admin.connect();
+    try {
+      await hardenDatabase(client);
+      const can = await client.query(
+        `SELECT has_database_privilege('cerebro_forms', current_database(), 'CONNECT') AS forms,
+                has_database_privilege('cerebro_app', current_database(), 'CONNECT') AS app,
+                has_database_privilege('public', current_database(), 'CONNECT') AS anyone`,
+      );
+      expect(can.rows).toEqual([{ forms: true, app: true, anyone: false }]);
+    } finally {
+      client.release();
+    }
+    expect((await page(`/f/${slugOf(form)}`)).statusCode).toBe(200);
   });
 
   it('signs the page stamp so it cannot be moved to another form or forged', () => {

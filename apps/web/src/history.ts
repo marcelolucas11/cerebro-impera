@@ -41,9 +41,18 @@ export function ruleName(rule: { name: string | null }): string {
   return rule.name === null ? 'uma automação apagada' : `a automação “${rule.name}”`;
 }
 
+/** A public form, by its title. */
+export function formName(form: { title: string | null }): string {
+  return form.title === null ? 'um formulário removido' : `o formulário “${form.title}”`;
+}
+
 export function describeChange(change: ItemChange, context: HistoryContext): ChangeLine {
   const who = capitalized(
-    change.automation ? ruleName(change.automation) : context.nameOf(change.actor),
+    change.automation
+      ? ruleName(change.automation)
+      : change.form
+        ? formName(change.form)
+        : context.nameOf(change.actor),
   );
   switch (change.what) {
     case 'created':

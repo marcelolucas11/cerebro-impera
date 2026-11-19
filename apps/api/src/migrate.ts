@@ -83,11 +83,11 @@ export async function migrate(options: MigrateOptions): Promise<{ applied: strin
   }
 }
 
-/** Nobody but the two service roles may even connect to this database. */
+/** Nobody but the three service roles may even connect to this database. */
 export async function hardenDatabase(client: pg.Client): Promise<void> {
   const { rows } = await client.query<{ revoke: string; grant: string }>(
     `SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', current_database()) AS revoke,
-            format('GRANT CONNECT ON DATABASE %I TO cerebro_app, cerebro_auth', current_database()) AS grant`,
+            format('GRANT CONNECT ON DATABASE %I TO cerebro_app, cerebro_auth, cerebro_forms', current_database()) AS grant`,
   );
   const statements = rows[0];
   if (!statements) throw new Error('could not build hardening statements');

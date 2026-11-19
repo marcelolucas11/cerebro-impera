@@ -1898,13 +1898,15 @@ test('the board shows the list by stage, and a card is dragged from one to anoth
     column(name).locator('.card').filter({ hasText: 'Conferir perfis' });
   await expect(cardIn('Fazendo')).toBeVisible();
 
-  // Taken by its handle and dropped on the next column, which lights up on the way.
-  await cardIn('Fazendo').locator('.card-handle').scrollIntoViewIfNeeded();
-  const handle = await cardIn('Fazendo').locator('.card-handle').boundingBox();
+  // Taken by its handle and dropped on the next column, which lights up on the way. Hovering
+  // first waits until the handle stops moving and is really what the pointer would press: the
+  // board can still settle (a due date read anew, say) after it first shows.
+  const grip = cardIn('Fazendo').locator('.card-handle');
+  await grip.hover();
+  const handle = await grip.boundingBox();
   const target = await column('Feito').boundingBox();
   if (!handle || !target) throw new Error('the board is not laid out');
   const y = handle.y + handle.height / 2;
-  await owner.mouse.move(handle.x + handle.width / 2, y);
   await owner.mouse.down();
   // Straight across: a column takes a card anywhere along its height.
   await owner.mouse.move(target.x + target.width / 2, y, { steps: 12 });
@@ -1948,6 +1950,81 @@ test('the board shows the list by stage, and a card is dragged from one to anoth
   expect(await owner.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await shot(owner, 'quadro-celular');
   await owner.setViewportSize({ width: 1280, height: 900 });
+});
+
+test('a public form, on an address of its own, brings an answer in as an item of the list', async ({
+  browser,
+}) => {
+  await owner.getByRole('link', { name: 'Espaços' }).click();
+  await owner.getByRole('link', { name: 'Tarefas' }).click();
+  await heading(owner, 'Tarefas');
+  await owner.getByRole('button', { name: 'Formulários', exact: true }).click();
+  await owner.getByRole('button', { name: 'Novo formulário' }).click();
+  await owner.getByLabel('Título do formulário').fill('Pedido de orçamento');
+  await owner
+    .getByLabel('Texto de apresentação (opcional)')
+    .fill('Conte o que precisa. Respondemos em até dois dias.');
+  await owner.getByLabel('Pergunta cuja resposta vira o título do item').fill('Seu nome');
+  await owner.getByLabel('Pedir também um texto livre, que vira a descrição do item').check();
+  await owner.getByLabel('Pergunta do texto livre').fill('O que você precisa');
+  const questions = owner.locator('.form-questions');
+  await questions.getByLabel('Fornecedor', { exact: true }).check();
+  await questions.getByLabel('Valor', { exact: true }).check();
+  await questions.locator('li').filter({ hasText: 'Fornecedor' }).getByLabel('Obrigatória').check();
+  await shot(owner, 'formulario-editando');
+
+  // Opening a door into the list asks for the code again.
+  await sql("UPDATE auth.sessions SET step_up_at = now() - interval '1 hour'");
+  await owner.getByRole('button', { name: 'Salvar formulário' }).click();
+  const dialog = owner.getByRole('dialog');
+  await dialog.getByLabel('Código de 6 dígitos').fill(await authenticatorCode(ownerKey));
+  await dialog.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  const address = await owner.locator('.form-address .exact').innerText();
+  expect(address).toMatch(/^http:\/\/localhost:\d+\/f\/[A-Za-z0-9_-]{22}$/);
+  expect(new URL(address).origin).not.toBe(new URL(owner.url()).origin);
+  await shot(owner, 'formularios-lista');
+
+  // Someone outside, with no account, answers it.
+  const outside = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+  });
+  const stranger = await outside.newPage();
+  watch(stranger, problems, 'quem responde');
+  await stranger.goto(address);
+  await heading(stranger, 'Pedido de orçamento');
+  expect(await stranger.locator('script').count()).toBe(0);
+  await stranger.getByLabel('Seu nome').fill('Maria Cliente');
+  await stranger.getByLabel('O que você precisa').fill('Um site para a padaria.');
+  await stranger.getByLabel('Fornecedor').selectOption({ label: 'Beta' });
+  await stranger.getByLabel('Valor').fill('2.500,00');
+  await shot(stranger, 'formulario-publico');
+  // A person takes a few seconds to answer; a robot that posts at once is turned away.
+  await stranger.waitForTimeout(3_200);
+  await stranger.getByRole('button', { name: 'Enviar' }).click();
+  await heading(stranger, 'Recebido, obrigado.');
+  await shot(stranger, 'formulario-enviado');
+  // The forms address serves nothing of the app.
+  expect((await stranger.request.get(new URL('/api/me', address).toString())).status()).toBe(404);
+  await outside.close();
+
+  // It arrives as an item of the list, marked as the form's.
+  await expect(owner.getByText('Maria Cliente').first()).toBeVisible();
+  const listId = /\/listas\/([0-9a-f-]{36})/.exec(owner.url())?.[1] ?? '';
+  const items = (await (await owner.request.get(`/api/lists/${listId}/items`)).json()) as {
+    id: string;
+    title: string;
+    description: string;
+  }[];
+  const arrived = items.find((item) => item.title === 'Maria Cliente');
+  expect(arrived?.description).toBe('Um site para a padaria.');
+  const history = (await (
+    await owner.request.get(`/api/items/${arrived?.id ?? ''}/history`)
+  ).json()) as { what: string; form: { title: string } | null }[];
+  expect(history.find((change) => change.what === 'created')?.form?.title).toBe(
+    'Pedido de orçamento',
+  );
+  await owner.getByRole('button', { name: 'Fechar os formulários' }).click();
 });
 
 /** A logo as a designer would export it: a wide PNG, a teal band with a light disc. */

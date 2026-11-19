@@ -184,6 +184,22 @@ jobs:
           jq --exit-status '.lastRestoreTest.ok == true or .lastRestoreTest.problem == "A cópia restaurada não tem ninguém."' backup.json
           docker compose --profile backup stop backup
 
+          echo "os formulários só veem a própria pasta, servem só formulários e o papel deles não lê tabela"
+          CEREBRO_FORMS_ORIGIN=https://formularios.exemplo.test docker compose --profile forms up --detach --wait forms
+          docker compose exec -T forms test -s /opt/cerebro/forms-config/db-password
+          if docker compose exec -T forms test -e /opt/cerebro/forms-config/secrets.json; then exit 1; fi
+          # The image has the folder the API mounts the configuration on; here it stays empty.
+          test -z "$(docker compose exec -T forms ls -A /opt/cerebro/config)"
+          test "$(docker compose exec -T forms id -u)" != "0"
+          for path in /f/AAAAAAAAAAAAAAAAAAAAAA /api/me /; do
+            test "$(curl --silent --output /dev/null --write-out '%{http_code}' --header 'Host: formularios.exemplo.test' "http://127.0.0.1:3001${path}")" = "404"
+          done
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' --header 'Host: cerebro.exemplo.test' http://127.0.0.1:3001/f/AAAAAAAAAAAAAAAAAAAAAA)" = "404"
+          curl --silent --dump-header forms-headers.txt --output /dev/null --header 'Host: formularios.exemplo.test' http://127.0.0.1:3001/f/AAAAAAAAAAAAAAAAAAAAAA
+          grep --ignore-case --quiet "^content-security-policy: default-src 'none'" forms-headers.txt
+          test "$(docker compose exec -T postgres psql --username postgres --dbname cerebro --tuples-only --no-align --command "SELECT has_table_privilege('cerebro_forms', 'app.items', 'SELECT') OR has_table_privilege('cerebro_forms', 'app.users', 'SELECT')")" = "f"
+          docker compose --profile forms stop forms
+
           echo "o banco não está publicado para fora da rede interna"
           if docker compose port postgres 5432 2> /dev/null | grep --quiet .; then exit 1; fi
 

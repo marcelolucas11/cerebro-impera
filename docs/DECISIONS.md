@@ -1125,6 +1125,49 @@ ninguém. Redesenhar o logo no navegador e reconstruir o PNG no servidor fecha a
 um upload de imagem: script em SVG, arquivo que é outra coisa por dentro, bomba de compressão e
 metadados com dados pessoais.
 
+## D71 — Formulários públicos: endereço e processo próprios, papel do banco que só envia
+
+**Decisão.** Cada lista pode ter até 20 formulários, cada um com até 20 perguntas. Quem
+responde não tem conta. A resposta vira um item da lista.
+
+- **Quem faz:** quem gerencia a lista, com o código confirmado de novo (RLS). Os Donos recebem um
+  alerta quando outra pessoa abre, muda ou remove um formulário: é uma porta nova para a lista.
+- **Com que acesso envia:** o de quem salvou o formulário por último, nunca mais. O item nasce
+  como dessa pessoa, marcado como do formulário no item e no histórico ("O formulário “X” criou
+  o item"). As automações da lista rodam como em qualquer item novo. Se o autor perde o acesso
+  ou é suspenso, o formulário fecha na hora.
+- **O que pergunta:** o título do item (com a pergunta que o autor escolher), um texto livre
+  opcional e campos da lista de tipos que um estranho pode preencher: texto, texto longo,
+  número, dinheiro, data, escolha única, caixa de marcar, link, e-mail e telefone. Pessoas,
+  arquivos, campos secretos, marcadores, avaliação e data com hora ficam de fora. Opções
+  arquivadas não aparecem.
+- **Onde chega:** na primeira etapa ou na etapa escolhida, se quem salva puder pôr itens nela.
+- **Serviço próprio** (`cli forms`, perfil `forms`), num endereço próprio que nunca é o do
+  aplicativo:
+  - monta só a pasta `forms` da configuração;
+  - conecta como `cerebro_forms`, que não lê tabela nenhuma e só executa
+    `app.form_view`, `app.form_submit` e `app.forms_brand`;
+  - responde só sob o próprio nome de host;
+  - páginas sem script, com todo texto escapado e política de conteúdo `default-src 'none'`;
+  - aceita só post de formulário comum da própria origem (por isso `Referrer-Policy:
+same-origin`: com `no-referrer`, o navegador manda `Origin: null` no próprio envio).
+- **Contra abuso:**
+  - carimbo assinado (HMAC) com a hora em que a página foi entregue: menos de 3 segundos ou mais
+    de 6 horas não passa;
+  - campo isca escondido: quem o preenche recebe "obrigado" e nada é guardado;
+  - 10 envios por endereço a cada 10 minutos;
+  - no banco, no máximo 500 respostas por dia por formulário, qualquer que seja a origem;
+  - nada sobre quem enviou é guardado (nem endereço IP).
+- **Conferido duas vezes:** cada resposta é lida campo a campo no serviço (com as mesmas regras de
+  valor do aplicativo, em `packages/shared`) e de novo no banco.
+
+**Por quê.** Quem preenche é de fora; o pior caso é o serviço dos formulários ser tomado. Mesmo
+assim, quem o tomasse só conseguiria mandar respostas, no limite do dia, como o autor de um
+formulário aberto: não leria nada, não teria sessão nem chave da instância.
+
+**Rever com o mantenedor.** CAPTCHA continua adiado (o carimbo e a isca seguram o grosso dos
+robôs). Anexos em formulário esperam a decisão do antivírus (D33).
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

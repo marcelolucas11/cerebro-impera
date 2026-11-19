@@ -26,7 +26,7 @@ function shell(title: string, brand: string, body: string): string {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark">
     <meta name="robots" content="noindex, nofollow">
-    <meta name="referrer" content="no-referrer">
+    <meta name="referrer" content="same-origin">
     <title>${escapeHtml(title)}</title>
     <link rel="stylesheet" href="/form.css">
     <link rel="stylesheet" href="/brand.css">

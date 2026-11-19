@@ -55,6 +55,8 @@ const env = {
   CEREBRO_UPDATER_URL: `http://127.0.0.1:${String(Number(port) + 1)}`,
   // What a backup service would have written: last night's copy and this month's test.
   CEREBRO_BACKUP_STATUS: join(work, 'backup.json'),
+  // The public forms, on an origin of their own (another port), served by their own process.
+  CEREBRO_FORMS_ORIGIN: `http://localhost:${String(Number(port) + 2)}`,
 };
 mkdirSync(env.CEREBRO_FILES_DIR, { recursive: true, mode: 0o700 });
 
@@ -111,6 +113,21 @@ writeFileSync(
 );
 
 const server = spawn(process.execPath, [cli, 'serve'], { env, stdio: 'inherit' });
+// Only what the forms service gets in production: its own folder, the database address.
+const forms = spawn(process.execPath, [cli, 'forms'], {
+  env: {
+    PATH: process.env.PATH,
+    CEREBRO_ENV: 'development',
+    CEREBRO_FORMS_CONFIG_DIR: join(configDir, 'forms'),
+    CEREBRO_FORMS_ORIGIN: env.CEREBRO_FORMS_ORIGIN,
+    CEREBRO_FORMS_PORT: String(Number(port) + 2),
+    CEREBRO_HOST: '127.0.0.1',
+    CEREBRO_DB_HOST: admin.hostname,
+    CEREBRO_DB_PORT: admin.port || '5432',
+    CEREBRO_DB_NAME: database,
+  },
+  stdio: 'inherit',
+});
 
 async function cleanUp() {
   const client = new pg.Client({ connectionString: adminUrl });
@@ -131,6 +148,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     if (stopping) return;
     stopping = true;
     fakeUpdater.close();
+    forms.kill('SIGTERM');
     server.kill('SIGTERM');
   });
 }

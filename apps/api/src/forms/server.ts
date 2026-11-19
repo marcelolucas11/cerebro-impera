@@ -46,7 +46,9 @@ const HEADERS = {
   'content-security-policy': FORMS_CONTENT_SECURITY_POLICY,
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'DENY',
-  'referrer-policy': 'no-referrer',
+  // Not "no-referrer": with it, browsers send a form's own post with "Origin: null", and the
+  // check below could not tell it from a post made elsewhere. The page links nowhere else.
+  'referrer-policy': 'same-origin',
   'cross-origin-opener-policy': 'same-origin',
   'cross-origin-resource-policy': 'same-origin',
   'permissions-policy': 'camera=(), geolocation=(), microphone=(), payment=(), usb=()',
@@ -92,8 +94,9 @@ export async function buildFormsApp(deps: FormsDeps): Promise<FastifyInstance> {
   });
 
   app.addHook('onRequest', (request, reply, done) => {
-    // Under any other name (a proxy sending the app's traffic here, say), nothing.
-    if (request.host !== host) {
+    // Under any other name (a proxy sending the app's traffic here, say), nothing. The
+    // health check, which says nothing, answers to the container's own check too.
+    if (request.host !== host && request.url !== '/health') {
       void reply.status(404).type('text/plain; charset=utf-8').send('Não encontrado.');
       return;
     }

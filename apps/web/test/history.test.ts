@@ -39,6 +39,15 @@ const say = (partial: Partial<ItemChange>): string =>
 const plain = (text: string): string => text.replace(/\s/g, ' ');
 
 describe('a line of an item’s history', () => {
+  it('says a public form sent what it sent, also after the form is gone', () => {
+    expect(say({ what: 'created', form: { id: 'f', title: 'Pedido de orçamento' } })).toBe(
+      'O formulário “Pedido de orçamento” criou o item',
+    );
+    expect(say({ what: 'created', form: { id: 'f', title: null } })).toBe(
+      'Um formulário removido criou o item',
+    );
+  });
+
   it('says who did what, in a sentence', () => {
     expect(say({ what: 'created', new: { title: 'X' } })).toBe('Você criou o item');
     expect(say({ what: 'created', actor: null })).toBe('Sistema criou o item');
