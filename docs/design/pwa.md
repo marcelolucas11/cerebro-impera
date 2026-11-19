@@ -43,7 +43,7 @@ distância. O push espera a decisão D51. Nada aqui
 
 - **O que vai** (`apps/web/src/offline/policy.ts`, com testes):
   - a conta da pessoa;
-  - a estrutura que ela vê;
+  - a estrutura que ela vê, sem as listas sensíveis (nem o nome delas);
   - o Início, sem nada de lista sensível;
   - os itens, as etapas e os campos das listas não sensíveis que ela abriu.
     É sempre a última resposta do servidor, lida com o acesso dela, então quem vê só os próprios
@@ -51,6 +51,13 @@ distância. O push espera a decisão D51. Nada aqui
     são guardados. Checklist e comentários ficam para a fila de mudanças.
 - **Quando:** depois de cada resposta do servidor, e só depois que o servidor disse quem está
   conectado. Lido só quando o servidor não responde; a tela diz de quando são os dados.
+- **Lista que ela não vê mais como antes:** a cada estrutura nova, sai do aparelho o que foi
+  guardado de uma lista que sumiu, ficou sensível, ou mudou de nível ou de alcance (por exemplo,
+  passou a ver só os próprios itens). O mesmo quando o servidor recusa ou não encontra uma lista
+  (403 ou 404). Sem conexão, só abre lista que a última estrutura guardada ainda mostra.
+- **Aparelho que não guarda nada:** em "Minha conta", seção "Este aparelho", a pessoa desmarca
+  "Guardar neste aparelho…" num computador que outras pessoas usam. O que havia sai na hora e
+  nada mais é guardado naquele navegador, para quem quer que entre nele.
 - **Onde e como:** IndexedDB, cada registro cifrado com AES-GCM de 256 bits e um vetor novo por
   gravação. A chave é gerada no próprio aparelho pelo WebCrypto, marcada como não exportável, e
   guardada no IndexedDB. Nenhum código da página consegue ler os bytes da chave, só usá-la.
@@ -63,14 +70,19 @@ distância. O push espera a decisão D51. Nada aqui
   - encerramento da sessão por um Dono;
   - apagamento remoto.
     Assim está pedido no roteiro do projeto.
-- **Expiração:** sem falar com o servidor por 7 dias, o aparelho apaga tudo. Tornar o prazo
-  ajustável pelo Dono fica para quando houver configurações da instalação na tela.
+- **Expiração:** sem falar com o servidor por 7 dias, o aparelho apaga tudo, já ao abrir a
+  página (não só quando tenta ler). Tornar o prazo ajustável pelo Dono fica para quando houver
+  configurações da instalação na tela.
+- **O que sobra:** abrir sem conexão não pede senha nem código. Quem pega um aparelho
+  desbloqueado, dentro dos 7 dias, lê o que ele guardou das listas não sensíveis. Para isso
+  existem o bloqueio de tela do próprio aparelho, a opção de não guardar e o apagamento remoto.
 - **Apagado** (a chave junto):
   - ao sair, antes mesmo de avisar o servidor (sair sem conexão também apaga);
   - quando o servidor responde que a sessão acabou;
   - ao entrar, para ninguém herdar o que outra pessoa deixou no aparelho;
   - quando um Dono manda apagar (seção 4).
-    Uma resposta pedida antes de apagar e que chega depois é descartada.
+    Uma resposta pedida antes de apagar e que chega depois é descartada. Todas as abas abertas
+    apagam juntas: a que apaga avisa as outras (BroadcastChannel), que largam o que têm na memória.
 
 ## 4. Apagamento remoto (pronto)
 

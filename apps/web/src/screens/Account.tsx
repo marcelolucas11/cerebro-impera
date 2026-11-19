@@ -3,6 +3,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { api, type Me, type MySession } from '../api.js';
 import { describeDevice, formatWhen } from '../labels.js';
 import { describeError } from '../messages.js';
+import { keepsOffline, setKeepsOffline } from '../offline/store.js';
 import { CodeField } from '../ui/Authenticator.js';
 import { Button, Field, Form, Notice, useAction } from '../ui/kit.js';
 import { PasswordField, passwordIsAcceptable } from '../ui/PasswordField.js';
@@ -15,6 +16,7 @@ export function Account({ me }: { me: Me['user'] }): ReactNode {
       <p className="lead">Você entra como {me.email}.</p>
       <ChangePassword me={me} />
       <MySessions />
+      <ThisDevice />
     </>
   );
 }
@@ -135,5 +137,40 @@ function SessionRow({ session }: { session: MySession }): ReactNode {
       )}
       {end.error ? <Notice tone="error">{end.error}</Notice> : null}
     </li>
+  );
+}
+
+/**
+ * Whether this device keeps what is opened, sealed, to read without a connection. Off on a
+ * computer shared with others: nothing is kept, and what was kept goes at once.
+ */
+function ThisDevice(): ReactNode {
+  const [keeps, setKeeps] = useState(keepsOffline);
+  const [busy, setBusy] = useState(false);
+  return (
+    <section className="panel" aria-label="Este aparelho">
+      <h2>Este aparelho</h2>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={keeps}
+          disabled={busy}
+          onChange={(event) => {
+            const on = event.target.checked;
+            setKeeps(on);
+            setBusy(true);
+            void setKeepsOffline(on).finally(() => {
+              setBusy(false);
+            });
+          }}
+        />
+        Guardar neste aparelho o que eu abrir, para ler sem conexão
+      </label>
+      <p className="field-note">
+        {keeps
+          ? 'O que fica guardado é cifrado e some ao sair, depois de 7 dias sem falar com o servidor ou se o aparelho for encerrado. Listas sensíveis nunca ficam. Desmarque num computador que outras pessoas usam.'
+          : 'Nada fica guardado neste aparelho: sem conexão, o aplicativo não mostra nada. A escolha vale para este navegador, para qualquer pessoa que entrar nele.'}
+      </p>
+    </section>
   );
 }

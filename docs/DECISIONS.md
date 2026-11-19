@@ -1258,6 +1258,29 @@ usa (volume com `subpath`, Docker 26 ou mais novo, o que os formulários já exi
 administrador do banco (que passa por cima de todas as regras de linha) e a chave das cópias.
 Agora leva só o que ela já usa.
 
+## D74 — Offline: lista que ela não vê mais sai do aparelho; um aparelho pode não guardar nada
+
+**Decisão.**
+
+- A cada estrutura nova (`/api/tree`), o aparelho apaga o que guardou de uma lista que sumiu,
+  ficou sensível, ou mudou de nível ou de alcance desde que foi guardada. Uma recusa (403) ou um
+  "não encontrado" (404) apaga o que havia daquela lista. Sem conexão, só abre lista que a
+  última estrutura guardada ainda mostra.
+- A estrutura guardada não leva as listas sensíveis, nem o nome delas.
+- O vencimento de 7 dias apaga já ao abrir a página, mesmo que nada seja lido.
+- Todas as abas apagam juntas (BroadcastChannel): uma aba que sai, ou é tirada, avisa as outras,
+  que não guardam mais nada do que tinham pedido.
+- "Minha conta" ganhou a seção "Este aparelho": desmarcar "Guardar neste aparelho o que eu
+  abrir…" apaga tudo na hora e deixa aquele navegador sem guardar nada, para qualquer pessoa. A
+  escolha é do aparelho (`localStorage`), não da conta.
+
+**Por quê.** Antes, quem perdia uma lista (ou via a lista virar sensível) continuava com a última
+leitura dela no aparelho até sair ou vencer. Agora o aparelho acompanha o acesso. Num computador
+compartilhado, a pessoa decide que nada fica.
+
+**O que sobra, por escrito** (`docs/design/pwa.md`, seção 3): abrir sem conexão não pede senha nem
+código, e a chave mora no mesmo perfil do navegador que os dados.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

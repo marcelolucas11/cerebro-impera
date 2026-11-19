@@ -7,7 +7,7 @@ import type {
   FormView,
   SaveBrand,
 } from '@cerebro/shared';
-import { currentEra, forget, recall, remember } from './offline/store.js';
+import { currentEra, dropKept, forget, recall, remember } from './offline/store.js';
 import type { ListView } from './router.js';
 
 /** A refusal from the server, or `network` when it could not be reached. */
@@ -84,6 +84,10 @@ async function call<T>(
     // No valid session (signed out, expired, revoked from another device, suspended): what
     // this device kept for offline reading is erased before anything else.
     if (response.status === 401) await forget();
+    // Refused or gone: nothing of it stays on the device to be read later offline.
+    if (method === 'GET' && (response.status === 403 || response.status === 404)) {
+      await dropKept(path);
+    }
     const error = isRecord(data) && isRecord(data.error) ? data.error : {};
     throw new ApiError(
       response.status,

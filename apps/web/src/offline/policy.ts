@@ -24,8 +24,39 @@ export function keepable(path: string, tree: Tree | null): boolean {
   return found !== undefined && !found.isSensitive;
 }
 
-/** What of an answer is kept: the start page loses anything from a sensitive or unknown list. */
+/** The list an address reads from, if it is one of a list's parts. */
+export function listOf(path: string): string | undefined {
+  return LIST_PART.exec(path)?.[1];
+}
+
+/**
+ * Whether what was kept from an address must go now that the structure is `next`:
+ * its list is gone, became sensitive, or is seen at another level or reach than
+ * when it was kept (`before`), so the kept items may show more than she may see.
+ */
+export function noLongerKeepable(path: string, before: Tree | null, next: Tree): boolean {
+  const list = listOf(path);
+  if (list === undefined) return false;
+  const now = next.lists.find((candidate) => candidate.id === list);
+  const then = before?.lists.find((candidate) => candidate.id === list);
+  return (
+    now === undefined ||
+    now.isSensitive ||
+    then === undefined ||
+    now.level !== then.level ||
+    now.itemScope !== then.itemScope
+  );
+}
+
+/**
+ * What of an answer is kept: the structure without the sensitive lists (not even
+ * their names), and the start page without anything from a sensitive or unknown list.
+ */
 export function keptPart(path: string, value: unknown, tree: Tree | null): unknown {
+  if (path === '/api/tree') {
+    const whole = value as Tree;
+    return { ...whole, lists: whole.lists.filter((list) => !list.isSensitive) };
+  }
   if (path !== '/api/home') return value;
   const home = value as Home;
   const open = new Set(

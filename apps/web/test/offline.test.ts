@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Home, Tree } from '../src/api.js';
-import { expired, keepable, keptPart, OFFLINE_DAYS } from '../src/offline/policy.js';
+import {
+  expired,
+  keepable,
+  keptPart,
+  listOf,
+  noLongerKeepable,
+  OFFLINE_DAYS,
+} from '../src/offline/policy.js';
 import { newKey, seal, unseal } from '../src/offline/vault.js';
 
 const OPEN = '11111111-1111-4111-8111-111111111111';
@@ -102,6 +109,34 @@ describe('what a device keeps to read offline', () => {
     expect(kept.pins).toEqual([OPEN]);
     expect((keptPart('/api/home', home, null) as Home).items).toEqual([]);
     expect(keptPart('/api/me', { id: 1 }, tree)).toEqual({ id: 1 });
+  });
+
+  it('keeps the structure without the sensitive lists, not even their names', () => {
+    const kept = keptPart('/api/tree', tree, tree) as Tree;
+    expect(kept.lists.map((list) => list.id)).toEqual([OPEN]);
+    expect(JSON.stringify(kept)).not.toContain('Dinheiro');
+    expect(kept.spaces).toEqual(tree.spaces);
+  });
+
+  it('drops a list she no longer sees as when it was kept', () => {
+    const items = `/api/lists/${OPEN}/items`;
+    expect(listOf(items)).toBe(OPEN);
+    expect(listOf('/api/home')).toBeUndefined();
+    const open = tree.lists[0];
+    if (open === undefined) throw new Error('no list');
+    const as = (changes: Partial<typeof open> | null): Tree => ({
+      ...tree,
+      lists: changes === null ? [] : [{ ...open, ...changes }],
+    });
+    // The same: it stays. Anything that is not a list's part is not this rule's to drop.
+    expect(noLongerKeepable(items, tree, as({}))).toBe(false);
+    expect(noLongerKeepable('/api/home', tree, as(null))).toBe(false);
+    // Gone, now sensitive, another level, now only her own items, or never seen before: it goes.
+    expect(noLongerKeepable(items, tree, as(null))).toBe(true);
+    expect(noLongerKeepable(items, tree, as({ isSensitive: true }))).toBe(true);
+    expect(noLongerKeepable(items, tree, as({ level: 'view' }))).toBe(true);
+    expect(noLongerKeepable(items, tree, as({ itemScope: 'assigned' }))).toBe(true);
+    expect(noLongerKeepable(items, null, as({}))).toBe(true);
   });
 
   it('forgets everything after days without the server, or when it never heard from it', () => {
