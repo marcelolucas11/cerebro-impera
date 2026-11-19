@@ -1322,6 +1322,30 @@ e o commit ao ramo principal, faz valer só o fluxo que passou por revisão.
 
 **Fica com o mantenedor:** uma regra de tags no GitHub para que só mantenedores criem tags `v*`.
 
+## D77 — Antivírus preso, segredo que não fica copiado, e-mail de um endereço só, Trusted Types
+
+**Decisão.**
+
+- **Antivírus (ClamAV):** sem nenhuma permissão de root além das que o próprio contêiner usa para
+  preparar as pastas e trocar para o usuário `clamav` (`cap_drop: ALL`, com CHOWN, DAC_OVERRIDE,
+  FOWNER, SETGID e SETUID de volta), e numa rede de saída só dele (`clamav-out`), em vez da rede que
+  a API, os formulários e as cópias também usam. Ele lê o que qualquer pessoa manda; se um arquivo
+  o enganar, fica preso ali. O CI sobe o perfil `antivirus` e confere que o clamd responde assim.
+- **Área de transferência:** copiar um campo secreto ou o link de um convite esvazia a área de
+  transferência 30 segundos depois (ou quando a pessoa volta à página, se ela não estava na
+  frente). A tela avisa.
+- **E-mail:** um campo de e-mail aceita um endereço só, sem nenhum caractere que um link `mailto:`
+  leia como assunto, corpo, cópia oculta ou outro destinatário. Valores guardados antes da regra
+  continuam aparecendo, mas não viram link.
+- **Trusted Types:** a política da página exige (`require-trusted-types-for 'script'`) que nenhum
+  texto vire código, e só admite a política `cerebro`, que aceita um único endereço de script: o
+  do service worker. O zod, que testava se podia gerar código (`Function('')`), roda sem isso na
+  página (`@cerebro/shared/jitless`). O percurso em navegador agora trata qualquer bloqueio da
+  política como problema, com o que foi bloqueado e onde.
+
+**Por quê.** São os achados baixos da revisão independente. Nenhum abre acesso sozinho; cada um
+fecha uma porta que, somada a outra falha, ajudaria quem ataca.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

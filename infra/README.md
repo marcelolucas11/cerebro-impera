@@ -54,6 +54,8 @@ anexos sem antivírus, e cada arquivo aparece como "não verificado pelo antiví
 | Segredos só no volume `config`                                      | nada sensível no repositório, na imagem ou em variáveis de ambiente   |
 | Cada serviço monta só a sua pasta de `config`                       | a API, exposta à internet, não tem a senha de administrador do banco  |
 | Atualizador numa rede de saída só dele                              | nenhum outro serviço alcança a porta dele                             |
+| Antivírus sem permissões de root além do mínimo, numa rede só dele  | um arquivo que engane o ClamAV não alcança os outros serviços         |
+| Política da página com Trusted Types                                | nenhum texto vira código na página, nem por erro de uma biblioteca    |
 | Limites de memória e de processos                                   | um problema aqui não derruba outros sistemas no mesmo servidor        |
 
 ## Proxy reverso: endereço de quem chega

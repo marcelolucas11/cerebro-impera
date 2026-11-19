@@ -17,6 +17,10 @@
     "./protocol": {
       "types": "./dist/protocol.d.ts",
       "default": "./dist/protocol.js"
+    },
+    "./jitless": {
+      "types": "./dist/jitless.d.ts",
+      "default": "./dist/jitless.js"
     }
   },
   "scripts": {

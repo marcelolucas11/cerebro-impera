@@ -91,4 +91,13 @@ export function watch(page: Page, problems: string[], who: string): void {
     problems.push(`[${who}] ${message.type()}: ${message.text()}`);
   });
   page.on('pageerror', (error) => problems.push(`[${who}] ${error.message}`));
+  // Anything the page's security policy blocks is a problem too, with what and where.
+  void page.addInitScript(() => {
+    document.addEventListener('securitypolicyviolation', (event) => {
+      // eslint-disable-next-line no-console -- runs in the page, for the watcher above to hear
+      console.error(
+        `blocked by ${event.violatedDirective}: ${event.sample} (${event.sourceFile}:${String(event.lineNumber)})`,
+      );
+    });
+  });
 }

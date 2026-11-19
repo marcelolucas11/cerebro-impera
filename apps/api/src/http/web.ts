@@ -45,6 +45,11 @@ export const APP_CONTENT_SECURITY_POLICY = [
   "base-uri 'none'",
   "form-action 'none'",
   "frame-ancestors 'none'",
+  // Nothing turns text into script: the page writes no HTML from strings, and the one
+  // script address it hands the browser (the offline worker) passes through the only
+  // policy allowed, which accepts that address alone.
+  "require-trusted-types-for 'script'",
+  'trusted-types cerebro',
 ].join('; ');
 
 const DOCUMENT_HEADERS = {

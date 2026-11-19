@@ -67,7 +67,12 @@ const TEXT_LIMITS: Partial<Record<FieldKind, number>> = {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const COLOR = /^#[0-9a-f]{6}$/;
 const URL_PATTERN = /^https?:\/\/[^\s]+$/;
-const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+/**
+ * One address and nothing more: none of the characters that would let a `mailto:`
+ * link carry a subject, a body, more recipients or anything encoded.
+ */
+export const EMAIL_PATTERN =
+  /^[^@\s?&#,;%<>()[\]\\"':/]+@[^@\s?&#,;%<>()[\]\\"':/]+\.[^@\s?&#,;%<>()[\]\\"':/]+$/;
 const PHONE_PATTERN = /^[0-9+() .-]{3,40}$/;
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const DATETIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
