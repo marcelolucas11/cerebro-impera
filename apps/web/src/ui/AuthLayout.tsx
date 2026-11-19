@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { iconAddress, useBrand } from '../brand.js';
 import { Gates, type Gate } from './Gates.js';
 
 /** The page every "not inside yet" screen shares: what to do on the left, where you are on the right. */
@@ -15,9 +16,13 @@ export function AuthLayout({
   current?: number;
   children: ReactNode;
 }): ReactNode {
+  const brand = useBrand();
   return (
     <div className="door">
-      <header className="door-brand">{instanceName || 'Cérebro'}</header>
+      <header className="door-brand">
+        <img src={iconAddress(brand ?? { logo: null })} alt="" width={36} height={36} />
+        <span>{instanceName || 'Cérebro'}</span>
+      </header>
       <main className="door-main">
         <h1>{title}</h1>
         {children}

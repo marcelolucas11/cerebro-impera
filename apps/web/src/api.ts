@@ -1,4 +1,4 @@
-import type { FieldConfig, FieldKind, FieldValue } from '@cerebro/shared';
+import type { Brand, FieldConfig, FieldKind, FieldValue, SaveBrand } from '@cerebro/shared';
 import { currentEra, forget, recall, remember } from './offline/store.js';
 import type { ListView } from './router.js';
 
@@ -677,6 +677,8 @@ export const api = {
   listSummary: (listId: string) => request<ListSummary>('GET', `/api/lists/${listId}/summary`),
   home: () => request<Home>('GET', '/api/home'),
   backups: () => request<BackupView>('GET', '/api/backups'),
+  brand: () => request<Brand>('GET', '/api/brand'),
+  saveBrand: (input: SaveBrand) => request<Brand>('PUT', '/api/brand', input),
   updates: () => request<UpdatesView>('GET', '/api/updates'),
   checkUpdates: () => request<UpdatesView>('POST', '/api/updates/check'),
   applyUpdate: (version: string) => request<UpdatesView>('POST', '/api/updates/apply', { version }),

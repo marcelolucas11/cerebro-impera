@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, type SetupStatus, type SignInResult } from './api.js';
+import { useBrand } from './brand.js';
 import { describeError } from './messages.js';
 import { forget } from './offline/store.js';
 import { DevicePending } from './screens/DevicePending.js';
@@ -64,6 +65,8 @@ async function whereToStart(): Promise<{ stage: Stage; instanceName: string }> {
 export function App(): ReactNode {
   const [stage, setStage] = useState<Stage>({ name: 'loading' });
   const [instanceName, setInstanceName] = useState('');
+  // The tab's title, icon and color follow the installation's brand on every screen.
+  useBrand();
 
   const attempt = useCallback(() => {
     whereToStart().then(

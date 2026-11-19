@@ -20,6 +20,17 @@ describe('what the service worker keeps', () => {
     expect(ask('/', 'navigate')).toBe('page');
   });
 
+  it("keeps the installation's brand, network first, and nothing that looks like it", () => {
+    expect(ask('/brand.css')).toBe('brand');
+    expect(ask('/brand.css?v=%236fb3e0')).toBe('brand');
+    expect(ask('/brand/icon-192.png?v=abc')).toBe('brand');
+    expect(ask('/icons/maskable-512.png')).toBe('brand');
+    expect(ask('/brand/../api/me')).toBe('pass');
+    expect(ask('/brand/icon-192.svg')).toBe('pass');
+    expect(ask('/brand.css', 'cors', 'PUT')).toBe('pass');
+    expect(ask('/api/brand')).toBe('pass');
+  });
+
   it('leaves alone anything else: other methods, other sites, the manifest and itself', () => {
     expect(ask('/assets/index-abc.js', 'cors', 'POST')).toBe('pass');
     expect(handling({ method: 'GET', mode: 'navigate', url: 'https://outro.test/' }, ORIGIN)).toBe(

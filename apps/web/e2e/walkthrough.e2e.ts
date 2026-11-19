@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { crc32, deflateSync } from 'node:zlib';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { authenticatorCode, heading, PASSWORD, setupToken, shot, sql, watch } from './support.js';
 
@@ -86,6 +87,12 @@ test('the first owner installs with the server token, an authenticator and recov
   await expect(owner.getByRole('button', { name: 'Continuar' })).toBeDisabled();
   await owner.getByLabel('Guardei os códigos em lugar seguro').check();
   await owner.getByRole('button', { name: 'Continuar' }).click();
+
+  // The last step offers the company's color and logo; the project's brand is fine for now.
+  await heading(owner, 'Deixe com a cara da empresa');
+  await expect(owner.getByLabel('Nome da empresa')).toHaveValue('Empresa Exemplo');
+  await shot(owner, 'instalacao-marca');
+  await owner.getByRole('button', { name: 'Ficar com a marca de fábrica' }).click();
 
   await heading(owner, 'Seus espaços');
   await expect(owner.locator('.shell-brand')).toHaveText('Empresa Exemplo');
@@ -1373,7 +1380,14 @@ test('the app can be installed, and its worker keeps the page and never anything
     return paths;
   });
   expect(kept).toContain('/index.html');
-  expect(kept.filter((path) => path !== '/index.html' && !path.startsWith('/assets/'))).toEqual([]);
+  // Besides the page, only the brand: its color and icons, which the sign-in page shows anyone.
+  const brandFile = /^\/(brand\.css|brand\/[a-z0-9-]+\.png|icons\/[a-z0-9-]+\.png)$/;
+  expect(
+    kept.filter(
+      (path) => path !== '/index.html' && !path.startsWith('/assets/') && !brandFile.test(path),
+    ),
+  ).toEqual([]);
+  expect(kept).toContain('/brand.css');
 
   // Without a connection the page still opens; what this device kept is shown, and says so.
   const before = problems.length;
@@ -1934,6 +1948,128 @@ test('the board shows the list by stage, and a card is dragged from one to anoth
   expect(await owner.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await shot(owner, 'quadro-celular');
   await owner.setViewportSize({ width: 1280, height: 900 });
+});
+
+/** A logo as a designer would export it: a wide PNG, a teal band with a light disc. */
+function logoFile(): Buffer {
+  const [width, height] = [480, 240];
+  const rows: Buffer[] = [];
+  for (let y = 0; y < height; y += 1) {
+    const row = Buffer.alloc(1 + width * 4);
+    for (let x = 0; x < width; x += 1) {
+      const inDisc = Math.hypot(x - 120, y - 120) < 80;
+      const inBand = y > 70 && y < 170;
+      const [r, g, b, a] = inDisc
+        ? [240, 248, 255, 255]
+        : inBand
+          ? [32, 160, 150, 255]
+          : [0, 0, 0, 0];
+      row.set([r, g, b, a], 1 + x * 4);
+    }
+    rows.push(row);
+  }
+  const part = (type: string, data: Buffer): Buffer => {
+    const head = Buffer.alloc(8);
+    head.writeUInt32BE(data.length, 0);
+    head.write(type, 4, 'latin1');
+    const tail = Buffer.alloc(4);
+    tail.writeUInt32BE(crc32(Buffer.concat([head.subarray(4), data])), 0);
+    return Buffer.concat([head, data, tail]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header.set([8, 6, 0, 0, 0], 8);
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    part('IHDR', header),
+    part('IDAT', deflateSync(Buffer.concat(rows))),
+    part('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+test("the owner gives the app the company's color and logo, seen from the sign-in page on", async ({
+  browser,
+}) => {
+  await owner.getByRole('link', { name: 'Marca' }).click();
+  await heading(owner, 'Marca');
+
+  // A color that would vanish on the dark page is explained and cannot be saved.
+  await owner.getByLabel('Código da cor').fill('#2563eb');
+  await expect(owner.getByText('Essa cor some no fundo escuro do aplicativo')).toBeVisible();
+  await expect(owner.getByRole('button', { name: 'Salvar marca' })).toBeDisabled();
+  await owner.getByLabel('Código da cor').fill('#6fb3e0');
+
+  // A drawing that can carry code is refused on the spot; a picture is fitted to each icon.
+  await owner.getByLabel('Arquivo do logo').setInputFiles({
+    name: 'logo.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'),
+  });
+  await expect(owner.getByText('SVG não é aceito')).toBeVisible();
+  await owner.getByLabel('Arquivo do logo').setInputFiles({
+    name: 'logo.png',
+    mimeType: 'image/png',
+    buffer: logoFile(),
+  });
+  await expect(owner.locator('.brand-icons canvas')).toHaveCount(3);
+  await expect(owner.locator('.brand-preview-button')).toHaveCSS(
+    'background-color',
+    'rgb(111, 179, 224)',
+  );
+  await shot(owner, 'marca-formulario');
+
+  // Changing what everyone sees asks for the code again.
+  await sql("UPDATE auth.sessions SET step_up_at = now() - interval '1 hour'");
+  await owner.getByRole('button', { name: 'Salvar marca' }).click();
+  const dialog = owner.getByRole('dialog');
+  await dialog.getByLabel('Código de 6 dígitos').fill(await authenticatorCode(ownerKey));
+  await dialog.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(owner.getByText('Marca salva.')).toBeVisible();
+
+  // The whole page takes the color and the logo at once.
+  await expect(owner.locator('.shell-brand img')).toHaveAttribute(
+    'src',
+    /^\/brand\/icon-192\.png\?v=[0-9a-f]{16}$/,
+  );
+  await expect(owner.locator('.button-primary').first()).toHaveCSS(
+    'background-color',
+    'rgb(111, 179, 224)',
+  );
+  const manifest = (await (await owner.request.get('/manifest.webmanifest')).json()) as {
+    icons: { src: string }[];
+  };
+  expect(manifest.icons[0]?.src).toMatch(/^\/brand\/icon-192\.png\?v=/);
+  const icon = await owner.request.get(manifest.icons[0]?.src ?? '');
+  expect(icon.headers()['content-type']).toBe('image/png');
+  expect(icon.headers()['content-security-policy']).toBe("default-src 'none'; sandbox");
+  await shot(owner, 'marca');
+
+  // Someone who has not signed in sees it on the door.
+  const visitor = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const door = await visitor.newPage();
+  watch(door, problems, 'visitante');
+  await door.goto('/');
+  await heading(door, 'Entrar');
+  await expect(door.locator('.door-brand')).toHaveText('Empresa Exemplo');
+  await expect(door.locator('.door-brand img')).toHaveAttribute('src', /^\/brand\/icon-192\.png/);
+  await expect(door.getByRole('button', { name: 'Continuar' })).toHaveCSS(
+    'background-color',
+    'rgb(111, 179, 224)',
+  );
+  await expect(door).toHaveTitle('Empresa Exemplo');
+  await shot(door, 'entrada-com-marca');
+  await visitor.close();
+
+  // And it goes back to the project's brand just as easily.
+  await owner.getByRole('button', { name: 'Voltar à cor de fábrica' }).click();
+  await owner.getByRole('button', { name: 'Voltar ao logo de fábrica' }).click();
+  await owner.getByRole('button', { name: 'Salvar marca' }).click();
+  await expect(owner.locator('.shell-brand img')).toHaveAttribute('src', '/icons/icon-192.png');
+  await expect(owner.locator('.button-primary').first()).toHaveCSS(
+    'background-color',
+    'rgb(219, 166, 63)',
+  );
 });
 
 test('signing out takes everything the device kept, the key included', async () => {

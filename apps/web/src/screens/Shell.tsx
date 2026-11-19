@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, type ReactNode } from 'react';
 import { api } from '../api.js';
+import { iconAddress, useBrand } from '../brand.js';
 import { describeError, ROLE_NAMES } from '../messages.js';
 import { useLiveUpdates } from '../live.js';
 import { formatWhen } from '../labels.js';
@@ -14,6 +15,7 @@ import { Button, Notice, useAction } from '../ui/kit.js';
 import { Devices } from './Devices.js';
 import { Home } from './Home.js';
 import { Account } from './Account.js';
+import { Brand } from './Brand.js';
 import { ListScreen } from './ListScreen.js';
 import { Notifications, useUnreadNotifications } from './Notifications.js';
 import { OfflineChanges } from './OfflineChanges.js';
@@ -32,6 +34,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
   const unread = useUnreadNotifications();
   const online = useOnline();
   const kept = useServedFromDevice();
+  const brand = useBrand();
   useLiveUpdates();
   useOfflineSync();
 
@@ -80,6 +83,7 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
     { to: '/pessoas', label: 'Pessoas', show: can('users.manage') },
     { to: '/aparelhos', label: 'Aparelhos', show: true },
     { to: '/seguranca', label: 'Segurança', show: can('audit.view') },
+    { to: '/marca', label: 'Marca', show: can('system.config') },
     { to: '/atualizacoes', label: 'Atualizações', show: isOwner },
   ].filter((section) => section.show);
   const listId = listIdFrom(path);
@@ -89,7 +93,10 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
     <StepUpProvider>
       <div className="shell">
         <header className="shell-bar">
-          <p className="shell-brand">{instanceName}</p>
+          <p className="shell-brand">
+            <img src={iconAddress(brand ?? { logo: null })} alt="" width={28} height={28} />
+            <span>{instanceName}</span>
+          </p>
           <nav className="shell-nav" aria-label="Seções">
             {sections.map((section) => (
               <Link
@@ -168,6 +175,8 @@ export function Shell({ onSignedOut }: { onSignedOut: (notice?: string) => void 
             </>
           ) : path === '/atualizacoes' ? (
             <Updates />
+          ) : path === '/marca' ? (
+            <Brand />
           ) : path === '/relatorios' ? (
             <Reports isOwner={isOwner} />
           ) : path === '/pessoas' ? (

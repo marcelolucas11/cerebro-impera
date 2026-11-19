@@ -6,11 +6,13 @@ import type { Gate } from '../ui/Gates.js';
 import { Button, Field, Form, Notice, useAction } from '../ui/kit.js';
 import { PasswordField, passwordIsAcceptable } from '../ui/PasswordField.js';
 import { RecoveryCodes } from '../ui/RecoveryCodes.js';
+import { BrandForm } from './Brand.js';
 
 const GATES: readonly Gate[] = [
   { label: 'Sua conta de Dono', detail: 'Quem instala é o primeiro Dono.' },
   { label: 'Autenticador', detail: 'O segundo fator é obrigatório para todos.' },
   { label: 'Códigos de recuperação', detail: 'Para o dia em que o celular faltar.' },
+  { label: 'Marca da empresa', detail: 'Cor e logo. Dá para trocar depois, na página Marca.' },
 ];
 
 /** First run: whoever holds the token from the server creates the first owner. Runs once, ever. */
@@ -24,6 +26,7 @@ export function Setup({ onDone }: { onDone: () => void }): ReactNode {
   });
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [codes, setCodes] = useState<string[] | null>(null);
+  const [codesKept, setCodesKept] = useState(false);
   const set = (key: keyof typeof form) => (value: string) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
@@ -56,6 +59,32 @@ export function Setup({ onDone }: { onDone: () => void }): ReactNode {
     form.email.includes('@') &&
     passwordIsAcceptable(form.password, form);
 
+  if (codes && codesKept) {
+    return (
+      <AuthLayout
+        instanceName={form.instanceName}
+        title="Deixe com a cara da empresa"
+        gates={GATES}
+        current={3}
+      >
+        <p className="lead">
+          A cor e o logo aparecem para todos, a começar pela tela de entrada. Se preferir, fique com
+          os de fábrica e troque depois, na página Marca.
+        </p>
+        <BrandForm
+          initial={{ name: form.instanceName.trim(), color: null, logo: null }}
+          save={api.saveBrand}
+          onSaved={onDone}
+          submitLabel="Salvar e entrar"
+          secondary={
+            <Button variant="quiet" onClick={onDone}>
+              Ficar com a marca de fábrica
+            </Button>
+          }
+        />
+      </AuthLayout>
+    );
+  }
   if (codes) {
     return (
       <AuthLayout
@@ -64,7 +93,12 @@ export function Setup({ onDone }: { onDone: () => void }): ReactNode {
         gates={GATES}
         current={2}
       >
-        <RecoveryCodes codes={codes} onDone={onDone} />
+        <RecoveryCodes
+          codes={codes}
+          onDone={() => {
+            setCodesKept(true);
+          }}
+        />
       </AuthLayout>
     );
   }

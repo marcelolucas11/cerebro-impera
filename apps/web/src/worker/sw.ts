@@ -1,4 +1,4 @@
-import { CACHE_PREFIX, handling, stale } from './policy.js';
+import { BRAND_CACHE, CACHE_PREFIX, handling, stale } from './policy.js';
 
 /*
  * The service worker: built on its own into /sw.js (see vite.config.ts), with
@@ -53,6 +53,25 @@ worker.addEventListener('fetch', (event) => {
       caches
         .match(event.request, { cacheName: CACHE })
         .then((kept) => kept ?? fetch(event.request)),
+    );
+  } else if (how === 'brand') {
+    // Asked for without its version, so one address keeps one copy.
+    const key = new URL(event.request.url);
+    key.search = '';
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            void caches.open(BRAND_CACHE).then((cache) => cache.put(key.href, copy));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches
+            .match(key.href, { cacheName: BRAND_CACHE })
+            .then((kept) => kept ?? Response.error()),
+        ),
     );
   } else if (how === 'page') {
     event.respondWith(
