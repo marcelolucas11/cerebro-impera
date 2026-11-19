@@ -1,6 +1,8 @@
 # Backup e restauração — desenho
 
-Estado: **em construção** (Fase 9). Pronto: o serviço `apps/backup` (seção 6, item 1). Nada aqui é específico de uma empresa: cada instalação diz
+Estado: **pronto no código** (Fase 9). Já existem o serviço, a imagem, o perfil `backup` do
+`compose.yaml`, a chave gerada pelo `init`, a situação na página Segurança, os alertas e o
+`docs/RESTORE.md`. Ligar o Google Drive fica com o mantenedor, no servidor. Nada aqui é específico de uma empresa: cada instalação diz
 para onde vão as cópias.
 
 ## 1. O que precisa valer
@@ -71,5 +73,5 @@ No dia 1, depois da cópia:
 
 1. ~~Este desenho e o serviço `apps/backup`: cópia, retenção e teste de restauração, com testes que
    trocam `restic`, `pg_dump` e o PostgreSQL descartável por versões de teste~~ (D68).
-2. Imagem, serviço no `compose.yaml`, chave gerada pelo `init`, situação na página, alertas e
-   `docs/RESTORE.md`.
+2. ~~Imagem, serviço no `compose.yaml`, chave gerada pelo `init`, situação na página, alertas e
+   `docs/RESTORE.md`~~ (D69).

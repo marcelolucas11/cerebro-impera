@@ -74,6 +74,7 @@ import * as secrets from './modules/secrets.js';
 import * as views from './modules/views.js';
 import * as automations from './modules/automations.js';
 import { installManifest } from './http/manifest.js';
+import * as backups from './modules/backups.js';
 import * as reports from './modules/reports.js';
 import * as updates from './modules/updates.js';
 import * as summary from './modules/summary.js';
@@ -496,6 +497,11 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   // ---- Start page -------------------------------------------------------------------
   app.get('/api/home', (request) => signedIn(request, (tx, actor) => home.homeOf(tx, actor)));
+  // ---- Copies (read from the backup service; whoever sees the audit trail) ----------
+  app.get('/api/backups', (request) =>
+    signedIn(request, (_tx, actor) => backups.backups(deps, actor)),
+  );
+
   // ---- Updates (owners only; the updater does the work) ---------------------------
   app.get('/api/updates', (request) =>
     signedIn(request, (tx, actor) => updates.updates(tx, deps, actor)),

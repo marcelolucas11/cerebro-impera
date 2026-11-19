@@ -22,28 +22,29 @@ function randomPassword(): string {
   return randomBytes(32).toString('base64url');
 }
 
-const UPDATER_KEY_FILE = 'updater-key';
-
-/**
- * The key the API and the updater sign their requests with. Made on its own,
- * also for installations from before the updater existed; never overwritten.
- */
-function ensureUpdaterKey(configDir: string): void {
-  // 'wx' creates it only if it is not there, in one step: an existing key is left alone.
+/** A secret in a file of its own, made only if it is not there yet ('wx': in one step). */
+function ensureSecretFile(configDir: string, name: string, content: string): void {
   try {
-    writeFileSync(join(configDir, UPDATER_KEY_FILE), randomBytes(32).toString('base64'), {
-      mode: 0o600,
-      flag: 'wx',
-    });
+    writeFileSync(join(configDir, name), content, { mode: 0o600, flag: 'wx' });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
   }
 }
 
+/**
+ * Secrets that came after the first ones, made also for installations from
+ * before them, never overwritten: the key the API and the updater sign their
+ * requests with, and the key of the copies (without it, no copy opens).
+ */
+function ensureLaterSecrets(configDir: string): void {
+  ensureSecretFile(configDir, 'updater-key', randomBytes(32).toString('base64'));
+  ensureSecretFile(configDir, 'backup-password', randomPassword());
+}
+
 /** Creates the secrets on first boot; never overwrites existing ones. */
 export function initSecrets(configDir: string): { created: boolean } {
   mkdirSync(configDir, { recursive: true, mode: 0o700 });
-  ensureUpdaterKey(configDir);
+  ensureLaterSecrets(configDir);
   const path = join(configDir, SECRETS_FILE);
   if (existsSync(path)) return { created: false };
 

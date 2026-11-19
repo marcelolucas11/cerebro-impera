@@ -1068,6 +1068,30 @@ pelo mantenedor no servidor.
   arquivo.
 - Sem o socket do Docker; anexos e configuração montados somente para leitura (próxima parte).
 
+## D69 — Backup na instalação: perfil próprio, chave no servidor, situação na página e alertas
+
+**Decisão.** O backup é o perfil `backup` do `compose.yaml`. A imagem parte do PostgreSQL 16
+oficial: o `pg_dump` tem a mesma versão do banco, e o servidor fica só para o teste de
+restauração. Ela traz `restic` e `rclone` dos pacotes assinados do Alpine.
+
+- **Contêiner:** roda como o usuário 1000 (o mesmo da API, para ler os segredos 0600 que ela
+  gerou), sem capacidades e com o sistema somente leitura. Anexos e configuração entram somente
+  leitura. Não tem o socket do Docker.
+- **Destino:** `CEREBRO_BACKUP_REPOSITORY`. Um volume local por padrão, que não protege contra a
+  perda do servidor. O Google Drive vai pelo rclone, com o `rclone.conf` posto pelo mantenedor na
+  configuração.
+- **A chave das cópias (`backup-password`):** o `init` gera, também em instalações antigas, sem
+  sobrescrever. Ela não aparece no aplicativo. O `docs/RESTORE.md` diz como copiá-la uma vez,
+  para o cofre e para o papel, e como restaurar do zero.
+- **Na página Segurança**, para quem vê a auditoria: última cópia, última boa, próxima e último
+  teste de restauração. A API só lê o arquivo de situação do serviço (`CEREBRO_BACKUP_STATUS`).
+- **Alertas:** a rotina de hora em hora levanta, uma vez por dia por tipo, cópia que falhou, mais
+  de 26 horas sem cópia boa ou teste de restauração que falhou. Só a rotina pode levantar esses
+  alertas, e só desses tipos (`0042_backup_alerts.sql`).
+- **CI:** o CI constrói a imagem e faz uma cópia de verdade numa instalação recém-criada
+  (`CEREBRO_BACKUP_NOW=backup+test`). Confere a cópia gravada e o teste de restauração, que
+  restaura e consulta o banco descartável.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

@@ -23,7 +23,16 @@ const command: Command = {
       const child = spawn(program, rest, {
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: false,
-        env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '/tmp', ...options.env },
+        env: {
+          PATH: process.env.PATH ?? '',
+          HOME: process.env.HOME ?? '/tmp',
+          TZ: process.env.TZ ?? 'UTC',
+          // restic keeps its cache in the scratch space; rclone reads the destination set by
+          // the maintainer in the configuration (never in the repository).
+          RESTIC_CACHE_DIR: process.env.RESTIC_CACHE_DIR ?? '/work/.cache',
+          RCLONE_CONFIG: join(process.env.CEREBRO_CONFIG_DIR ?? '/data/config', 'rclone.conf'),
+          ...options.env,
+        },
       });
       let output = '';
       const keep = (chunk: Buffer): void => {
@@ -78,6 +87,12 @@ async function main(): Promise<void> {
   );
 
   await engine.ensureRepository();
+  // To check a new installation (and in the CI): a copy right away, and the restore test with it.
+  const now = process.env.CEREBRO_BACKUP_NOW ?? '';
+  if (now === 'backup' || now === 'backup+test') {
+    await engine.backup(nextRun(new Date(), hour));
+    if (now === 'backup+test') await engine.restoreTest();
+  }
   for (;;) {
     const at = nextRun(new Date(), hour);
     const status = await engine.status();

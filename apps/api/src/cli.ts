@@ -11,6 +11,7 @@ import { migrate } from './migrate.js';
 import { ensureSetupToken } from './modules/auth.js';
 import { purgeAttachments, resumeScans } from './modules/attachments.js';
 import { automationsDue, purgeAutomationRuns } from './modules/automations.js';
+import { checkBackups } from './modules/backups.js';
 import { makeWeeklyReport } from './modules/reports.js';
 import { purgeTrash } from './modules/structure.js';
 import { notifyDue } from './modules/notifications.js';
@@ -91,6 +92,9 @@ async function commandServe(): Promise<void> {
         // Monday's first run writes the report of the week that ended.
         const report = await inTransaction(pools.app, makeWeeklyReport);
         if (report > 0) app.log.info('weekly report made');
+        // Copies that failed or are late warn the owners, once a day per kind.
+        const backupAlerts = await inTransaction(pools.app, (db) => checkBackups(db, deps));
+        if (backupAlerts > 0) app.log.warn({ backupAlerts }, 'backup alerts raised');
         const files = await purgeAttachments(deps);
         if (files > 0) app.log.info({ files }, 'attachments removed for good');
       })

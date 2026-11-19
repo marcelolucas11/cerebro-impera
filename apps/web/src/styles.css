@@ -2904,3 +2904,31 @@ audio.file-preview {
 .update-steps li.is-now::before {
   border-color: var(--marca);
 }
+
+/* ---- Copies --------------------------------------------------------------------- */
+
+.backup-facts {
+  display: grid;
+  gap: 0.625rem;
+  margin: 0;
+}
+
+.backup-facts > div {
+  display: grid;
+  grid-template-columns: minmax(9rem, 12rem) 1fr;
+  gap: 0.25rem 1rem;
+}
+
+.backup-facts dt {
+  color: var(--texto-suave);
+}
+
+.backup-facts dd {
+  margin: 0;
+}
+
+@media (max-width: 40rem) {
+  .backup-facts > div {
+    grid-template-columns: 1fr;
+  }
+}

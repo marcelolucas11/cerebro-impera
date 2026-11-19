@@ -124,6 +124,8 @@ jobs:
         run: docker build --file apps/api/Dockerfile --tag cerebro-api:local .
       - name: Construir a imagem do atualizador
         run: docker build --file apps/updater/Dockerfile --tag cerebro-updater:local .
+      - name: Construir a imagem do backup
+        run: docker build --file apps/backup/Dockerfile --tag cerebro-backup:local .
       - name: Subir uma instalação do zero
         run: |
           docker compose up --detach
@@ -164,6 +166,24 @@ jobs:
           docker run --rm --entrypoint docker cerebro-updater:local compose version > /dev/null
           if docker run --rm cerebro-updater:local 2> /dev/null; then exit 1; fi
 
+          echo "o backup copia de verdade, cifrado, restaura num banco descartável, e não roda como root"
+          test "$(docker compose exec -T api stat -c '%a' /opt/cerebro/config/backup-password)" = "600"
+          test "$(docker run --rm --entrypoint id cerebro-backup:local -u)" = "1000"
+          docker run --rm --entrypoint pg_dump cerebro-backup:local --version | grep --quiet ' 16\.'
+          CEREBRO_BACKUP_NOW=backup+test docker compose --profile backup up --detach backup
+          for _ in $(seq 1 60); do
+            if docker compose exec -T api cat /opt/cerebro/backup-status/backup.json 2> /dev/null \
+              | jq --exit-status '.lastRestoreTest != null' > /dev/null; then break; fi
+            sleep 3
+          done
+          docker compose exec -T api cat /opt/cerebro/backup-status/backup.json > backup.json
+          # What the service says about itself (dates, sizes and sentences only; no secrets).
+          jq '{lastBackup, lastRestoreTest}' backup.json
+          jq --exit-status '.lastBackup.ok == true and (.lastBackup.snapshot | length) > 0' backup.json
+          # A fresh installation has nobody yet: the test restores and queries, and says so.
+          jq --exit-status '.lastRestoreTest.ok == true or .lastRestoreTest.problem == "A cópia restaurada não tem ninguém."' backup.json
+          docker compose --profile backup stop backup
+
           echo "o banco não está publicado para fora da rede interna"
           if docker compose port postgres 5432 2> /dev/null | grep --quiet .; then exit 1; fi
 
@@ -177,7 +197,7 @@ jobs:
           test "${before}" = "$(docker compose exec -T api sha256sum /opt/cerebro/config/secrets.json)"
       - name: Logs em caso de falha
         if: failure()
-        run: docker compose logs --no-color --tail 200 || true
+        run: docker compose --profile backup logs --no-color --tail 200 || true
       - name: Derrubar
         if: always()
         run: docker compose down --volumes

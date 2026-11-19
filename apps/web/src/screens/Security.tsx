@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState, type ReactNode } from 'react';
 import { api, type AuditEntry } from '../api.js';
-import { actionName, ALERT_NAMES, formatWhen } from '../labels.js';
+import { actionName, ALERT_NAMES, formatBytes, formatWhen } from '../labels.js';
 import { describeError } from '../messages.js';
 import { Button, Notice, useAction } from '../ui/kit.js';
 
@@ -21,6 +21,7 @@ export function Security({
     <>
       <h1>Segurança</h1>
       {isOwner ? <Alerts nameOf={nameOf} /> : null}
+      <Backups />
       <Trail nameOf={nameOf} />
     </>
   );
@@ -152,6 +153,64 @@ function Trail({ nameOf }: { nameOf: (id: string | null) => string }): ReactNode
           Carregar entradas mais antigas
         </Button>
       ) : null}
+    </section>
+  );
+}
+
+/** The copies: the last one, the next, and the last proof that they restore. */
+function Backups(): ReactNode {
+  const backups = useQuery({ queryKey: ['backups'], queryFn: api.backups });
+  if (backups.isPending) return null;
+  if (backups.isError) return <Notice tone="error">{describeError(backups.error)}</Notice>;
+  const view = backups.data;
+  const last = view.lastBackup;
+  const test = view.lastRestoreTest;
+  return (
+    <section className="panel" aria-label="Cópias de segurança">
+      <h2>Cópias de segurança</h2>
+      {!view.configured ? (
+        <p className="field-note">
+          Esta instalação não tem o serviço de backup ligado. Sem ele, nenhuma cópia é feita: veja
+          infra/README.md e docs/RESTORE.md.
+        </p>
+      ) : !view.readable ? (
+        <Notice tone="error">
+          Não foi possível ler a situação das cópias. Confira se o serviço de backup está rodando.
+        </Notice>
+      ) : (
+        <dl className="backup-facts">
+          <div>
+            <dt>Última cópia</dt>
+            <dd>
+              {last === null
+                ? 'Nenhuma ainda.'
+                : last.ok
+                  ? `${formatWhen(last.finishedAt)}, deu certo${last.bytes === null ? '' : ` (${formatBytes(last.bytes)} lidos)`}.`
+                  : `${formatWhen(last.finishedAt)}, falhou: ${last.problem ?? 'sem detalhe'}`}
+            </dd>
+          </div>
+          {last !== null && !last.ok ? (
+            <div>
+              <dt>Última cópia boa</dt>
+              <dd>{view.lastSuccessAt === null ? 'Nenhuma.' : formatWhen(view.lastSuccessAt)}</dd>
+            </div>
+          ) : null}
+          <div>
+            <dt>Próxima</dt>
+            <dd>{view.nextRunAt === null ? 'Ainda não marcada.' : formatWhen(view.nextRunAt)}</dd>
+          </div>
+          <div>
+            <dt>Teste de restauração</dt>
+            <dd>
+              {test === null
+                ? 'O primeiro é no dia 1 do próximo mês.'
+                : test.ok
+                  ? `${formatWhen(test.at)}: a cópia abriu, com ${String(test.people ?? 0)} ${test.people === 1 ? 'pessoa' : 'pessoas'} e a trilha de auditoria íntegra.`
+                  : `${formatWhen(test.at)}, falhou: ${test.problem ?? 'sem detalhe'}`}
+            </dd>
+          </div>
+        </dl>
+      )}
     </section>
   );
 }

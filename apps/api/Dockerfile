@@ -42,7 +42,9 @@ WORKDIR /app
 COPY --from=build /out/ ./
 # Únicos lugares graváveis: os segredos da instância, criados no primeiro start, e os
 # anexos, guardados cifrados.
-RUN install --directory --owner node --group node --mode 0700 /opt/cerebro/config /opt/cerebro/files
+RUN install --directory --owner node --group node --mode 0700 /opt/cerebro/config /opt/cerebro/files \
+ # A situação das cópias: escrita pelo serviço de backup (mesmo número de usuário), lida aqui.
+ && install --directory --owner node --group node --mode 0755 /opt/cerebro/backup-status
 USER node
 EXPOSE 3000
 ENTRYPOINT ["node", "dist/cli.js"]

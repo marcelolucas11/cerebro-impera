@@ -144,6 +144,16 @@ describe('instance secrets', () => {
     expect(readFileSync(join(dir, 'secrets.json'), 'utf8')).toContain(first.masterKey);
   });
 
+  it('include the key of the copies, long, private and never replaced', () => {
+    const dir = join(scratch, 'copies');
+    initSecrets(dir);
+    const key = readFileSync(join(dir, 'backup-password'), 'utf8');
+    expect(key.length).toBeGreaterThanOrEqual(43);
+    expect(statSync(join(dir, 'backup-password')).mode & 0o777).toBe(0o600);
+    initSecrets(dir);
+    expect(readFileSync(join(dir, 'backup-password'), 'utf8')).toBe(key);
+  });
+
   it('include the updater key, made also for installations that had none, and kept', () => {
     const dir = join(scratch, 'older');
     initSecrets(dir);

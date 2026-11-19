@@ -25,6 +25,8 @@ x-api: &api
     CEREBRO_ANTIVIRUS: ${CEREBRO_ANTIVIRUS:-}
     # Com o atualizador ligado (--profile updater): http://updater:8080.
     CEREBRO_UPDATER_URL: ${CEREBRO_UPDATER_URL:-}
+    # Com o backup ligado (--profile backup), a API lê a situação das cópias daqui.
+    CEREBRO_BACKUP_STATUS: ${CEREBRO_BACKUP_STATUS:-}
   volumes:
     - config:/opt/cerebro/config
   # Sistema de arquivos somente leitura, sem capacidades do kernel, sem ganho de privilégio.
@@ -99,6 +101,8 @@ services:
     volumes:
       - config:/opt/cerebro/config
       - files:/opt/cerebro/files
+      # Só leitura: a situação que o serviço de backup escreve.
+      - backup-status:/opt/cerebro/backup-status:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -172,6 +176,47 @@ services:
       init:
         condition: service_completed_successfully
 
+  # Opcional: as cópias (--profile backup). Todo dia, na hora de CEREBRO_BACKUP_HOUR (03h por
+  # padrão, no fuso TZ), copia banco, anexos e configuração para o repositório do restic em
+  # CEREBRO_BACKUP_REPOSITORY, cifrados antes de sair; guarda um ano; no dia 1, prova que a cópia
+  # restaura. Lê anexos e configuração sem poder mudá-los; não tem o socket do Docker.
+  backup:
+    image: ${CEREBRO_BACKUP_IMAGE:-cerebro-backup:local}
+    profiles: [backup]
+    restart: unless-stopped
+    environment:
+      CEREBRO_BACKUP_REPOSITORY: ${CEREBRO_BACKUP_REPOSITORY:-/repo}
+      CEREBRO_BACKUP_HOUR: ${CEREBRO_BACKUP_HOUR:-3}
+      # "backup" ou "backup+test": uma cópia (e o teste) logo ao subir, para conferir a instalação.
+      CEREBRO_BACKUP_NOW: ${CEREBRO_BACKUP_NOW:-}
+      CEREBRO_DB_HOST: postgres
+      CEREBRO_DB_NAME: cerebro
+      TZ: ${TZ:-UTC}
+    volumes:
+      - config:/data/config:ro
+      - files:/data/files:ro
+      - backup-status:/status
+      # Destino local: serve para testar e não protege contra a perda do servidor. Para o
+      # Google Drive, CEREBRO_BACKUP_REPOSITORY=rclone:<remoto>:<pasta> e rclone.conf na
+      # configuração da instância.
+      - backup-repo:/repo
+      - backup-work:/work
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: ${CEREBRO_BACKUP_MEMORY:-512m}
+    pids_limit: 128
+    networks:
+      - db
+      - edge
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 networks:
   # Sem rota para fora: o banco não alcança a internet nem é alcançado por ela.
   db:
@@ -192,3 +237,7 @@ volumes:
   clamav: {}
   # Cópias do banco feitas pelo atualizador antes de cada atualização.
   backups: {}
+  # Serviço de backup: situação (lida pela API), repositório local e espaço de trabalho.
+  backup-status: {}
+  backup-repo: {}
+  backup-work: {}

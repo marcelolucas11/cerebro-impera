@@ -58,6 +58,7 @@ export async function createTestEnv(
     scanner?: Scanner | null;
     requestsPerMinute?: number;
     updater?: Updater | null;
+    backupStatusFile?: string;
   } = {},
 ): Promise<TestEnv> {
   const shared = inject('testDatabase');
@@ -98,6 +99,7 @@ export async function createTestEnv(
     antivirus: { kind: 'off' },
     version: '1.4.0',
     updater: null,
+    backupStatusFile: options.backupStatusFile ?? null,
   };
 
   const clock = {
