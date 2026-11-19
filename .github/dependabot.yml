@@ -1,9 +1,13 @@
 version: 2
+# Nenhuma versão nova é proposta antes de três dias publicada (a mesma regra das dependências
+# novas). As imagens ficam fixadas pelo hash; é por aqui que os hashes novos chegam.
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 5
     groups:
       desenvolvimento:
@@ -12,11 +16,20 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 3
   - package-ecosystem: docker
-    directory: /apps/api
+    directories:
+      - /apps/api
+      - /apps/updater
+      - /apps/backup
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 3
   - package-ecosystem: docker-compose
     directory: /infra
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 3

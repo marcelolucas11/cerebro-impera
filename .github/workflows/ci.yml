@@ -65,7 +65,7 @@ jobs:
           docker run --detach --name cerebro-test-pg \
             --env POSTGRES_PASSWORD="${password}" \
             --publish 127.0.0.1:5432:5432 \
-            postgres:16
+            postgres:16@sha256:dd2bf3ce2dc83a81674cf7f217fcfd8a5009a4b325dda5b843bfee82a06cff6f
           for _ in $(seq 1 60); do
             if docker exec cerebro-test-pg pg_isready --username postgres --quiet; then break; fi
             sleep 1
@@ -99,7 +99,7 @@ jobs:
           docker run --detach --name cerebro-e2e-pg \
             --env POSTGRES_PASSWORD="${password}" \
             --publish 127.0.0.1:5432:5432 \
-            postgres:16
+            postgres:16@sha256:dd2bf3ce2dc83a81674cf7f217fcfd8a5009a4b325dda5b843bfee82a06cff6f
           for _ in $(seq 1 60); do
             if docker exec cerebro-e2e-pg pg_isready --username postgres --quiet; then break; fi
             sleep 1
@@ -120,6 +120,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Imagens de fora fixadas pelo hash
+        run: |
+          # Uma tag pode passar a apontar para outra coisa; o hash, não. O Dependabot propõe
+          # os hashes novos.
+          unpinned="$(grep -nE '^FROM |^[[:space:]]+image: |^[[:space:]]+postgres:[0-9]' \
+            apps/*/Dockerfile infra/compose.yaml .github/workflows/*.yml \
+            | grep -vE '@sha256:[0-9a-f]{64}|\$\{|--from=' || true)"
+          if [ -n "${unpinned}" ]; then
+            echo "Imagem sem hash:"
+            echo "${unpinned}"
+            exit 1
+          fi
       - name: Construir a imagem da API
         run: docker build --file apps/api/Dockerfile --tag cerebro-api:local .
       - name: Construir a imagem do atualizador

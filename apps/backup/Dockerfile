@@ -7,7 +7,7 @@
 # servidor serve só para o teste de restauração, dentro do próprio contêiner, sem rede. restic e
 # rclone vêm dos pacotes assinados do Alpine. Não tem o socket do Docker.
 
-FROM node:22-bookworm-slim AS build
+FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS build
 ENV CI=true
 WORKDIR /repo
 RUN corepack enable
@@ -22,7 +22,7 @@ RUN pnpm --filter @cerebro/shared build \
  && pnpm --filter @cerebro/backup build \
  && pnpm --filter @cerebro/backup deploy --prod --legacy /out
 
-FROM postgres:16-alpine AS runtime
+FROM postgres:16.15-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139 AS runtime
 RUN apk add --no-cache nodejs restic rclone \
  # O mesmo número de usuário da API: lê os segredos que ela gerou (0600), e o initdb não
  # aceita rodar como root.

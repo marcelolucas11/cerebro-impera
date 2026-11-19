@@ -87,6 +87,11 @@ atualização das assinaturas). O arquivo é enviado ao `clamd` por fluxo depois
 - Antivírus fora do ar: o arquivo continua "em verificação" (nunca vira "limpo" por falta de
   resposta) e é entregue de novo ao antivírus a cada hora e quando o serviço reinicia, sem
   verificar o mesmo arquivo duas vezes ao mesmo tempo.
+- Arquivo maior do que o antivírus aceita (`StreamMaxLength` do ClamAV, bem menor que os 2 GB
+  padrão dos anexos): fica "não verificado pelo antivírus", como sem antivírus, e não volta para
+  a fila (D79). Para verificar arquivos maiores, suba `StreamMaxLength`, `MaxFileSize` e
+  `MaxScanSize` no ClamAV (custa memória) ou baixe `CEREBRO_MAX_ATTACHMENT_MB` para o mesmo
+  limite.
 
 **O que falta decidir (mantenedor):** o ClamAV usa de 1,2 a 1,5 GB de memória. Depende da
 configuração da VPS. Alternativas, da mais segura para a menos:

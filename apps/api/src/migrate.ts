@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, pbkdf2Sync, randomBytes } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
@@ -96,12 +96,44 @@ export async function hardenDatabase(client: pg.Client): Promise<void> {
 }
 
 async function setRolePassword(client: pg.Client, role: string, password: string): Promise<void> {
+  await client.query(await rolePasswordStatement(client, role, password));
+}
+
+/** The statement that gives a role its password: it carries the verifier, never the password. */
+export async function rolePasswordStatement(
+  client: pg.ClientBase,
+  role: string,
+  password: string,
+): Promise<string> {
   // ALTER ROLE takes no bind parameters; format() with %I/%L quotes both safely.
   const { rows } = await client.query<{ statement: string }>(
     `SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L', $1::text, $2::text) AS statement`,
-    [role, password],
+    [role, scramVerifier(password)],
   );
   const statement = rows[0]?.statement;
   if (statement === undefined) throw new Error('could not build role statement');
-  await client.query(statement);
+  return statement;
+}
+
+/** The work factor Postgres itself uses by default. */
+const SCRAM_ITERATIONS = 4096;
+
+/**
+ * The SCRAM-SHA-256 verifier Postgres keeps for a password (RFC 5802 and 7677),
+ * made here so the password never travels in a statement a log could keep.
+ * Postgres normalises a password first (SASLprep); for printable ASCII, the only
+ * kind the installation makes, that changes nothing, so nothing else is accepted.
+ */
+export function scramVerifier(password: string, salt: Buffer = randomBytes(16)): string {
+  if (!/^[\x21-\x7e]+$/.test(password)) {
+    throw new Error('a role password must be printable ASCII without spaces');
+  }
+  const salted = pbkdf2Sync(password, salt, SCRAM_ITERATIONS, 32, 'sha256');
+  const clientKey = createHmac('sha256', salted).update('Client Key').digest();
+  const storedKey = createHash('sha256').update(clientKey).digest();
+  const serverKey = createHmac('sha256', salted).update('Server Key').digest();
+  return (
+    `SCRAM-SHA-256$${SCRAM_ITERATIONS}:${salt.toString('base64')}` +
+    `$${storedKey.toString('base64')}:${serverKey.toString('base64')}`
+  );
 }
