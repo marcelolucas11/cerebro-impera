@@ -275,6 +275,10 @@ export class BackupEngine {
           data,
           '--options',
           `-k ${socket} -c listen_addresses=`,
+          // The server keeps running after pg_ctl returns: its output goes to a file, or it
+          // would hold this command's output open and the step would never end.
+          '--log',
+          join(work, 'postgres.log'),
           '--wait',
           'start',
         ],
