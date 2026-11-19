@@ -22,6 +22,7 @@ import {
   setCookie,
 } from '../http/cookies.js';
 import { badRequest, conflict, forbidden, unauthorized } from '../http/errors.js';
+import { addressGroup } from '../http/proxy.js';
 import { clientIp, userAgent } from '../http/request.js';
 import {
   ACCOUNT_POLICY,
@@ -49,7 +50,7 @@ interface DeviceRow {
 // ---------------------------------------------------------------------------
 
 function ipKey(ip: string | null): string {
-  return `ip:${ip ?? 'unknown'}`;
+  return `ip:${addressGroup(ip)}`;
 }
 
 /**
@@ -59,6 +60,15 @@ function ipKey(ip: string | null): string {
  */
 function accountKey(userId: string, device: DeviceRow | undefined): string {
   return device?.status === 'approved' ? `device:${device.id}` : `account:${userId}`;
+}
+
+/**
+ * An e-mail no account has is counted as an account would be. Otherwise only real
+ * e-mails would ever lock, and a few wrong passwords would tell which ones exist. Kept
+ * as a keyed digest: the throttle table never holds the addresses people typed.
+ */
+function emailKey(deps: Deps, email: string): string {
+  return `email:${deps.vault.mac('throttle', 'email', email.trim().toLowerCase()).toString('base64url')}`;
 }
 
 async function findDevice(
@@ -504,8 +514,8 @@ export async function login(
         WHERE u.email = ${body.email}`,
   );
   const device = user ? await findDevice(db, request, user.id) : undefined;
-  const key = user ? accountKey(user.id, device) : undefined;
-  if (key !== undefined) await assertNotLocked(db, key);
+  const key = user ? accountKey(user.id, device) : emailKey(deps, body.email);
+  await assertNotLocked(db, key);
 
   let passwordOk = false;
   if (user && user.password_hash !== null && user.status === 'active') {
@@ -520,7 +530,7 @@ export async function login(
       ip,
       reason: 'password',
       ...(user ? { userId: user.id } : {}),
-      ...(key !== undefined ? { accountKey: key } : {}),
+      accountKey: key,
     });
     // One message for every cause, so nothing reveals which e-mails exist.
     throw unauthorized('invalid_credentials');

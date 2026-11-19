@@ -22,8 +22,12 @@ export interface Config {
   /** Exact origin the app is served from, e.g. https://cerebro.exemplo.com */
   publicOrigin: string;
   listen: { host: string; port: number };
-  /** True when running behind a reverse proxy that sets X-Forwarded-For. */
-  trustProxy: boolean;
+  /**
+   * How many reverse proxies in front set X-Forwarded-For (0: none). Only that many
+   * entries, counted from the right, are believed: anything further left was written by
+   * the client and would let it pick any address to dodge the limits.
+   */
+  trustProxy: number;
   /**
    * Requests one session (or, before signing in, one address) may make per
    * minute. Beyond it the API answers 429 until the minute passes.
@@ -124,7 +128,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     env: mode,
     publicOrigin: parsePublicOrigin(required(env, 'CEREBRO_PUBLIC_ORIGIN'), mode),
     listen: { host: env.CEREBRO_HOST ?? '127.0.0.1', port },
-    trustProxy: env.CEREBRO_TRUST_PROXY === 'true',
+    trustProxy: parseTrustProxy(env.CEREBRO_TRUST_PROXY),
     requestsPerMinute: parseRequestsPerMinute(env.CEREBRO_REQUESTS_PER_MINUTE),
     db: {
       host: required(env, 'CEREBRO_DB_HOST'),
@@ -197,4 +201,17 @@ export function parseUpdater(raw: string | undefined, configDir: string): Config
   }
   if (key.length !== 32) throw new Error('the updater key is malformed');
   return { url: url.origin, key };
+}
+
+/** "true" is one proxy (the usual: one on the same server); a number says how many. */
+export function parseTrustProxy(raw: string | undefined): number {
+  if (raw === undefined || raw === '' || raw === 'false') return 0;
+  if (raw === 'true') return 1;
+  const hops = Number(raw);
+  if (!Number.isInteger(hops) || hops < 0 || hops > 5) {
+    throw new Error(
+      'CEREBRO_TRUST_PROXY must be "true", "false" or the number of proxies (0 to 5)',
+    );
+  }
+  return hops;
 }

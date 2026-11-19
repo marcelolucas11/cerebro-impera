@@ -205,6 +205,11 @@ describe('what the page server never does', () => {
     });
     expect(forged.statusCode).toBe(403);
     expect((await get('/api/health')).statusCode).toBe(200);
+    // Spelled with escapes, the address still reaches the API, and is judged as it.
+    for (const url of ['/%61pi/me', '/%61%70%69/health', '/api/%6de']) {
+      const response = await get(url, { 'sec-fetch-site': 'same-site' });
+      expect(response.statusCode, url).toBe(403);
+    }
   });
 });
 
