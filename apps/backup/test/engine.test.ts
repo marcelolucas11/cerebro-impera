@@ -153,7 +153,7 @@ describe('the monthly restore test', () => {
     // Local only: no address to listen on, just a socket in the data folder (which exists:
     // a folder of its own would have to be created first, or the server does not start).
     expect(lines[3]).toBe(
-      'pg_ctl --pgdata /work/teste/pg --options -k /work/teste/pg -c listen_addresses= --wait start',
+      'pg_ctl --pgdata /work/teste/pg --options -k /work/teste/pg -c listen_addresses= --log /work/teste/postgres.log --wait start',
     );
     // The database is created in a command of its own, as PostgreSQL requires.
     expect(lines[4]).toBe(
