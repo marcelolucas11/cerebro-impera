@@ -92,6 +92,7 @@ writeFileSync(
     },
     nextRunAt: new Date(Date.now() + 15 * hour).toISOString(),
   }),
+  { mode: 0o600 },
 );
 
 const updaterKey = randomBytes(32);
