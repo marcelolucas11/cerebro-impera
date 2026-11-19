@@ -114,6 +114,11 @@ export async function attachmentInList(
   return toView(row);
 }
 
+/** Space always left free on the attachments' disk. */
+const DISK_MARGIN = 512 * 1024 * 1024;
+/** Uploads one person may have open at once (the database holds the same line). */
+const MAX_OPEN_UPLOADS = 5;
+
 /** Opens an upload. Content follows in parts of PART_SIZE bytes. */
 export async function startUpload(
   deps: Deps,
@@ -127,8 +132,16 @@ export async function startUpload(
   if (body.size > deps.config.files.maxBytes) {
     throw badRequest('file_too_large', { maxBytes: deps.config.files.maxBytes });
   }
-  // Keep a margin: a full disk would stop the database too.
-  if ((await deps.files.freeBytes()) < body.size + 512 * 1024 * 1024) throw conflict('disk_full');
+  // What others are still sending counts as taken, and a margin stays free: a full
+  // disk would stop the database too.
+  const open = await one<{ pending: string; mine: number }>(
+    tx,
+    sql`SELECT pending, mine FROM app.uploads_open()`,
+  );
+  if ((open?.mine ?? 0) >= MAX_OPEN_UPLOADS) throw conflict('too_many_uploads');
+  if ((await deps.files.freeBytes()) < body.size + Number(open?.pending ?? 0) + DISK_MARGIN) {
+    throw conflict('disk_full');
+  }
   const id = randomUUID();
   const wrapped = deps.vault.seal('attachment-key', id, randomBytes(32));
   await run(
@@ -170,6 +183,8 @@ export async function receivePart(
   const expected = partLength(size, n);
   if (expected === 0) throw badRequest('invalid_part');
   if (content.length !== expected) throw badRequest('invalid_part_size', { expected });
+  // Checked again for every part: the disk may have filled since the upload began.
+  if ((await deps.files.freeBytes()) < content.length + DISK_MARGIN) throw conflict('disk_full');
   await deps.files.writePart(uploadId, n, sealPart(key, uploadId, n, content));
   await run(
     tx,

@@ -32,6 +32,8 @@ function wait(seconds: number): string {
 const BY_CODE: Record<string, string> = {
   network: 'Não foi possível falar com o servidor. Confira sua conexão e tente de novo.',
   invalid_credentials: 'E-mail ou senha incorretos.',
+  authenticator_missing:
+    'Este acesso ainda não tem um aplicativo autenticador ligado. Peça a um Dono ou ADM um novo link de acesso: o autenticador é ligado logo depois de usá-lo.',
   invalid_code:
     'Código incorreto ou já usado. Espere o aplicativo mostrar um código novo e digite de novo.',
   challenge_required: 'A etapa da senha expirou. Entre de novo.',
@@ -73,6 +75,8 @@ const BY_CODE: Record<string, string> = {
     'Essa pessoa não pode trabalhar nesta lista. Dê a ela acesso para editar antes de passar o item.',
   attachments_not_ready:
     'Os anexos ainda não foram ligados nesta instalação: falta escolher o antivírus no servidor.',
+  too_many_uploads:
+    'Você já tem cinco arquivos sendo enviados. Termine ou cancele um deles antes de começar outro.',
   disk_full:
     'O servidor está sem espaço para guardar esse arquivo. Avise quem administra o sistema.',
   invalid_part: 'O envio se perdeu no caminho. Tente continuar de novo.',

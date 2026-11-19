@@ -141,7 +141,15 @@ interface Challenge {
   userId: string;
 }
 
-async function loadChallenge(db: Queryable, request: FastifyRequest): Promise<Challenge> {
+/**
+ * The open challenge in this browser. `forEnrolment` asks for one made when an
+ * invite or reset was just used: only that one may link an authenticator.
+ */
+async function loadChallenge(
+  db: Queryable,
+  request: FastifyRequest,
+  forEnrolment = false,
+): Promise<Challenge> {
   const token = readToken(request, CHALLENGE_COOKIE);
   if (token === undefined) throw unauthorized('challenge_required');
   const row = await one<{ id: string; user_id: string }>(
@@ -150,7 +158,8 @@ async function loadChallenge(db: Queryable, request: FastifyRequest): Promise<Ch
         JOIN app.users u ON u.id = c.user_id
         WHERE c.token_hash = sha256(${digest(token)})
           AND c.consumed_at IS NULL AND c.expires_at > now()
-          AND c.attempts < ${MAX_CHALLENGE_ATTEMPTS} AND u.status = 'active'`,
+          AND c.attempts < ${MAX_CHALLENGE_ATTEMPTS} AND u.status = 'active'
+          AND (NOT ${forEnrolment}::boolean OR c.enrol)`,
   );
   if (!row) throw unauthorized('challenge_required');
   return { id: row.id, userId: row.user_id };
@@ -172,13 +181,15 @@ async function issueChallenge(
   reply: FastifyReply,
   userId: string,
   ip: string | null,
+  enrol = false,
 ): Promise<void> {
   const token = newToken();
   await run(
     db,
-    sql`INSERT INTO auth.login_challenges (token_hash, user_id, expires_at, ip)
+    sql`INSERT INTO auth.login_challenges (token_hash, user_id, expires_at, ip, enrol)
         VALUES (sha256(${digest(token)}), ${userId},
-                now() + make_interval(secs => ${CHALLENGE_TTL_SECONDS}), ${ip}::inet)`,
+                now() + make_interval(secs => ${CHALLENGE_TTL_SECONDS}), ${ip}::inet,
+                ${enrol})`,
   );
   setCookie(reply, CHALLENGE_COOKIE, token, CHALLENGE_TTL_SECONDS);
 }
@@ -494,7 +505,7 @@ export async function login(
   request: FastifyRequest,
   reply: FastifyReply,
   body: { email: string; password: string },
-): Promise<{ next: 'totp' | 'enroll_totp' }> {
+): Promise<{ next: 'totp' }> {
   const db = deps.pools.auth;
   const ip = clientIp(request);
   await assertNotLocked(db, ipKey(ip));
@@ -528,12 +539,15 @@ export async function login(
     throw unauthorized('invalid_credentials');
   }
 
-  await issueChallenge(db, reply, user.id, ip);
   const enrolled = await one<{ ok: number }>(
     db,
     sql`SELECT 1 AS ok FROM auth.totp WHERE user_id = ${user.id} AND confirmed_at IS NOT NULL`,
   );
-  return { next: enrolled ? 'totp' : 'enroll_totp' };
+  // An authenticator is linked only right after an invite or reset is used, never
+  // with the password alone: whoever stopped halfway asks for a new link.
+  if (!enrolled) throw unauthorized('authenticator_missing');
+  await issueChallenge(db, reply, user.id, ip);
+  return { next: 'totp' };
 }
 
 export async function verifySecondFactor(
@@ -572,7 +586,7 @@ export async function enrollStart(
   request: FastifyRequest,
 ): Promise<{ secret: string; otpauthUri: string }> {
   const db = deps.pools.auth;
-  const challenge = await loadChallenge(db, request);
+  const challenge = await loadChallenge(db, request, true);
   const context = await one<{ email: string; instance_name: string; enrolled: boolean }>(
     db,
     sql`SELECT u.email, i.instance_name,
@@ -603,7 +617,7 @@ export async function enrollConfirm(
   const db = deps.pools.auth;
   const ip = clientIp(request);
   await assertNotLocked(db, ipKey(ip));
-  const challenge = await loadChallenge(db, request);
+  const challenge = await loadChallenge(db, request, true);
   await spendAttempt(db, challenge);
 
   const pending = await one<{ secret_enc: Buffer }>(
@@ -708,7 +722,7 @@ export async function acceptInvite(
       sql`UPDATE auth.sessions SET revoked_at = now(), revoked_reason = 'access reset'
           WHERE user_id = ${invite.user_id} AND revoked_at IS NULL`,
     );
-    await issueChallenge(tx, reply, invite.user_id, ip);
+    await issueChallenge(tx, reply, invite.user_id, ip, true);
     await audit(
       tx,
       invite.user_id,

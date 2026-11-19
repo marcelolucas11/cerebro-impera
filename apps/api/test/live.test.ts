@@ -203,6 +203,31 @@ describe('the stream', () => {
     }
   });
 
+  it('does not count as activity: an open tab alone lets the session go idle', async () => {
+    const ago = async (): Promise<number> =>
+      (
+        await env.admin.query<{ s: number }>(
+          `SELECT extract(epoch FROM now() - max(last_seen_at))::int AS s FROM auth.sessions
+           WHERE user_id = $1 AND revoked_at IS NULL`,
+          [s.nuno.id],
+        )
+      ).rows[0]?.s ?? -1;
+    await env.admin.query(
+      `UPDATE auth.sessions SET last_seen_at = now() - interval '10 minutes' WHERE user_id = $1`,
+      [s.nuno.id],
+    );
+    const stream = await openStream(s.nuno);
+    try {
+      expect(stream.status).toBe(200);
+      expect(await ago()).toBeGreaterThanOrEqual(599);
+    } finally {
+      stream.close();
+    }
+    // Anything she does counts.
+    expect((await s.nuno.browser.get('/api/me')).status).toBe(200);
+    expect(await ago()).toBeLessThan(5);
+  });
+
   it('is only for a signed-in person, and only a few at a time', async () => {
     const response = await fetch(`${base}/api/events`);
     expect(response.status).toBe(401);

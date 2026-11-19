@@ -1281,6 +1281,27 @@ compartilhado, a pessoa decide que nada fica.
 **O que sobra, por escrito** (`docs/design/pwa.md`, seção 3): abrir sem conexão não pede senha nem
 código, e a chave mora no mesmo perfil do navegador que os dados.
 
+## D75 — Autenticador só logo depois do convite; o fluxo ao vivo não conta como atividade; espaço reservado para os envios
+
+**Decisão.**
+
+- **Autenticador:** só é ligado com o desafio criado ao usar um convite ou um link de redefinição
+  (`login_challenges.enrol`, criado pelo banco só no mesmo passo em que o convite é usado). Quem
+  aceitou o convite e parou antes de ligar o autenticador não termina depois só com a senha: a
+  entrada responde `authenticator_missing`, e a pessoa pede um novo link a um Dono ou ADM. O
+  serviço de entrada só conta tentativas e consome desafios; não muda o resto.
+- **Tempo ocioso:** abrir e conferir o fluxo ao vivo (`/api/events`) usa
+  `authz.begin_request(token, ip, false)`, que valida a sessão sem renovar `last_seen_at`. Uma
+  aba aberta sozinha não segura a sessão; a sessão vence no tempo ocioso e o fluxo fecha.
+- **Anexos:** ao abrir um envio, o que ainda falta chegar de todos os envios abertos conta como
+  ocupado (`app.uploads_open()`, só somas), além da folga de 512 MB. Cada parte confere o disco
+  de novo. Uma pessoa tem no máximo cinco envios abertos ao mesmo tempo, na API e no banco.
+
+**Por quê.** Quem tivesse só a senha de alguém que nunca ligou o autenticador poderia ligar o
+dele. Uma aba esquecida aberta mantinha a sessão viva para sempre. E vários envios grandes
+começados juntos passavam cada um na conferência de espaço, e somados enchiam o disco, que é o
+mesmo do banco.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |
