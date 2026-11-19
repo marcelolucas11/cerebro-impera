@@ -5,7 +5,14 @@ import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { purgeAttachments, resumeScans } from '../src/modules/attachments.js';
 import { createTestEnv, EICAR, expireStepUp, type Person, type TestEnv } from './support/env.js';
-import { attempt, bind, buildScenario, connectAs, type Scenario } from './support/scenario.js';
+import {
+  attempt,
+  attemptAlone,
+  bind,
+  buildScenario,
+  connectAs,
+  type Scenario,
+} from './support/scenario.js';
 
 /*
  * Attachments: who may send, see and download them; that nothing unchecked is
@@ -550,9 +557,13 @@ describe('straight at the database', () => {
       [id],
     );
     expect(late.ok).toBe(false);
-    const again = await attempt(app, `SELECT app.record_scan($1, 'infected')`, [id]);
-    expect(again).toMatchObject({ ok: false, code: 'CB003' });
+    // Nobody answers for the antivirus from inside a request...
+    const asAna = await attempt(app, `SELECT app.record_scan($1, 'infected')`, [id]);
+    expect(asAna).toMatchObject({ ok: false, code: 'CB001' });
     await app.query('ROLLBACK');
+    // ...and the antivirus itself does not get a second say.
+    const again = await attemptAlone(app, `SELECT app.record_scan($1, 'infected')`, [id]);
+    expect(again).toMatchObject({ ok: false, code: 'CB003' });
     // Once finished, Marta sees the file, but its parts stay the sender's business.
     expect(await bind(app, s.marta)).toBe(true);
     const seen = await app.query(`SELECT 1 FROM app.attachments WHERE id = $1`, [id]);
