@@ -1041,6 +1041,33 @@ atualizador só aceita o que tiver exatamente a identidade desse fluxo.
 - **Ainda manual:** o próprio atualizador se troca à mão, pelo digest publicado na release.
   Rever com o mantenedor.
 
+## D68 — Cópias com restic, cifradas antes de sair, e restauração provada todo mês
+
+**Decisão.** O serviço `apps/backup` faz uma cópia por dia, às 03h no fuso do contêiner
+(`CEREBRO_BACKUP_HOUR` muda a hora). Em cada cópia:
+
+1. `pg_dump` do banco;
+2. `restic backup` do banco, dos anexos e da configuração, marcado com a instalação;
+3. retenção de um ano (30 diárias, 26 semanais e 12 mensais) com `restic forget --prune`.
+
+O restic cifra tudo no servidor antes de enviar. O destino é qualquer repositório do restic: um
+volume local por padrão, ou o Google Drive pelo rclone (`rclone:<remoto>:<pasta>`), configurado
+pelo mantenedor no servidor.
+
+- **Teste mensal**, no dia 1, depois da cópia:
+  - confere o repositório (`restic check`);
+  - restaura o banco da cópia mais recente num PostgreSQL descartável dentro do próprio contêiner,
+    sem rede, só por socket local;
+  - confere que há pessoas e que a trilha de auditoria está íntegra;
+  - apaga tudo.
+- **Situação:** fica gravada num arquivo que a API vai ler, com a última cópia, a última boa, o
+  último teste e a próxima.
+- **Falhas:** cada falha diz em palavras qual passo deu errado. A cópia anterior continua lá. O
+  arquivo do banco sem cifra nunca fica fora do repositório.
+- **Senhas:** a do banco vai só para o `pg_dump`; a chave das cópias vai só para o restic, por
+  arquivo.
+- Sem o socket do Docker; anexos e configuração montados somente para leitura (próxima parte).
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |
