@@ -434,6 +434,63 @@ describe('grants', () => {
     expect(ids((await treeOf(s.marta)).lists)).toEqual([s.tarefas, s.perfis].sort());
   });
 
+  it('cannot open, by granting a whole space or folder, a list the grantor is kept out of', async () => {
+    // Marta manages the space, but the owner keeps her out of one of its lists.
+    await confirmSecondFactor(s.owner);
+    const rule = (level: string, itemScope?: string) =>
+      s.owner.browser.put<Grant>('/api/grants', {
+        userId: s.marta.id,
+        scopeType: 'list',
+        scopeId: s.perfis,
+        level,
+        ...(itemScope === undefined ? {} : { itemScope }),
+      });
+    const kept = await rule('none');
+    expect(kept.status).toBe(200);
+
+    await confirmSecondFactor(s.marta);
+    const wide = (scopeType: string, scopeId: string, level: string, itemScope: string) =>
+      s.marta.browser.put<Grant>('/api/grants', {
+        userId: s.ana.id,
+        scopeType,
+        scopeId,
+        level,
+        itemScope,
+      });
+    expect((await wide('space', s.operacao, 'view', 'assigned')).status).toBe(403);
+    expect((await wide('folder', s.equipe, 'view', 'assigned')).status).toBe(403);
+    expect(ids((await treeOf(s.ana)).lists)).toEqual([s.tarefas]);
+
+    // Limited to editing her own items there: she hands out as much, and no more.
+    await confirmSecondFactor(s.owner);
+    expect((await rule('edit', 'assigned')).status).toBe(200);
+    await confirmSecondFactor(s.marta);
+    expect((await wide('space', s.operacao, 'manage', 'all')).status).toBe(403);
+    expect((await wide('space', s.operacao, 'edit', 'all')).status).toBe(403);
+    const fits = await wide('space', s.operacao, 'edit', 'assigned');
+    expect(fits.status).toBe(200);
+    expect(ids((await treeOf(s.ana)).lists)).toEqual([s.tarefas, s.perfis].sort());
+
+    // Taking a rule away only narrows access, so it stays possible.
+    expect((await s.marta.browser.delete(`/api/grants/${fits.body.id}`)).status).toBe(200);
+    await confirmSecondFactor(s.owner);
+    expect((await s.owner.browser.delete(`/api/grants/${kept.body.id}`)).status).toBe(200);
+    expect(ids((await treeOf(s.ana)).lists)).toEqual([s.tarefas]);
+
+    // A rule on a folder below counts the same.
+    const folder = await s.owner.browser.put<Grant>('/api/grants', {
+      userId: s.marta.id,
+      scopeType: 'folder',
+      scopeId: s.equipe,
+      level: 'view',
+    });
+    expect(folder.status).toBe(200);
+    await confirmSecondFactor(s.marta);
+    expect((await wide('space', s.operacao, 'edit', 'assigned')).status).toBe(403);
+    await confirmSecondFactor(s.owner);
+    expect((await s.owner.browser.delete(`/api/grants/${folder.body.id}`)).status).toBe(200);
+  });
+
   it('open a whole list to an employee only when someone with authority says so', async () => {
     const widen = await s.owner.browser.put<Grant>('/api/grants', {
       userId: s.bruno.id,

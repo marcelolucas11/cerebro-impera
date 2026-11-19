@@ -1089,9 +1089,14 @@ describe('at the database', () => {
       `INSERT INTO app.automation_runs (automation_id, outcome) VALUES ($1, 'done')`,
       [rule.body.id],
     );
+    // A routine's work: not from inside anyone's request.
     expect(await bind(app, s.owner)).toBe(true);
+    expect(await attempt(app, 'SELECT app.purge_automation_runs()')).toMatchObject({
+      ok: false,
+      code: 'CB001',
+    });
+    await app.query('ROLLBACK');
     expect((await app.query('SELECT app.purge_automation_runs() AS n')).rows[0]).toEqual({ n: 1 });
-    await app.query('COMMIT');
     expect(await runsOf(rule.body.id)).toHaveLength(1);
     // Removing the rule takes its log with it.
     await s.owner.browser.delete(`/api/automations/${rule.body.id}`);

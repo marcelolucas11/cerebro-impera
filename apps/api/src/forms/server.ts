@@ -2,6 +2,7 @@ import rateLimit from '@fastify/rate-limit';
 import type { PublicForm } from '@cerebro/shared';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import type pg from 'pg';
+import { trustHops } from '../http/proxy.js';
 import { brandStyleSheet } from '../modules/brand.js';
 import { readAnswer, type FormBody } from './answer.js';
 import { closedPage, formPage, FORM_STYLE, fullPage, sentPage } from './page.js';
@@ -24,7 +25,8 @@ export interface FormsDeps {
   key: Buffer;
   /** Exact origin the forms are served from, e.g. https://formularios.exemplo.com */
   origin: string;
-  trustProxy: boolean;
+  /** How many proxies in front set X-Forwarded-For (see Config.trustProxy). */
+  trustProxy: number;
   now: () => number;
   logger: boolean;
   /** Sends allowed per address within ten minutes. */
@@ -64,7 +66,7 @@ export async function buildFormsApp(deps: FormsDeps): Promise<FastifyInstance> {
   const host = new URL(deps.origin).host;
   const app = Fastify({
     logger: deps.logger ? { redact: ['req.headers.cookie', 'req.headers.authorization'] } : false,
-    trustProxy: deps.trustProxy,
+    trustProxy: trustHops(deps.trustProxy),
     bodyLimit: 64 * 1024,
   });
 

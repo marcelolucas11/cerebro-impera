@@ -82,7 +82,7 @@ export async function createTestEnv(
     env: 'test',
     publicOrigin: ORIGIN,
     listen: { host: '127.0.0.1', port: 0 },
-    trustProxy: false,
+    trustProxy: 0,
     requestsPerMinute: options.requestsPerMinute ?? DEFAULT_REQUESTS_PER_MINUTE,
     db: {
       host,

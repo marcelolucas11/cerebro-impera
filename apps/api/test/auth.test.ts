@@ -351,6 +351,33 @@ describe('brute force', () => {
     expect(alerts.body.some((a) => a.kind === 'login_lockout')).toBe(true);
   });
 
+  it('locks an e-mail no one has exactly as a real one, so locking reveals nothing', async () => {
+    const answers = async (email: string): Promise<{ status: number; body: unknown }[]> => {
+      const prober = new Browser(env.app);
+      const seen: { status: number; body: unknown }[] = [];
+      for (let i = 0; i < 7; i += 1) {
+        const attempt = await prober.post('/api/auth/login', {
+          email,
+          password: `palpite-${String(i)}-errado`,
+        });
+        seen.push({ status: attempt.status, body: attempt.body });
+      }
+      return seen;
+    };
+    // Start clean: the test before left the owner locked.
+    await env.admin.query('DELETE FROM auth.throttle');
+    const fake = await answers('ninguem.mesmo@exemplo.test');
+    const real = await answers(owner.email);
+    expect(fake.map((a) => a.status)).toEqual(real.map((a) => a.status));
+    expect(fake.at(-1)).toEqual(real.at(-1));
+    // The address typed is not kept in the clear.
+    const keys = await env.admin.query<{ key: string }>(
+      `SELECT key FROM auth.throttle WHERE key LIKE 'email:%'`,
+    );
+    expect(keys.rows.length).toBeGreaterThan(0);
+    expect(JSON.stringify(keys.rows)).not.toContain('ninguem');
+  });
+
   it('gives up on a sign-in attempt after five wrong codes', async () => {
     await env.admin.query('DELETE FROM auth.throttle');
     const browser = new Browser(env.app);

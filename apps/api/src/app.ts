@@ -5,15 +5,37 @@ import { digest } from './crypto/tokens.js';
 import { readToken, SESSION_COOKIE } from './http/cookies.js';
 import type { Deps } from './deps.js';
 import { forbidden, fromDatabaseError, HttpError, tooManyRequests } from './http/errors.js';
+import { addressGroup, trustHops } from './http/proxy.js';
 import { isApiPath, loadBundle, pathOf, serveFromBundle } from './http/web.js';
 import { registerRoutes } from './routes.js';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+/** How many sessions' worth of requests one address may make in a minute. */
+export const ADDRESS_ALLOWANCE = 5;
+
+/**
+ * Whether a request is for the API, judged by the route it reached: the router
+ * decodes the path, so "/%61pi/..." reaches "/api/..." and must be judged as it.
+ */
+function isApiRequest(request: FastifyRequest): boolean {
+  const route = request.routeOptions.url;
+  if (route !== undefined) return isApiPath(route);
+  let path = pathOf(request.url);
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    // Badly encoded: treated as written, and no route takes it.
+  }
+  return isApiPath(path);
+}
+
 /**
  * Whose requests are counted together: a session, by a digest of its token
  * (never the token itself), or the address before anyone signs in. Counting by
  * session keeps a whole office behind one address from sharing one allowance.
+ * The cookie is not checked here, so a made-up one would open a fresh count:
+ * the cap per address below holds those back.
  */
 function rateKey(request: FastifyRequest): string {
   const token = readToken(request, SESSION_COOKIE);
@@ -49,7 +71,7 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
               'res.headers["set-cookie"]',
             ],
           },
-    trustProxy: config.trustProxy,
+    trustProxy: trustHops(config.trustProxy),
     bodyLimit: 256 * 1024,
   });
 
@@ -57,6 +79,27 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
   // plain HTML form (which cannot send JSON) can never reach a handler.
   app.removeContentTypeParser('text/plain');
   await app.register(cookie);
+
+  // Every address has a ceiling, whatever cookies it sends: several times one session's
+  // allowance, enough for an office behind one address.
+  const perAddress = config.requestsPerMinute * ADDRESS_ALLOWANCE;
+  let windowStart = Date.now();
+  const byAddress = new Map<string, number>();
+  app.addHook('onRequest', (request, _reply, done) => {
+    const now = Date.now();
+    if (now - windowStart >= 60_000) {
+      windowStart = now;
+      byAddress.clear();
+    }
+    const group = addressGroup(request.ip);
+    const count = (byAddress.get(group) ?? 0) + 1;
+    byAddress.set(group, count);
+    if (count > perAddress) {
+      done(tooManyRequests(Math.max(1, Math.ceil((windowStart + 60_000 - now) / 1000))));
+      return;
+    }
+    done();
+  });
 
   // Every route is limited; routes may ask for a tighter limit of their own.
   await app.register(rateLimit, {
@@ -90,7 +133,7 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
         return;
       }
     } else if (
-      (bundle === null || isApiPath(pathOf(request.url))) &&
+      (bundle === null || isApiRequest(request)) &&
       site !== undefined &&
       site !== 'same-origin' &&
       site !== 'none'

@@ -53,6 +53,15 @@ anexos sem antivírus, e cada arquivo aparece como "não verificado pelo antiví
 | Segredos só no volume `config`                                      | nada sensível no repositório, na imagem ou em variáveis de ambiente   |
 | Limites de memória e de processos                                   | um problema aqui não derruba outros sistemas no mesmo servidor        |
 
+## Proxy reverso: endereço de quem chega
+
+Os limites por endereço (tentativas de entrada, requisições por minuto, envios de formulário)
+dependem de saber o endereço real de quem chega. A API confia só no número de proxies dito em
+`CEREBRO_TRUST_PROXY` (normalmente 1) e lê o `X-Forwarded-For` da direita para a esquerda, então o
+que o próprio cliente escrever nesse cabeçalho não conta. O Caddy já faz o certo. No Nginx, use
+`proxy_set_header X-Forwarded-For $remote_addr;` (ou `$proxy_add_x_forwarded_for`, que também
+funciona com 1 salto). Endereços IPv6 contam por bloco /64.
+
 ## Proxy reverso: atualizações em tempo real
 
 A rota `/api/events` é um fluxo de eventos que fica aberto enquanto a página está aberta. O proxy

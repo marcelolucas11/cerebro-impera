@@ -1,5 +1,13 @@
+import { randomBytes } from 'node:crypto';
+import Fastify from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { DEFAULT_REQUESTS_PER_MINUTE, parseRequestsPerMinute } from '../src/config.js';
+import { ADDRESS_ALLOWANCE } from '../src/app.js';
+import {
+  DEFAULT_REQUESTS_PER_MINUTE,
+  parseRequestsPerMinute,
+  parseTrustProxy,
+} from '../src/config.js';
+import { addressGroup, trustHops } from '../src/http/proxy.js';
 import { LIVE_OPENS_PER_MINUTE } from '../src/live.js';
 import { Browser, createTestEnv, setUpOwner, type Person, type TestEnv } from './support/env.js';
 
@@ -55,6 +63,51 @@ describe('limits on requests', () => {
     }
     expect(statuses.slice(0, LIVE_OPENS_PER_MINUTE).every((status) => status === 401)).toBe(true);
     expect(statuses.at(-1)).toBe(429);
+  });
+
+  it('caps each address, so made-up session cookies do not open fresh allowances', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < LIMIT * ADDRESS_ALLOWANCE + 5; i += 1) {
+      const response = await env.app.inject({
+        method: 'GET',
+        url: '/api/setup/status',
+        headers: { cookie: `__Host-cerebro_session=${randomBytes(32).toString('base64url')}` },
+      });
+      statuses.push(response.statusCode);
+    }
+    expect(statuses.filter((status) => status === 200).length).toBeLessThanOrEqual(
+      LIMIT * ADDRESS_ALLOWANCE,
+    );
+    expect(statuses.at(-1)).toBe(429);
+  });
+
+  it('believes only the proxies in front, never an address the client wrote', async () => {
+    expect(parseTrustProxy(undefined)).toBe(0);
+    expect(parseTrustProxy('false')).toBe(0);
+    expect(parseTrustProxy('true')).toBe(1);
+    expect(parseTrustProxy('2')).toBe(2);
+    for (const bad of ['sim', '-1', '9', '1.5']) {
+      expect(() => parseTrustProxy(bad), bad).toThrow(/CEREBRO_TRUST_PROXY/);
+    }
+    const probe = Fastify({ trustProxy: trustHops(1) });
+    probe.get('/', (request) => ({ ip: request.ip }));
+    // The client wrote the first address; the proxy appended the one it saw.
+    const seen = await probe.inject({
+      method: 'GET',
+      url: '/',
+      headers: { 'x-forwarded-for': '203.0.113.9, 198.51.100.7' },
+    });
+    expect(seen.json()).toEqual({ ip: '198.51.100.7' });
+    await probe.close();
+
+    // One IPv6 subscriber holds a whole /64: it counts as one.
+    expect(addressGroup('2001:db8:1:2:aaaa::1')).toBe('2001:db8:1:2::/64');
+    expect(addressGroup('2001:0db8:0001:0002:ffff:1:2:3')).toBe('2001:db8:1:2::/64');
+    expect(addressGroup('2001:db8::1')).toBe('2001:db8:0:0::/64');
+    expect(addressGroup('fe80::1%eth0')).toBe('fe80:0:0:0::/64');
+    expect(addressGroup('::ffff:203.0.113.9')).toBe('203.0.113.9');
+    expect(addressGroup('203.0.113.9')).toBe('203.0.113.9');
+    expect(addressGroup(null)).toBe('unknown');
   });
 
   it('is set by the installation, within sensible bounds', () => {

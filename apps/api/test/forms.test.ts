@@ -130,7 +130,7 @@ beforeAll(async () => {
     pool: formsPool,
     key,
     origin: FORMS_ORIGIN,
-    trustProxy: false,
+    trustProxy: 0,
     now: () => clock,
     logger: false,
     sendsPerWindow: 1000,

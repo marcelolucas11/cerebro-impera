@@ -1168,6 +1168,64 @@ formulário aberto: não leria nada, não teria sessão nem chave da instância.
 **Rever com o mantenedor.** CAPTCHA continua adiado (o carimbo e a isca seguram o grosso dos
 robôs). Anexos em formulário esperam a decisão do antivírus (D33).
 
+## D72 — Revisão independente: o banco segura sozinho o que antes dependia de cada serviço
+
+**Contexto.** Três revisores que não escreveram o código leram o banco, a API com os serviços, e a
+página com a instalação, procurando o que alguém de dentro (com acesso maior) ou de fora conseguiria
+forçar. Nada crítico ou alto. O que foi corrigido está aqui; o que ainda está em correção fica fora
+do repositório público até sair.
+
+**Decisão.** Cada limite passa a valer no ponto que nenhum serviço contorna, mesmo que um deles seja
+levado a mandar qualquer comando ao banco.
+
+- **Conceder não amplia o próprio acesso** (0045): quem concede um espaço ou uma pasta precisa ter,
+  em cada regra própria abaixo, pelo menos o nível e o alcance que entrega.
+- **Entrada e limites:**
+  - e-mail inexistente bloqueia igual a um real (chave por HMAC do e-mail), então errar a senha não
+    revela quem tem conta;
+  - só o número configurado de proxies vale no `X-Forwarded-For` (`CEREBRO_TRUST_PROXY`, "true" vale
+    1), e IPv6 conta por /64;
+  - além do limite por sessão, um teto por endereço: cookie inventado não abre balde novo;
+  - a conferência de origem dos GET julga pela rota alcançada, não pela URL crua.
+- **Rotinas só fora de uma requisição** (0046): verificação de anexos, faxinas e lembretes
+  recusam quem chama com identidade. O corpo de cada uma fica sob outro nome, sem permissão para
+  ninguém.
+- **O serviço de entrada confere senhas e códigos; o banco segura a porta depois disso:**
+  - aparelho só entra ou volta como "aguardando" (salvo o do primeiro Dono, durante a instalação);
+    aprovar é sempre de uma pessoa, pelo aplicativo;
+  - sessão só abre por `auth.open_session`, num aparelho aprovado da mesma pessoa, ativa, e só para
+    quem mostra o segredo desse aparelho (o banco guarda só o resumo). Ninguém abre sessão num
+    aparelho que ninguém aprovou;
+  - depois de aberta, a sessão só muda para terminar (de vez) ou para marcar o código confirmado
+    agora. Validade, dono, aparelho e token não mudam;
+  - convite é feito pelo aplicativo; o serviço de entrada só o usa, uma vez. Conta só fica ativa
+    pelo próprio convite, usado no mesmo passo.
+- **Contas na requisição, não em variável de sessão:** o total de itens mandados à lixeira numa
+  requisição fica em `authz.request_ctx`, que nenhum serviço escreve. A regra que passa para o
+  próximo item da recorrência é reconhecida por acontecer dentro de outro gatilho
+  (`pg_trigger_depth()`), o que nenhum serviço finge.
+- **Regras de pessoas sob todos os serviços:** etapa restrita, quem pode receber item, campo de
+  pessoas e subtarefa valiam só na conexão do aplicativo. Agora valem para os três serviços e para
+  quem age como pessoa (`authz.enforced()`); só a manutenção feita pelo dono do banco passa sem.
+  Assim, as regras que um formulário dispara obedecem ao autor delas, e um formulário cujo autor
+  não pode mais pôr itens na etapa escolhida fecha.
+- **Lista:** baixar a proteção de uma lista sensível ou mudá-la de lugar é só do Dono, com código
+  confirmado há pouco, e entra na auditoria (como arquivar e proteger).
+- **Notificação** só aparece, mesmo lida direto na tabela, enquanto a pessoa ainda vê o item.
+- **Auditoria:** do aplicativo, só entradas da lista conhecida, com quem fez, sobre os alvos
+  conhecidos e com no máximo 8 KB de detalhes; do serviço de entrada, só as entradas de entrada.
+- **Ao mesmo tempo:** duas instalações simultâneas, ou dois Donos rebaixando um ao outro, fazem
+  fila na linha de configurações; o segundo conta de novo e é recusado.
+
+**Por quê.** O pior caso que cabe imaginar é um serviço ser tomado. Com isso, quem tomasse o
+serviço de entrada ainda precisaria que alguém com autoridade aprovasse o aparelho dele; quem
+tomasse o aplicativo continuaria preso às permissões da pessoa da requisição; e quem tomasse os
+formulários só mandaria respostas, como antes.
+
+**O que sobra, por escrito.** O banco não confere o código do autenticador. Um serviço de entrada
+tomado, nas mãos de quem já tem conta e aparelho aprovado, poderia marcar o código como confirmado
+sem digitá-lo. Isso vale só para a própria sessão, que já é dela.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

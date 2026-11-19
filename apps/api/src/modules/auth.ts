@@ -22,6 +22,7 @@ import {
   setCookie,
 } from '../http/cookies.js';
 import { badRequest, conflict, forbidden, unauthorized } from '../http/errors.js';
+import { addressGroup } from '../http/proxy.js';
 import { clientIp, userAgent } from '../http/request.js';
 import {
   ACCOUNT_POLICY,
@@ -49,7 +50,7 @@ interface DeviceRow {
 // ---------------------------------------------------------------------------
 
 function ipKey(ip: string | null): string {
-  return `ip:${ip ?? 'unknown'}`;
+  return `ip:${addressGroup(ip)}`;
 }
 
 /**
@@ -59,6 +60,15 @@ function ipKey(ip: string | null): string {
  */
 function accountKey(userId: string, device: DeviceRow | undefined): string {
   return device?.status === 'approved' ? `device:${device.id}` : `account:${userId}`;
+}
+
+/**
+ * An e-mail no account has is counted as an account would be. Otherwise only real
+ * e-mails would ever lock, and a few wrong passwords would tell which ones exist. Kept
+ * as a keyed digest: the throttle table never holds the addresses people typed.
+ */
+function emailKey(deps: Deps, email: string): string {
+  return `email:${deps.vault.mac('throttle', 'email', email.trim().toLowerCase()).toString('base64url')}`;
 }
 
 async function findDevice(
@@ -220,25 +230,19 @@ async function createSession(
   request: FastifyRequest,
   reply: FastifyReply,
   userId: string,
-  deviceId: string,
+  deviceToken: string,
 ): Promise<string> {
-  const settings = await one<{ session_absolute_hours: number }>(
-    tx,
-    sql`SELECT session_absolute_hours FROM app.instance_settings`,
-  );
-  const hours = settings?.session_absolute_hours ?? 12;
   const token = newToken();
   const id = randomUUID();
-  // The second factor was just confirmed, so the session starts "stepped up".
-  await run(
+  // The database opens it only on an approved device of this person, shown
+  // that device's secret; it starts "stepped up" (the second factor was just
+  // confirmed) and lasts what the installation allows.
+  const opened = await one<{ hours: number }>(
     tx,
-    sql`INSERT INTO auth.sessions (id, user_id, device_id, token_hash, expires_at, step_up_at,
-                                   ip, user_agent)
-        VALUES (${id}, ${userId}, ${deviceId}, sha256(${digest(token)}),
-                now() + make_interval(hours => ${hours}), now(), ${clientIp(request)}::inet,
-                ${userAgent(request)})`,
+    sql`SELECT auth.open_session(${id}, ${userId}, ${digest(deviceToken)}, ${digest(token)},
+                                 ${clientIp(request)}::inet, ${userAgent(request)}) AS hours`,
   );
-  setCookie(reply, SESSION_COOKIE, token, hours * 3600);
+  setCookie(reply, SESSION_COOKIE, token, (opened?.hours ?? 12) * 3600);
   return id;
 }
 
@@ -269,12 +273,10 @@ async function finishLogin(
     const device = await findDevice(tx, request, userId);
     await clearFailures(tx, accountKey(userId, device));
 
-    if (device?.status === 'approved') {
-      const sessionId = await createSession(tx, request, reply, userId, device.id);
-      const deviceToken = readToken(request, DEVICE_COOKIE);
-      if (deviceToken !== undefined) {
-        setCookie(reply, DEVICE_COOKIE, deviceToken, DEVICE_COOKIE_SECONDS); // renew
-      }
+    const deviceToken = readToken(request, DEVICE_COOKIE);
+    if (device?.status === 'approved' && deviceToken !== undefined) {
+      const sessionId = await createSession(tx, request, reply, userId, deviceToken);
+      setCookie(reply, DEVICE_COOKIE, deviceToken, DEVICE_COOKIE_SECONDS); // renew
       await audit(tx, userId, ip, 'login.succeeded', { type: 'session', id: sessionId });
       return { status: 'authenticated' };
     }
@@ -449,7 +451,7 @@ export async function completeSetup(
       sql`UPDATE app.instance_settings
           SET instance_name = ${body.instanceName}, setup_completed_at = now()`,
     );
-    await createSession(tx, request, reply, userId, deviceId);
+    await createSession(tx, request, reply, userId, deviceToken);
     await audit(tx, userId, ip, 'instance.setup_completed', { type: 'user', id: userId });
   });
 
@@ -504,8 +506,8 @@ export async function login(
         WHERE u.email = ${body.email}`,
   );
   const device = user ? await findDevice(db, request, user.id) : undefined;
-  const key = user ? accountKey(user.id, device) : undefined;
-  if (key !== undefined) await assertNotLocked(db, key);
+  const key = user ? accountKey(user.id, device) : emailKey(deps, body.email);
+  await assertNotLocked(db, key);
 
   let passwordOk = false;
   if (user && user.password_hash !== null && user.status === 'active') {
@@ -520,7 +522,7 @@ export async function login(
       ip,
       reason: 'password',
       ...(user ? { userId: user.id } : {}),
-      ...(key !== undefined ? { accountKey: key } : {}),
+      accountKey: key,
     });
     // One message for every cause, so nothing reveals which e-mails exist.
     throw unauthorized('invalid_credentials');

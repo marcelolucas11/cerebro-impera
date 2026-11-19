@@ -144,6 +144,13 @@ describe('finishing a recurring item', () => {
       recurrence: { unit: 'week', every: 2 },
     });
     expect((await items()).find((item) => item.id === id)?.recurrence).toBeNull();
+    // The rule moving on is written once, as "repeated": no rule change on either item.
+    const ruleChanges = await env.admin.query(
+      `SELECT item_id FROM app.item_changes
+       WHERE what = 'recurrence' AND item_id = ANY ($1::uuid[]) ORDER BY id`,
+      [[id, next?.id]],
+    );
+    expect(ruleChanges.rows).toEqual([{ item_id: id }]);
     // Finishing it again makes nothing more: the rule moved on.
     await moveTo(s.marta, id, stage.active);
     await moveTo(s.marta, id, stage.done);

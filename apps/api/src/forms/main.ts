@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { parsePublicOrigin } from '../config.js';
+import { parsePublicOrigin, parseTrustProxy } from '../config.js';
 import { readFormsSecrets } from '../secrets.js';
 import { buildFormsApp } from './server.js';
 
@@ -39,7 +39,7 @@ export async function serveForms(): Promise<void> {
     pool,
     key: secrets.formKey,
     origin,
-    trustProxy: env.CEREBRO_TRUST_PROXY === 'true',
+    trustProxy: parseTrustProxy(env.CEREBRO_TRUST_PROXY),
     now: () => Date.now(),
     logger: true,
   });
