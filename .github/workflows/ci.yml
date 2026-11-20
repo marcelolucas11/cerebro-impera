@@ -168,11 +168,13 @@ jobs:
           echo "os segredos existem só no volume de configuração, com permissão restrita"
           test "$(docker compose exec -T api stat -c '%a' /opt/cerebro/config/api/secrets.json)" = "600"
           test "$(docker compose exec -T api stat -c '%a' /opt/cerebro/config/updater/updater-key)" = "600"
-          docker compose exec -T api test -s /opt/cerebro/config/api/setup-token
-          token="$(docker compose exec -T api cat /opt/cerebro/config/api/setup-token)"
+          docker compose exec -T api test -s /opt/cerebro/config/setup/setup-token
+          token="$(docker compose exec -T api cat /opt/cerebro/config/setup/setup-token)"
 
-          echo "a API vê só a própria pasta e a chave do atualizador: nem a senha de administrador do banco, nem a chave das cópias"
-          test "$(docker compose exec -T api ls -A /opt/cerebro/config | sort | tr '\n' ' ')" = "api updater "
+          echo "a API vê só a própria pasta, a chave do atualizador e o token: nem a senha de administrador do banco, nem a chave das cópias"
+          test "$(docker compose exec -T api ls -A /opt/cerebro/config | sort | tr '\n' ' ')" = "api setup updater "
+          # E não escreve na própria pasta: só na do token.
+          if docker compose exec -T api sh -c 'touch /opt/cerebro/config/api/x' 2> /dev/null; then exit 1; fi
           if docker compose exec -T api grep --quiet adminPassword /opt/cerebro/config/api/secrets.json; then exit 1; fi
           test "$(docker compose exec -T api ls -A /opt/cerebro/config/updater)" = "updater-key"
           if docker compose exec -T api touch /opt/cerebro/config/updater/x 2> /dev/null; then exit 1; fi

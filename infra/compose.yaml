@@ -135,14 +135,20 @@ services:
     command: [serve]
     restart: unless-stopped
     # Só a API monta os anexos; nenhum outro serviço os alcança. Da configuração, só a própria
-    # pasta (onde também fica o token de instalação) e a chave do atualizador: nunca a senha de
-    # administrador do banco nem a chave das cópias.
+    # pasta (só leitura), a chave do atualizador e a pasta do token de instalação, a única em que
+    # ela escreve: nunca a senha de administrador do banco nem a chave das cópias.
     volumes:
       - type: volume
         source: config
         target: /opt/cerebro/config/api
+        read_only: true
         volume:
           subpath: api
+      - type: volume
+        source: config
+        target: /opt/cerebro/config/setup
+        volume:
+          subpath: setup
       - type: volume
         source: config
         target: /opt/cerebro/config/updater
