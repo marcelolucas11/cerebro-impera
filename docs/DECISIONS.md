@@ -1515,6 +1515,18 @@ registro depois.
   fora de uma requisição. Separar um papel só para elas fica para depois (**Rever com o
   mantenedor**).
 
+## D87 — A API não escreve na própria pasta da configuração
+
+**Decisão.** O token de instalação (de uso único, que reivindica uma instalação nova) ganhou uma
+pasta própria no volume de configuração, `setup/`. A API monta a pasta dela (`api/`, com a chave
+da instância e as senhas com que ela entra no banco) só para leitura, e escreve só na do token.
+Uma instalação que tinha o token em `api/` o vê mudar de lugar no próximo start.
+
+**Por quê.** A pasta `api/` era montada com escrita só por causa do token. A segunda revisão não
+achou como uma API tomada tiraria proveito de reescrever `secrets.json` (as migrações o leem, mas
+põem os valores entre aspas e o verificador da senha só aceita ASCII), mas não há motivo para
+deixar a porta aberta. O CI confere que a API não escreve lá.
+
 ## Adiado, com motivo
 
 | Item                                                  | Situação                                                                                                     |

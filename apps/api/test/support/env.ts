@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
@@ -78,6 +78,7 @@ export async function createTestEnv(
   const admin = new pg.Pool({ connectionString: databaseUrl.toString(), max: 4 });
 
   const configDir = mkdtempSync(join(tmpdir(), 'cerebro-test-'));
+  mkdirSync(join(configDir, 'setup'), { mode: 0o700 });
   const config: Config = {
     env: 'test',
     publicOrigin: ORIGIN,
@@ -94,7 +95,7 @@ export async function createTestEnv(
     masterKey: randomBytes(32),
     // Deliberately cheap: these tests are about behaviour, not hashing cost.
     argon2: { memoryCost: 4096, timeCost: 1, parallelism: 1 },
-    setupTokenFile: join(configDir, 'setup-token'),
+    setupTokenFile: join(configDir, 'setup', 'setup-token'),
     webRoot: options.webRoot ?? null,
     files: { dir: join(configDir, 'files'), maxBytes: 20 * 1024 * 1024 },
     antivirus: { kind: 'off' },

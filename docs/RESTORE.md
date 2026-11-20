@@ -46,7 +46,7 @@ Em `./restaurado` aparecem:
 - `work/db.dump`: o banco, no formato do `pg_dump`;
 - `data/files/`: os anexos, ainda cifrados, porque só abrem com a configuração abaixo;
 - `data/config/`: a configuração da instância, uma pasta por serviço (`api/` com a chave mestra,
-  `db/` com a senha de administrador do banco, `updater/`, `backup/` e `forms/`). Cópias feitas
+  `db/` com a senha de administrador do banco, `updater/`, `backup/`, `forms/` e `setup/`). Cópias feitas
   antes das pastas têm tudo direto em `data/config/`; o `init` muda de lugar sozinho no primeiro
   start.
 

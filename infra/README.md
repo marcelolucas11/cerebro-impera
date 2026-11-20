@@ -16,16 +16,17 @@ CEREBRO_PUBLIC_ORIGIN=https://cerebro.exemplo.test docker compose --file infra/c
 No primeiro start:
 
 1. `init` gera os segredos da instância no volume `config`, uma pasta por serviço (`api`, `db`,
-   `updater`, `backup`, `forms`). Não existe senha padrão, e eles nunca são sobrescritos. Uma
-   instalação de antes das pastas tem os arquivos mudados de lugar no próximo start.
+   `updater`, `backup`, `forms`, e `setup` para o token de instalação, a única em que a API
+   escreve). Não existe senha padrão, e eles nunca são sobrescritos. Uma instalação de antes das
+   pastas tem os arquivos mudados de lugar no próximo start.
 2. `postgres` nasce com a senha de administrador lida desse volume.
 3. `migrate` aplica as migrações e define as senhas dos três papéis de serviço (API, entrada e
    formulários).
 4. `api` sobe e, como ainda não há Dono, grava um token de instalação de uso único em
-   `/opt/cerebro/config/api/setup-token`. Sem esse token ninguém consegue reivindicar a instalação:
+   `/opt/cerebro/config/setup/setup-token`. Sem esse token ninguém consegue reivindicar a instalação:
 
    ```sh
-   docker compose --file infra/compose.yaml exec api cat /opt/cerebro/config/api/setup-token
+   docker compose --file infra/compose.yaml exec api cat /opt/cerebro/config/setup/setup-token
    ```
 
 ## Anexos e antivírus

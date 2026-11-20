@@ -229,9 +229,9 @@ describe('instance secrets', () => {
     expect(readFileSync(join(dir, 'updater/updater-key'), 'utf8')).toBe('chave-antiga');
     expect(readFileSync(join(dir, 'backup/backup-password'), 'utf8')).toBe('copias-antigas');
     expect(readFileSync(join(dir, 'backup/rclone.conf'), 'utf8')).toBe('[drive]');
-    expect(readFileSync(join(dir, 'api/setup-token'), 'utf8')).toBe('token');
+    expect(readFileSync(join(dir, 'setup/setup-token'), 'utf8')).toBe('token');
     // Nothing is left at the top for a service that mounts the whole volume.
-    expect(readdirSync(dir).sort()).toEqual(['api', 'backup', 'db', 'forms', 'updater']);
+    expect(readdirSync(dir).sort()).toEqual(['api', 'backup', 'db', 'forms', 'setup', 'updater']);
     expect(initSecrets(dir)).toEqual({ created: false, moved: [] });
   });
 
@@ -250,6 +250,17 @@ describe('instance secrets', () => {
     expect(() => readFormsSecrets(dir)).toThrow();
     writeFileSync(join(dir, 'forms/extra'), 'x');
     expect(() => readFormsSecrets(join(dir, 'forms'))).toThrow('more than the forms secrets');
+  });
+
+  it('keep the installation token in a folder of its own, the only one the API writes', () => {
+    const dir = join(scratch, 'token-folder');
+    initSecrets(dir);
+    // Where it was before it had a folder of its own: it moves, once.
+    writeFileSync(join(dir, 'api', 'setup-token'), 'token', { mode: 0o600 });
+    expect(initSecrets(dir).moved).toEqual([join('api', 'setup-token')]);
+    expect(readFileSync(join(dir, 'setup', 'setup-token'), 'utf8')).toBe('token');
+    expect(readdirSync(join(dir, 'api'))).toEqual(['secrets.json']);
+    expect(initSecrets(dir).moved).toEqual([]);
   });
 
   it('keep the API from starting with more of the configuration than its own', () => {

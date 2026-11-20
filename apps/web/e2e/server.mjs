@@ -108,7 +108,7 @@ writeFileSync(
   join(work, 'state.json'),
   JSON.stringify({
     databaseUrl: databaseUrl.toString(),
-    setupTokenFile: join(configDir, 'api', 'setup-token'),
+    setupTokenFile: join(configDir, 'setup', 'setup-token'),
   }),
   { mode: 0o600 },
 );
