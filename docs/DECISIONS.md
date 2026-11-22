@@ -1389,6 +1389,10 @@ no CI, é referenciada pelo hash, além da tag. O CI reprova uma imagem nova sem
 propõe os hashes novos, inclusive das imagens do atualizador e das cópias, que ele não olhava, e
 nenhuma versão nova (de pacote, ação ou imagem) é proposta antes de três dias publicada.
 
+As versões maiores das ferramentas de desenvolvimento chegam em pull request próprio, fora do
+grupo (a primeira leva juntou TypeScript 7 e os tipos do Node 26 com correções pequenas, e o CI
+reprovou tudo junto), e os tipos do Node ficam na versão maior do Node que roda o Cérebro (22).
+
 O PostgreSQL das cópias nunca pode ser mais antigo que o do banco: uma cópia feita no 16.16 não
 abriu no 16.15 (um parâmetro que o 16.15 não conhece), e o teste de restauração do CI reprovou. O
 Dependabot propõe as duas imagens em pull requests separados; trocar as duas juntas. Quando um
