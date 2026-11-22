@@ -31,6 +31,8 @@ export const DB_DIR = 'db';
 export const UPDATER_DIR = 'updater';
 export const BACKUP_DIR = 'backup';
 export const FORMS_DIR = 'forms';
+/** The one-time token that claims a new installation: the only thing the API writes here. */
+export const SETUP_DIR = 'setup';
 
 export interface InstanceSecrets {
   version: 2;
@@ -42,7 +44,7 @@ export interface InstanceSecrets {
 const SECRETS_FILE = join(API_DIR, 'secrets.json');
 const ADMIN_PASSWORD_FILE = join(DB_DIR, 'admin-password');
 export const UPDATER_KEY_FILE = join(UPDATER_DIR, 'updater-key');
-export const SETUP_TOKEN_FILE = join(API_DIR, 'setup-token');
+export const SETUP_TOKEN_FILE = join(SETUP_DIR, 'setup-token');
 
 function randomPassword(): string {
   return randomBytes(32).toString('base64url');
@@ -107,6 +109,8 @@ function moveOldLayout(configDir: string): string[] {
     ['backup-password', join(BACKUP_DIR, 'backup-password')],
     ['rclone.conf', join(BACKUP_DIR, 'rclone.conf')],
     ['setup-token', SETUP_TOKEN_FILE],
+    // It lived in the API's own folder before it got one of its own.
+    [join(API_DIR, 'setup-token'), SETUP_TOKEN_FILE],
   ] as const) {
     if (existsSync(join(configDir, from)) && !existsSync(join(configDir, to))) {
       renameSync(join(configDir, from), join(configDir, to));
@@ -119,7 +123,7 @@ function moveOldLayout(configDir: string): string[] {
 /** Creates the secrets on first boot; never overwrites existing ones. */
 export function initSecrets(configDir: string): { created: boolean; moved: string[] } {
   mkdirSync(configDir, { recursive: true, mode: 0o700 });
-  for (const folder of [API_DIR, DB_DIR, UPDATER_DIR, BACKUP_DIR, FORMS_DIR]) {
+  for (const folder of [API_DIR, DB_DIR, UPDATER_DIR, BACKUP_DIR, FORMS_DIR, SETUP_DIR]) {
     mkdirSync(join(configDir, folder), { recursive: true, mode: 0o700 });
   }
   const moved = moveOldLayout(configDir);
@@ -195,8 +199,8 @@ export interface FormsSecrets {
 }
 
 /**
- * The API is given only its own folder of the configuration and the updater's
- * key. If it sees more (a compose file from before each service got its own
+ * The API is given only its own folder of the configuration (read only), the
+ * updater's key and the folder of the installation token. If it sees more (a compose file from before each service got its own
  * folder, still mounting the whole volume), it would run with the database
  * administrator's password and the backup key: it refuses to start instead.
  */
@@ -208,11 +212,13 @@ export function assertOwnConfiguration(configDir: string): void {
     // Nothing to see: reading the secrets says what is missing.
     return;
   }
-  const others = entries.filter((entry) => entry !== API_DIR && entry !== UPDATER_DIR);
+  const others = entries.filter(
+    (entry) => entry !== API_DIR && entry !== UPDATER_DIR && entry !== SETUP_DIR,
+  );
   if (others.length > 0) {
     throw new Error(
       `${configDir} holds more than the API's own configuration (${others.join(', ')}); ` +
-        'mount only its "api" and "updater" folders, as infra/compose.yaml does',
+        'mount only its "api", "updater" and "setup" folders, as infra/compose.yaml does',
     );
   }
 }

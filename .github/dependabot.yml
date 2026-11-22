@@ -9,9 +9,19 @@ updates:
     cooldown:
       default-days: 3
     open-pull-requests-limit: 5
+    # O grupo junta só as versões menores e de correção. Uma versão maior (TypeScript 7, por
+    # exemplo) vem sozinha, para ser avaliada como mudança própria.
     groups:
       desenvolvimento:
         dependency-type: development
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Os tipos do Node acompanham o Node que roda o Cérebro (22, em .nvmrc), não o mais novo.
+      - dependency-name: '@types/node'
+        update-types:
+          - version-update:semver-major
   - package-ecosystem: github-actions
     directory: /
     schedule:

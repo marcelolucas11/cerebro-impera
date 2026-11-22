@@ -132,7 +132,7 @@ na hora os eventos de `/api/events` (atualização em tempo real). Com o Nginx, 
 1. Leia o token de instalação, de uso único:
 
    ```sh
-   docker compose --file infra/compose.yaml exec api cat /opt/cerebro/config/api/setup-token
+   docker compose --file infra/compose.yaml exec api cat /opt/cerebro/config/setup/setup-token
    ```
 
 2. Abra `https://cerebro.exemplo.com`. Na tela **Instalar**:

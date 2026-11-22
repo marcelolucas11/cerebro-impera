@@ -1389,6 +1389,10 @@ no CI, é referenciada pelo hash, além da tag. O CI reprova uma imagem nova sem
 propõe os hashes novos, inclusive das imagens do atualizador e das cópias, que ele não olhava, e
 nenhuma versão nova (de pacote, ação ou imagem) é proposta antes de três dias publicada.
 
+As versões maiores das ferramentas de desenvolvimento chegam em pull request próprio, fora do
+grupo (a primeira leva juntou TypeScript 7 e os tipos do Node 26 com correções pequenas, e o CI
+reprovou tudo junto), e os tipos do Node ficam na versão maior do Node que roda o Cérebro (22).
+
 O PostgreSQL das cópias nunca pode ser mais antigo que o do banco: uma cópia feita no 16.16 não
 abriu no 16.15 (um parâmetro que o 16.15 não conhece), e o teste de restauração do CI reprovou. O
 Dependabot propõe as duas imagens em pull requests separados; trocar as duas juntas. Quando um
@@ -1514,6 +1518,18 @@ registro depois.
 - As rotinas do banco (sem identidade) rodam pela mesma conexão da API: uma API tomada as chamaria
   fora de uma requisição. Separar um papel só para elas fica para depois (**Rever com o
   mantenedor**).
+
+## D87 — A API não escreve na própria pasta da configuração
+
+**Decisão.** O token de instalação (de uso único, que reivindica uma instalação nova) ganhou uma
+pasta própria no volume de configuração, `setup/`. A API monta a pasta dela (`api/`, com a chave
+da instância e as senhas com que ela entra no banco) só para leitura, e escreve só na do token.
+Uma instalação que tinha o token em `api/` o vê mudar de lugar no próximo start.
+
+**Por quê.** A pasta `api/` era montada com escrita só por causa do token. A segunda revisão não
+achou como uma API tomada tiraria proveito de reescrever `secrets.json` (as migrações o leem, mas
+põem os valores entre aspas e o verificador da senha só aceita ASCII), mas não há motivo para
+deixar a porta aberta. O CI confere que a API não escreve lá.
 
 ## Adiado, com motivo
 
